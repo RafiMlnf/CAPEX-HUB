@@ -259,14 +259,22 @@ function PlanningPageContent() {
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                     AMOUNT (RP) <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="Nominal Rupiah..."
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-2xs font-medium"
-                  />
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3.5 text-xs font-bold text-slate-400 select-none pointer-events-none">
+                      Rp
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      placeholder="0"
+                      value={amount === "" ? "" : Number(amount).toLocaleString("id-ID")}
+                      onChange={(e) => {
+                        const cleanDigits = e.target.value.replace(/\D/g, "");
+                        setAmount(cleanDigits === "" ? "" : Number(cleanDigits));
+                      }}
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-2xs font-semibold"
+                    />
+                  </div>
                 </div>
 
                 <div>
