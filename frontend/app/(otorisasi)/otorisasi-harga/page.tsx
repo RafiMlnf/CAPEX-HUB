@@ -85,12 +85,12 @@ export default function OtorisasiHargaDashboard() {
                 Silakan hubungi Administrator untuk meminta konfigurasi hak akses akun Anda.
               </p>
             </div>
-            <a
+            <Link
               href="/"
               className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-2xs cursor-pointer w-full text-center"
             >
               Kembali ke Portal Utama
-            </a>
+            </Link>
           </div>
         </main>
       </div>

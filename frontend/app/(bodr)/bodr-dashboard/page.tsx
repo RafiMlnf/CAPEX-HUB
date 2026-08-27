@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Sidebar from "../../components/sidebars/SidebarBODR";
 import Header from "../../components/Header";
@@ -70,39 +71,6 @@ export default function BodrDashboardPage() {
     }
   }, [canViewDashboard]);
 
-  if (!canViewDashboard) {
-    return (
-      <div className="flex min-h-screen bg-slate-100 font-sans text-slate-800 flex-col">
-        <Header
-          title="BODR Portal"
-          subtitle="Budget Over Design Review System - PT Menara Terus Makmur"
-        />
-        <main className="flex-1 flex items-center justify-center p-8">
-          <div className="bg-white border border-slate-200 rounded-3xl p-10 max-w-md w-full shadow-lg text-center space-y-6">
-            <div className="w-16 h-16 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-center mx-auto">
-              <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-slate-800 uppercase tracking-wide">Akses Ditolak (403)</h2>
-              <p className="text-xs text-slate-500 font-normal leading-relaxed">
-                Maaf, Anda tidak memiliki izin untuk mengakses Dashboard BODR.
-                Silakan hubungi Administrator untuk meminta konfigurasi hak akses akun Anda.
-              </p>
-            </div>
-            <a
-              href="/"
-              className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-2xs cursor-pointer w-full text-center"
-            >
-              Kembali ke Portal Utama
-            </a>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   // Filtered List based on dropdown filters
   const filteredList = useMemo(() => {
     return bodrList.filter((b) => {
@@ -115,12 +83,6 @@ export default function BodrDashboardPage() {
       return matchKriteria && matchStatus;
     });
   }, [bodrList, kriteriaFilter, statusFilter]);
-
-  // KPIs
-  const totalBodr = bodrList.length;
-  const pendingRequests = bodrList.filter((b) => b.status === "Pending Review").length;
-  const completedTasks = bodrList.filter((b) => b.status === "Approved").length;
-  const overdueTasks = bodrList.filter((b) => b.status === "Rejected" || b.status === "Revision Required").length;
 
   // Donut Chart Status Distribution Calculations
   const donutData = useMemo(() => {
@@ -163,17 +125,60 @@ export default function BodrDashboardPage() {
       const pendingCount = list.filter((b) => b.status === "Pending Review").length;
       const approvedCount = list.filter((b) => b.status === "Approved").length;
       const totalCount = list.length;
+
       return {
         category: cat,
+        pending: pendingCount,
+        approved: approvedCount,
         pendingCount,
         approvedCount,
+        total: totalCount,
         totalCount,
       };
     });
 
-    const maxVal = Math.max(...items.map((x) => Math.max(x.pendingCount, x.approvedCount)), 3);
+    const maxVal = Math.max(...items.map((i) => i.total), 1);
     return { items, maxVal };
   }, [filteredList]);
+
+  if (!canViewDashboard) {
+    return (
+      <div className="flex min-h-screen bg-slate-100 font-sans text-slate-800 flex-col">
+        <Header
+          title="BODR Portal"
+          subtitle="Budget Over Design Review System - PT Menara Terus Makmur"
+        />
+        <main className="flex-1 flex items-center justify-center p-8">
+          <div className="bg-white border border-slate-200 rounded-3xl p-10 max-w-md w-full shadow-lg text-center space-y-6">
+            <div className="w-16 h-16 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-center mx-auto">
+              <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-slate-800 uppercase tracking-wide">Akses Ditolak (403)</h2>
+              <p className="text-xs text-slate-500 font-normal leading-relaxed">
+                Maaf, Anda tidak memiliki izin untuk mengakses Dashboard BODR.
+                Silakan hubungi Administrator untuk meminta konfigurasi hak akses akun Anda.
+              </p>
+            </div>
+            <Link
+              href="/"
+              className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-2xs cursor-pointer w-full text-center"
+            >
+              Kembali ke Portal Utama
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // KPIs
+  const totalBodr = bodrList.length;
+  const pendingRequests = bodrList.filter((b) => b.status === "Pending Review").length;
+  const completedTasks = bodrList.filter((b) => b.status === "Approved").length;
+  const overdueTasks = bodrList.filter((b) => b.status === "Rejected" || b.status === "Revision Required").length;
 
   return (
     <div className="flex min-h-screen bg-slate-100 font-sans text-xs text-slate-800">

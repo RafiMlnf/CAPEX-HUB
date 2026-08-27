@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "../../../../components/sidebars/SidebarOtorisasi";
 import Header from "../../../../components/Header";
@@ -73,7 +73,20 @@ export default function CreateOtorisasiNPPage() {
     // Generate default No. Doc
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     setNoDoc(`OH-NP/${dateStr}/${String(Math.floor(1000 + Math.random() * 9000))}`);
+  }, []);
 
+  const handleSelectBodr = useCallback((b: ApiBodrProposal | null) => {
+    setSelectedBodr(b);
+    if (b) {
+      setNoPr((b as any).no_pr || (b as any).pr_no || `PR-${b.bodr_no.replace("BODR-", "")}`);
+      setDanaBodr(b.amount || 0);
+    } else {
+      setNoPr("");
+      setDanaBodr(0);
+    }
+  }, []);
+
+  useEffect(() => {
     Promise.all([
       api.getBodrProposals(),
       api.getVendors(),
@@ -92,18 +105,7 @@ export default function CreateOtorisasiNPPage() {
         }
       }
     }).catch(console.error);
-  }, [preBodrId]);
-
-  const handleSelectBodr = (b: ApiBodrProposal | null) => {
-    setSelectedBodr(b);
-    if (b) {
-      setNoPr((b as any).no_pr || (b as any).pr_no || `PR-${b.bodr_no.replace("BODR-", "")}`);
-      setDanaBodr(b.amount || 0);
-    } else {
-      setNoPr("");
-      setDanaBodr(0);
-    }
-  };
+  }, [preBodrId, handleSelectBodr]);
 
   // Supplier handlers
   const addSupplier = () => {

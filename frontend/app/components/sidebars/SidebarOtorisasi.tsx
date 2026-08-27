@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCapex } from "../../context/CapexContext";
@@ -40,12 +40,6 @@ const masterDataMenu = {
   ]
 };
 
-// Module-level persistent state across page transitions to completely prevent re-render flicker
-const sidebarStateCache: Record<string, boolean> = {
-  otorisasi: true,
-  masterdata: true,
-};
-
 export default function SidebarOtorisasi() {
   const pathname = usePathname();
   const { currentUser, hasPermission } = useCapex();
@@ -56,22 +50,24 @@ export default function SidebarOtorisasi() {
                          pathname.startsWith("/otorisasi-harga/jenis-otorisasi") ||
                          pathname.startsWith("/otorisasi-harga/jenis-barang");
 
-  // Keep active section open synchronously
-  if (isOtorisasiActive) {
-    sidebarStateCache.otorisasi = true;
-  }
-  if (isMasterActive) {
-    sidebarStateCache.masterdata = true;
-  }
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    otorisasi: true,
+    masterdata: true,
+  });
 
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ ...sidebarStateCache });
+  useEffect(() => {
+    if (isOtorisasiActive) {
+      setOpenSections(prev => ({ ...prev, otorisasi: true }));
+    }
+    if (isMasterActive) {
+      setOpenSections(prev => ({ ...prev, masterdata: true }));
+    }
+  }, [isOtorisasiActive, isMasterActive]);
 
   const toggleSection = (section: string) => {
-    const nextVal = !openSections[section];
-    sidebarStateCache[section] = nextVal;
     setOpenSections(prev => ({
       ...prev,
-      [section]: nextVal,
+      [section]: !prev[section],
     }));
   };
 

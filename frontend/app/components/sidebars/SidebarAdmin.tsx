@@ -241,6 +241,19 @@ export default function SidebarAdmin() {
           <span>History Logs</span>
         </Link>
       </nav>
+
+      {/* Back to Portal */}
+      <div className="px-3 py-4 border-t border-slate-200 flex items-center justify-between gap-1 relative z-10">
+        <Link
+          href="/"
+          className="flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:text-blue-600 hover:bg-blue-50 transition-all duration-150 group whitespace-nowrap min-w-0"
+        >
+          <svg className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
+          </svg>
+          <span className="truncate">Back to Portals</span>
+        </Link>
+      </div>
     </aside>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../../../components/sidebars/SidebarOtorisasi";
 import Header from "../../../components/Header";
 import { User, ApiOtorisasiHargaNonProduct, ApiOtorisasiHarga, ApprovalHistoryOH, api, getCurrentUser } from "../../../lib/api";
@@ -96,13 +96,7 @@ export default function OtorisasiHargaApprovalPage() {
   const [filterBuyer, setFilterBuyer] = useState("");
   const [filterDate, setFilterDate] = useState("");
 
-  // Load data
-  useEffect(() => {
-    setCurrentUser(getCurrentUser());
-    refreshData();
-  }, []);
-
-  const refreshData = () => {
+  const refreshData = useCallback(() => {
     api.getOtorisasiHargaNPList()
       .then(data => setNpItems(data || []))
       .catch(err => {
@@ -116,7 +110,13 @@ export default function OtorisasiHargaApprovalPage() {
         console.error("Failed to load Product list:", err);
         setPItems([]);
       });
-  };
+  }, []);
+
+  // Load data
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+    refreshData();
+  }, [refreshData]);
 
   // Filter Logic for Non-Product
   const filteredNP = npItems.filter(i => {

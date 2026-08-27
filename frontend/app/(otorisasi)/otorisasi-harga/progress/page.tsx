@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../../../components/sidebars/SidebarOtorisasi";
 import Header from "../../../components/Header";
 import { ApiOtorisasiHargaNonProduct, ApiOtorisasiHarga, ApprovalHistoryOH, api } from "../../../lib/api";
@@ -59,11 +59,7 @@ export default function OtorisasiProgressPage() {
     history: ApprovalHistoryOH[];
   } | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [resNP, resP] = await Promise.all([
@@ -77,7 +73,11 @@ export default function OtorisasiProgressPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Unify item representation for progress tracking
   const unifiedItems = [

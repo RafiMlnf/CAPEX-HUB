@@ -97,12 +97,17 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       if (!currentUser && !isPublicPath) {
         router.push("/");
       } else if (currentUser) {
-        const userRole = (currentUser.role || "").toLowerCase();
-        const userName = (currentUser.username || "").toLowerCase();
-        const isAdmin = userRole === "admin" || userName === "admin";
+        const userRole = (currentUser.role || "").toLowerCase().trim();
+        const userName = (currentUser.username || "").toLowerCase().trim();
+        const isAdmin =
+          userRole === "admin" ||
+          userName === "admin" ||
+          userRole === "administrator" ||
+          userRole === "superadmin" ||
+          (currentUser as any).is_admin === true;
 
         if (pathname === "/login") {
-          router.push(isAdmin ? "/admin" : "/");
+          router.push("/");
         } else {
           // Route permissions based on user portal access settings
           const hasCapex = isAdmin || (currentUser.allowed_portals ? currentUser.allowed_portals.includes("capex") : currentUser.can_capex !== false);

@@ -13,6 +13,20 @@ import ProgressStageTabs from "../../components/progress/ProgressStageTabs";
 import ProgressStepper from "../../components/progress/ProgressStepper";
 import ProgressMatrixTable, { ProgressRowData } from "../../components/progress/ProgressMatrixTable";
 
+function calculateDays(startDateStr?: string, endDateStr?: string): string {
+  if (!startDateStr) return "1";
+  const start = new Date(startDateStr).getTime();
+  if (isNaN(start)) return "1";
+  if (endDateStr) {
+    const end = new Date(endDateStr).getTime();
+    if (!isNaN(end) && end > start) {
+      const diffMs = end - start;
+      return Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24))).toString();
+    }
+  }
+  return "1";
+}
+
 export default function CapexProgressPage() {
   const { proposals, refreshProposals } = useCapex();
   const [dbCapexItems, setDbCapexItems] = useState<any[]>([]);
@@ -63,17 +77,6 @@ export default function CapexProgressPage() {
     }
     return [];
   }, [proposals, dbCapexItems]);
-
-function calculateDays(startDateStr?: string, endDateStr?: string): string {
-  if (!startDateStr) return "1";
-  const start = new Date(startDateStr).getTime();
-  if (isNaN(start)) return "1";
-  const end = endDateStr ? new Date(endDateStr).getTime() : Date.now();
-  if (isNaN(end)) return "1";
-  const diffMs = Math.max(0, end - start);
-  const diffDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-  return diffDays.toString();
-}
 
   // Compute Gate Status & Actual Days for each row
   const enrichedRows: ProgressRowData[] = useMemo(() => {

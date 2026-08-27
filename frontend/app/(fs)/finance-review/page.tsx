@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import Swal from "sweetalert2";
 import Sidebar from "../../components/sidebars/SidebarFS";
 import Header from "../../components/Header";
@@ -68,12 +69,12 @@ export default function FinanceReviewPage() {
           <p className="text-xs text-slate-600 leading-relaxed font-normal">
             Halaman ini hanya dapat diakses oleh pengguna dengan izin <span className="font-semibold">Finance Review</span>.
           </p>
-          <a
+          <Link
             href="/"
             className="inline-block px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-2xs cursor-pointer w-full text-center mt-2"
           >
             Kembali ke Portal Utama
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -102,7 +103,9 @@ export default function FinanceReviewPage() {
     );
 
     const now = new Date().toISOString();
-    const defaultSchedule = new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10) + "T09:00";
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 3);
+    const defaultSchedule = futureDate.toISOString().slice(0, 10) + "T09:00";
     const effectiveSchedule = scheduleTime || (decisionStatus === "Gate 2 - Committee Review" ? defaultSchedule : undefined);
 
     let actionLabel = "";

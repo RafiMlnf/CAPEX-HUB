@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import Swal from "sweetalert2";
 import Sidebar from "../../components/sidebars/SidebarFS";
 import Header from "../../components/Header";
@@ -18,6 +19,7 @@ export default function ApprovalsPage() {
   });
   const [alertConfig, setAlertConfig] = useState<{ show: boolean; title?: string; message: string }>({
     show: false,
+    title: "",
     message: "",
   });
 
@@ -31,6 +33,7 @@ export default function ApprovalsPage() {
   };
 
   const canViewPage =
+    hasRole("Investment Committee", "Admin", "Komite CAPEX", "Komite", "Finance", "Accounting") ||
     hasPermission("perm_committee_review") ||
     hasPermission("perm_review_capex") ||
     hasPermission("perm_view_dashboard") ||
@@ -49,12 +52,12 @@ export default function ApprovalsPage() {
           <p className="text-xs text-slate-600 leading-relaxed font-normal">
             Halaman ini memerlukan izin <span className="font-semibold">perm_committee_review</span> atau hak akses menu terkait.
           </p>
-          <a
+          <Link
             href="/"
             className="inline-block px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-2xs cursor-pointer w-full text-center mt-2"
           >
             Kembali ke Portal Utama
-          </a>
+          </Link>
         </div>
       </div>
     );

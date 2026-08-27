@@ -61,9 +61,17 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const roleName = (user.role || "").toLowerCase().trim();
-    if (roleName === "admin" || (user.username || "").toLowerCase() === "admin") {
+    const uname = (user.username || "").toLowerCase().trim();
+    if (
+      roleName === "admin" ||
+      uname === "admin" ||
+      roleName === "administrator" ||
+      roleName === "superadmin" ||
+      (user as any).is_admin === true
+    ) {
       setUserPermissions([
         "ALL_ACCESS",
+        "perm_view_dashboard",
         "perm_create_capex",
         "perm_review_capex",
         "perm_committee_review",
@@ -76,6 +84,7 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
         "perm_access_portal",
         "perm_manage_users",
         "perm_manage_settings",
+        "perm_manage_config",
       ]);
       return;
     }
@@ -130,8 +139,17 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
   const hasPermission = useCallback(
     (permCode: string): boolean => {
       if (!currentUser) return false;
-      const role = (currentUser.role || "").toLowerCase();
-      if (role === "admin" || (currentUser.username || "").toLowerCase() === "admin") return true;
+      const role = (currentUser.role || "").toLowerCase().trim();
+      const uname = (currentUser.username || "").toLowerCase().trim();
+      if (
+        role === "admin" ||
+        uname === "admin" ||
+        role === "administrator" ||
+        role === "superadmin" ||
+        (currentUser as any).is_admin === true
+      ) {
+        return true;
+      }
       if (userPermissions.includes("ALL_ACCESS")) return true;
       return userPermissions.includes(permCode);
     },
@@ -142,7 +160,16 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
     (...roleCodes: string[]): boolean => {
       if (!currentUser) return false;
       const role = (currentUser.role || "").toLowerCase().trim();
-      if (role === "admin" || (currentUser.username || "").toLowerCase() === "admin") return true;
+      const uname = (currentUser.username || "").toLowerCase().trim();
+      if (
+        role === "admin" ||
+        uname === "admin" ||
+        role === "administrator" ||
+        role === "superadmin" ||
+        (currentUser as any).is_admin === true
+      ) {
+        return true;
+      }
       return roleCodes.some((rc) => role === rc.toLowerCase().trim() || role.includes(rc.toLowerCase().trim()));
     },
     [currentUser]

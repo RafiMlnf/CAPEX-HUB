@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import SidebarAdmin from "../components/sidebars/SidebarAdmin";
 import Header from "../components/Header";
@@ -45,12 +46,12 @@ function AdminPageInner() {
                 Halaman ini khusus dibatasi untuk peran Administrator.
               </p>
             </div>
-            <a
+            <Link
               href="/"
               className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-2xs cursor-pointer w-full text-center"
             >
               Kembali ke Portal Utama
-            </a>
+            </Link>
           </div>
         </main>
       </div>
