@@ -89,28 +89,33 @@ export default function Header({ title, subtitle, children }: HeaderProps) {
   })();
 
   return (
-    <header className="bg-white border-b border-slate-200 px-6 h-18 sticky top-0 z-20 shadow-xs flex items-center">
+    <header className="bg-white border-b border-slate-200 px-6 h-18 sticky top-0 z-20 shadow-2xs flex items-center">
       <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
+          <h1 className="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2">
+            {title}
+            <span className="text-slate-400 hover:text-slate-600 transition-colors cursor-help text-xs" title="Informasi Halaman">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </span>
+          </h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {children}
 
           {/* Notification Bell Dropdown */}
           <div className="relative flex items-center" ref={dropdownRef}>
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="relative p-2.5 text-slate-600 hover:text-blue-600 bg-slate-100 border border-slate-200 hover:bg-blue-50 rounded-xl transition-all cursor-pointer"
+              className="relative p-2 text-slate-600 hover:text-blue-600 bg-slate-50 border border-slate-200 hover:bg-blue-50 rounded-xl transition-all cursor-pointer"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
-              {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 inline-flex rounded-full h-4 w-4 bg-red-500 text-[9px] font-medium text-white items-center justify-center">
-                  {notifications.length}
-                </span>
-              )}
+              <span className="absolute -top-1 -right-1 inline-flex rounded-full h-3.5 w-3.5 bg-red-500 text-[8px] font-bold text-white items-center justify-center">
+                {notifications.length > 0 ? notifications.length : 1}
+              </span>
             </button>
 
             {isOpen && (
@@ -149,25 +154,32 @@ export default function Header({ title, subtitle, children }: HeaderProps) {
           </div>
 
           {currentUser && (
-            <div className="flex items-center gap-3 pl-4 border-l border-slate-200 relative" ref={accountRef}>
+            <div className="flex items-center gap-2.5 pl-3 border-l border-slate-200 relative" ref={accountRef}>
               <div
                 onClick={() => setIsAccountOpen(!isAccountOpen)}
-                className="flex items-center gap-3 cursor-pointer group select-none"
-                title="Account Settings"
+                className="flex items-center gap-2.5 cursor-pointer group select-none"
+                title="Pengaturan Akun"
               >
                 <div className="text-right hidden sm:block">
-                  <p className="text-xs font-medium text-slate-800 group-hover:text-blue-600 transition-colors">{currentUser.name}</p>
+                  <p className="text-[11px] font-bold text-slate-700 tracking-wider uppercase group-hover:text-blue-600 transition-colors">
+                    {currentUser.name || "ADMINISTRATOR SYSTEM"}
+                  </p>
                 </div>
 
                 {currentUser.photoUrl ? (
                   <img
                     src={currentUser.photoUrl}
                     alt={currentUser.name}
-                    className="w-8.5 h-8.5 rounded-xl border border-slate-300 object-cover group-hover:border-blue-600 transition-all"
+                    className="w-8 h-8 rounded-lg border border-slate-300 object-cover group-hover:border-blue-600 transition-all"
                   />
                 ) : (
-                  <div className="w-8.5 h-8.5 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center font-semibold text-blue-600 text-xs select-none group-hover:border-blue-600 transition-all">
-                    {currentUser.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center font-bold text-blue-600 text-xs select-none group-hover:border-blue-600 transition-all">
+                    {(currentUser.name || "AS")
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .substring(0, 2)
+                      .toUpperCase() || "AS"}
                   </div>
                 )}
               </div>

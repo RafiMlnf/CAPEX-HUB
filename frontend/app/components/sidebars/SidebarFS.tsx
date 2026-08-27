@@ -18,7 +18,7 @@ const navItems = [
   },
   {
     href: "/planning",
-    label: "CAPEX Planning",
+    label: "Perencanaan CAPEX",
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -38,7 +38,7 @@ const navItems = [
   },
   {
     href: "/approvals",
-    label: "Committee Review",
+    label: "Komite Review",
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -48,23 +48,13 @@ const navItems = [
   },
   {
     href: "/drafts",
-    label: "CAPEX Drafts",
+    label: "Draft CAPEX",
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
       </svg>
     ),
     hasDotKey: "drafts",
-  },
-  {
-    href: "/fs-capex",
-    label: "CAPEX Progress",
-    icon: (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-      </svg>
-    ),
-    hasDotKey: "",
   },
 ];
 
@@ -120,7 +110,6 @@ export default function SidebarFS() {
     if (item.href === "/finance-review") return canReview;
     if (item.href === "/approvals") return canApprove;
     if (item.href === "/drafts") return canPlan;
-    if (item.href === "/fs-capex") return canProgress;
     return false;
   });
 
@@ -141,7 +130,7 @@ export default function SidebarFS() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto relative z-10">
-        <p className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3">FS CAPEX Menu</p>
+        <p className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3">MENU FS CAPEX</p>
         
         {visibleNavItems.length === 0 ? (
           <div className="px-3 py-6 text-center text-xs text-slate-400">
@@ -155,7 +144,7 @@ export default function SidebarFS() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 group ${
+                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 group ${
                   isActive
                     ? "bg-blue-600 text-white shadow-2xs"
                     : "text-slate-700 hover:text-blue-600 hover:bg-blue-50"
@@ -177,31 +166,17 @@ export default function SidebarFS() {
       </nav>
 
       {/* Back to Portal */}
-      {(() => {
-        const isAdmin = (currentUser?.role || "").toLowerCase() === "admin" || (currentUser?.username || "").toLowerCase() === "admin";
-        let portalCount = 0;
-        if (currentUser?.allowed_portals && Array.isArray(currentUser.allowed_portals)) {
-          portalCount = currentUser.allowed_portals.length;
-        } else if (currentUser) {
-          if (currentUser.can_capex !== false) portalCount++;
-          if (currentUser.can_bodr !== false) portalCount++;
-          if (currentUser.can_price !== false) portalCount++;
-        }
-        if (!isAdmin && portalCount <= 1) return null;
-        return (
-          <div className="px-3 py-4 border-t border-slate-200 flex items-center justify-between gap-1 relative z-10">
-            <Link
-              href="/"
-              className="flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:text-blue-600 hover:bg-blue-50 transition-all duration-150 group whitespace-nowrap min-w-0"
-            >
-              <svg className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
-              </svg>
-              <span className="truncate">Back to Portals</span>
-            </Link>
-          </div>
-        );
-      })()}
+      <div className="px-3 py-4 border-t border-slate-200 relative z-10">
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-blue-50 transition-all duration-150 group w-full"
+        >
+          <span className="w-7 h-7 rounded-full bg-zinc-800 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+            N
+          </span>
+          <span className="truncate">Kembali ke Portal</span>
+        </Link>
+      </div>
     </aside>
   );
 }
