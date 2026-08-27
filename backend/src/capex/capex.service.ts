@@ -88,43 +88,51 @@ export class CapexService {
   }
 
   async addProposal(data: any) {
-    let departemenId = data.departemen_id ? parseInt(data.departemen_id) : null;
-    if (!departemenId && data.department) {
-      const allDepts = await this.prisma.departemen.findMany();
-      const target = data.department.toLowerCase().trim();
-      const found = allDepts.find((d) => {
-        const dName = d.nama_departemen.toLowerCase().trim();
-        return dName === target || dName.includes(target) || target.includes(dName);
-      });
-      if (found) departemenId = found.id;
-    }
-    if (!departemenId && data.pic) {
-      const u = await this.prisma.user.findFirst({
-        where: { OR: [{ nama_user: data.pic }, { username: data.pic }] },
-      });
-      if (u?.departemen_id) departemenId = u.departemen_id;
-    }
+    try {
+      let departemenId = data.departemen_id ? parseInt(data.departemen_id) : null;
+      if (!departemenId && data.department) {
+        const allDepts = await this.prisma.departemen.findMany();
+        const target = data.department.toLowerCase().trim();
+        const found = allDepts.find((d) => {
+          const dName = d.nama_departemen.toLowerCase().trim();
+          return dName === target || dName.includes(target) || target.includes(dName);
+        });
+        if (found) departemenId = found.id;
+      }
+      if (!departemenId && data.pic) {
+        const u = await this.prisma.user.findFirst({
+          where: { OR: [{ nama_user: data.pic }, { username: data.pic }] },
+        });
+        if (u?.departemen_id) departemenId = u.departemen_id;
+      }
 
-    const record = await this.prisma.capex.create({
-      data: {
-        kode_capex: data.kode_capex ?? `CAPEX-${Date.now()}`,
-        nama_capex: data.name,
-        description: data.description ?? null,
-        departemen_id: departemenId,
-        total_amount: data.estimatedCost ?? data.total_amount ?? 0,
-        pic: data.pic ?? null,
-        status: 'Gate 0 - Idea',
-        purpose: data.purpose ?? null,
-        investment_type: data.investmentType ?? null,
-        start_date: data.startDate ?? null,
-        end_date: data.endDate ?? null,
-        attachment_name: data.attachmentName ?? null,
-        initial_attachment_name: data.initialAttachmentName ?? data.attachmentName ?? null,
-        revised_attachment_name: data.revisedAttachmentName ?? null,
-      },
-      include: { departemen: true, capexType: true, capexReference: true },
-    });
-    return this.formatProposal(record);
+      // Generate unique short kode_capex (max 30 chars)
+      const uniqueCode = data.kode_capex ?? `CPX-${Date.now().toString().slice(-8)}-${Math.floor(Math.random() * 1000)}`;
+
+      const record = await this.prisma.capex.create({
+        data: {
+          kode_capex: uniqueCode,
+          nama_capex: data.name ?? 'Proposal Capex',
+          description: data.description ?? null,
+          departemen_id: departemenId,
+          total_amount: data.estimatedCost !== undefined ? Number(data.estimatedCost) : Number(data.total_amount ?? 0),
+          pic: data.pic ?? null,
+          status: data.gateStatus ?? data.status ?? 'Gate 1 - Finance Review',
+          purpose: data.purpose ?? null,
+          investment_type: data.investmentType ?? null,
+          start_date: data.startDate ?? null,
+          end_date: data.endDate ?? null,
+          attachment_name: data.attachmentName ?? null,
+          initial_attachment_name: data.initialAttachmentName ?? data.attachmentName ?? null,
+          revised_attachment_name: data.revisedAttachmentName ?? null,
+        },
+        include: { departemen: true, capexType: true, capexReference: true },
+      });
+      return this.formatProposal(record);
+    } catch (err: any) {
+      console.error('[CapexService.addProposal Error]:', err);
+      throw err;
+    }
   }
 
   async updateProposal(id: string, data: any) {

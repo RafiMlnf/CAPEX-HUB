@@ -218,8 +218,12 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
     attachmentName?: string;
     gateStatus?: string;
   }) => {
-    await apiAddProposal(proposal);
-    await refreshProposals();
+    const created = await apiAddProposal(proposal);
+    setProposals((prev) => {
+      const filtered = prev.filter((p) => p.id !== created.id);
+      return [created, ...filtered];
+    });
+    await refreshProposals().catch(() => {});
   };
 
   const editProposal = async (id: string, data: Partial<CapexProposal>) => {
@@ -228,13 +232,14 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
       prev.map((p) => (p.id === id ? { ...p, ...data } : p))
     );
     try {
-      await apiUpdateProposal(id, data);
-      await refreshProposals();
+      const updated = await apiUpdateProposal(id, data);
+      setProposals((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...updated } : p))
+      );
     } catch (err) {
-      console.error("Gagal memperbarui proposal di server:", err);
-      await refreshProposals(); // Rollback
-      throw err;
+      console.warn("Update proposal via API failed, keeping local update:", err);
     }
+    await refreshProposals().catch(() => {});
   };
 
   return (
