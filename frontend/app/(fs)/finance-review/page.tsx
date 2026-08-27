@@ -90,6 +90,24 @@ export default function FinanceReviewPage() {
 
   const selectedProposal = proposals.find((p) => p.id === selectedProposalId);
 
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIsUploading(true);
+    try {
+      const results = await api.uploadMultipleDocuments(Array.from(files));
+      const names = results.map((r) => r.file_name || r.original_name);
+      setUploadedFiles((prev) => Array.from(new Set([...prev, ...names])));
+    } catch (err: any) {
+      Swal.fire({
+        title: "Gagal Mengunggah",
+        text: err.message || "Gagal mengunggah lampiran Finance.",
+        icon: "error",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!selectedProposal) return;
@@ -158,6 +176,7 @@ export default function FinanceReviewPage() {
       setSelectedProposalId(null);
       setNotes("");
       setScheduleTime("");
+      setUploadedFiles([]);
       setUploadedFiles([]);
     } catch (err: any) {
       console.error("Submit finance review error:", err);
@@ -449,6 +468,52 @@ export default function FinanceReviewPage() {
                       onChange={(e) => setNotes(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-colors resize-none shadow-2xs font-normal"
                     />
+                  </div>
+
+                  {/* Attachment Upload by Finance */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                      LAMPIRAN DOKUMEN TAMBAHAN FINANCE (OPSIONAL)
+                    </label>
+                    <label className="flex flex-col items-center justify-center w-full py-4 px-3 border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50/40 hover:bg-slate-50 hover:border-slate-300 transition-all text-center">
+                      <svg className="w-5 h-5 text-slate-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <span className="text-[11px] font-semibold text-slate-700">
+                        {isUploading ? "Mengunggah file..." : "Klik untuk upload lampiran ulasan Finance"}
+                      </span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">
+                        PDF, Excel, Word, PPT, JPG/PNG (maks. 10MB)
+                      </span>
+                      <input
+                        type="file"
+                        multiple
+                        disabled={isUploading}
+                        className="hidden"
+                        onChange={(e) => handleFileUpload(e.target.files)}
+                      />
+                    </label>
+
+                    {/* Uploaded files chips */}
+                    {uploadedFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {uploadedFiles.map((fn, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                          >
+                            <span className="truncate max-w-48">{fn}</span>
+                            <button
+                              type="button"
+                              onClick={() => setUploadedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                              className="text-blue-400 hover:text-red-600 font-bold ml-0.5 cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Footer Actions */}
