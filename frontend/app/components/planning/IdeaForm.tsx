@@ -32,14 +32,11 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
   const { currentUser } = useCapex();
 
   const investmentTypesMap: Record<string, string[]> = {
-    Capacity: ["Capacity Up"],
+    Capacity: ["Capacity Up", "New Product Expansion"],
     Capability: [
-      "Improve Product Quality",
-      "Cost Reduction",
-      "Safety",
-      "Environment",
-      "Restore Capacity",
       "Increase Value Added",
+      "Increase Competency",
+      "Restore Capacity",
     ],
     Supporting: ["Supporting"],
   };
@@ -58,20 +55,22 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
         .filter(Boolean) || []
     : [];
 
+  const [name, setName] = useState(initialData?.name || "");
   const [purpose, setPurpose] = useState(initialData?.purpose || "Capacity");
   const [investmentType, setInvestmentType] = useState(initialData?.investmentType || "Capacity Up");
-  const [name, setName] = useState(initialData?.name || "");
+  const [department, setDepartment] = useState(initialData?.department || "PE");
+  const [pic, setPic] = useState(initialData?.pic || currentUser?.name || currentUser?.username || "");
   const [description, setDescription] = useState(initialData?.description || "");
-  const [department, setDepartment] = useState(initialData?.department || currentUser?.department || "Engineering");
-  const [pic, setPic] = useState(initialData?.pic || currentUser?.name || currentUser?.username || "Budi Santoso");
-  const [estimatedCost, setEstimatedCost] = useState(initialData?.estimatedCost ? initialData.estimatedCost.toLocaleString("id-ID") : "");
+  const [estimatedCost, setEstimatedCost] = useState(
+    initialData?.estimatedCost ? String(initialData.estimatedCost) : ""
+  );
   const [startDate, setStartDate] = useState(initialData?.startDate || "");
   const [endDate, setEndDate] = useState(initialData?.endDate || "");
   const [attachmentNames, setAttachmentNames] = useState<string[]>(
-    initialData?.revisedAttachmentName
-      ? initialData.revisedAttachmentName.split(", ").filter(Boolean)
-      : isRevisionMode
-      ? []
+    isRevisionMode
+      ? initialData?.revisedAttachmentName
+        ? initialData.revisedAttachmentName.split(", ").filter(Boolean)
+        : []
       : initialData?.attachmentName
       ? initialData.attachmentName.split(", ").filter(Boolean)
       : []
@@ -84,6 +83,8 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
       setInvestmentType("Supporting");
     } else if (val === "Capacity") {
       setInvestmentType("Capacity Up");
+    } else if (val === "Capability") {
+      setInvestmentType("Increase Value Added");
     } else {
       setInvestmentType("");
     }
