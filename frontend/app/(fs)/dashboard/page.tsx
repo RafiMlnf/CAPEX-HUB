@@ -58,17 +58,7 @@ export default function DashboardPage() {
     return proposals.reduce((sum: number, item: any) => sum + (item.estimatedCost || 0), 0);
   }, [proposals]);
 
-  const totalPO = useMemo(() => {
-    return proposals.reduce((sum: number, item: any) => {
-      const isApproved = item.gateStatus === "Approved / Archived" || item.gateStatus === "Closed" || item.gateStatus === "Gate 3 - Procurement";
-      return sum + (isApproved ? (item.estimatedCost || 0) : 0);
-    }, 0);
-  }, [proposals]);
-
-  const sisaPagu = Math.max(0, totalBudget - totalPO);
   const totalCount = proposals.length;
-  const poCount = proposals.filter((p) => p.gateStatus === "Approved / Archived" || p.gateStatus === "Closed" || p.gateStatus === "Gate 3 - Procurement").length;
-  const sisaPercentage = totalBudget > 0 ? ((sisaPagu / totalBudget) * 100).toFixed(1) : "100.0";
 
   // Filtered items for table
   const filteredItems = useMemo(() => {
@@ -162,9 +152,9 @@ export default function DashboardPage() {
 
         <main className="flex-1 overflow-y-auto px-6 py-5 space-y-5 w-full min-w-0">
           
-          {/* Top 3 Summary Cards */}
+          {/* Top Summary Card */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Card 1: Total Anggaran Pengajuan (Blue Left Border) */}
+            {/* Card: Total Anggaran Pengajuan (Blue Left Border) */}
             <div className="bg-white border border-slate-200 border-l-4 border-l-blue-600 rounded-2xl p-5 shadow-2xs space-y-2">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                 TOTAL ANGGARAN PENGAJUAN
@@ -175,36 +165,6 @@ export default function DashboardPage() {
               <div className="pt-1">
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">
                   {totalCount} Total Usulan
-                </span>
-              </div>
-            </div>
-
-            {/* Card 2: Total Komitmen PO (Green Left Border) */}
-            <div className="bg-white border border-slate-200 border-l-4 border-l-emerald-500 rounded-2xl p-5 shadow-2xs space-y-2">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                TOTAL KOMITMEN (PO)
-              </span>
-              <p className="text-2xl font-black text-emerald-600 tracking-tight font-mono">
-                Rp {totalPO.toLocaleString("id-ID")}
-              </p>
-              <div className="pt-1">
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                  {poCount} PO Terbit
-                </span>
-              </div>
-            </div>
-
-            {/* Card 3: Sisa Pagu Anggaran (Amber Left Border) */}
-            <div className="bg-white border border-slate-200 border-l-4 border-l-amber-500 rounded-2xl p-5 shadow-2xs space-y-2">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                SISA PAGU ANGGARAN
-              </span>
-              <p className="text-2xl font-black text-amber-600 tracking-tight font-mono">
-                Rp {sisaPagu.toLocaleString("id-ID")}
-              </p>
-              <div className="pt-1">
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">
-                  {sisaPercentage}% Tersedia
                 </span>
               </div>
             </div>
