@@ -1,0 +1,413 @@
+BODR PORTAL
+
+oke ini adalah project cukup besar dimana dalam 1 web ada 3 portal, yaitu portal capex, portal bodr, dan portal  approval Harga.
+
+layer pertama adalah daftar portalnya yaitu portal capex, bodr, dan approval Harga. 
+untuk portal admin menggunakan "/" dan langsung menuju ke arah admin panel secara otomatis.
+
+jadi alurnya :
+user biasa :
+home page -> pilih portal -> login -> dashboard sesuai dengan user login
+
+user admin :
+cukup "/" di halaman atas.
+
+
+berikut adalah details portalnya.
+
+1. Portal Admin, berikut adalah detailsnya:
+
+- Dashboard, berikut adalah detailsnya :
+	- Total User
+	- Total Departemen
+	- User active
+	- Total Role
+	- Grafik per departemen
+
+- Master data, berikut adalah detailsnya :
+	- User, berisikan data master dari usernya, berikut adalah detilanya:
+		- Npk :
+		- Nama user :
+		- Email :
+		- Departemen :
+		- Role :
+		- Status : (active/inactive)
+		- action : (edit/delete)
+
+	- Departemens, berisikan data dari departemen, beirkut adalah detailsnya :
+		- Kode Departemen :
+		- Nama Departemen :
+		- Deskripsi "
+		- Status : (active/inactive)
+		- action : (edit/delete)
+
+	- Roles, berisikan informasi mengenairole, beirkut adalah detailsnya :
+		- Kode Roles :
+		- Nama Role :
+		- Deskripsi :
+		- Status : (active/inactive)
+		- action : (edit/delete)
+
+	- Permission, berisikan informasi mengenai daftar hak akses ang ada, berikut adalah detailsnya :
+		- Kode :
+		- Nama permission :
+		- Deskripsi :
+		- Status : (active/inactive)
+		- action : (edit/delete)
+
+	- Type Approval, berisikan informasi mengenai kriteria approval, berikut adalah detailsnya:
+		- Kode approval :
+		- Nama approval :
+		- Deskripsi :
+		- Status : (active/inactive)
+		- action : (edit/delete)
+
+
+- Settings, untuk fitur ini admin mensettings semuanya. berikut adalah detailsnya :
+	- Role Permission, untuk fitur ini admin memberikan hak akses sesuai dengan ketentuan yang ada. untuk role permission ini nanti ada daftar table yang berisikan : (BODR)
+		- Kode Role : (ambil dari master data roles)
+		- Nama Role : (ambil dari master data roles)
+		- Permission : ambil dari master data permission (checkbox lebih dari 1)
+		- Status : (active/inactive)
+		- action : (edit/delete)
+	untuk fitur role permission ini itu semua harus melewati button edit, baru nanti ada pop upnya untuk mengatur semuanya.
+
+	- Approval Workflow, untuk fitur ini admin mengatur semua approval workflow sesuai dengan ketentuan yang ada. Untuk approval workflow ini nanti ada daftar table yang 	berisikan :
+		- Departemen : (ambil dari master data departemens)
+		- Type Approval : (ambil dari master data type arppoval)
+		- List Approval :
+		- action : (edit/delete)
+	untuk fitur Approval workflow ini itu harus melewai button edit, baru nanti ada pop upnya untuk mengatur semuanya.
+	
+	- Approval Price Workflow, untuk fitur ini admin mengatur semua approval workflow sesuai dengan ketentuan yang ada. Untuk approval 
+	workflow ini nanti ada daftar table yang berisikan :
+		- Departemen : (ambil dari master data departemens)
+		- Type Approval : (ambil dari master data type arppoval)
+		- List Approval :
+		- action : (edit/delete)
+	untuk fitur Approval workflow ini itu harus melewai button edit, baru nanti ada pop upnya untuk mengatur semuanya.
+ 
+
+	- Departemen Settings, untuk fitur ini admin mengatur semua department yang ada. untuk department settings ini nanti ada form yang harus
+	di isi oleh admin, beirkut details formnya :
+		- Departement : (dropdown ambil dari master data department)
+		- Keterangan : (text free)
+		- Head Dept : (dropdown ambil dari master data user)
+		- Accounting : (dropdown ambil dari master data user)
+
+
+- History Logs (Audit Log), fitur ini adalah untuk melihat rekam jejak aktivitas login pengguna ke dalam sistem. Berikut adalah detailsnya :
+	- Ringkasan KPI:
+		- Total Logs : Total seluruh riwayat log aktivitas
+		- Login Berhasil : Total autentikasi sukses (SUCCESS)
+		- Login Gagal : Total autentikasi gagal (FAILED)
+		- Status Sistem : Monitoring aktivitas realtime
+	- Filter & Search:
+		- Pencarian berdasarkan Nama User, NPK, Username, Departemen
+		- Filter Status (Semua Status, SUCCESS, FAILED)
+		- Tombol Refresh Realtime
+	- Data Tabel:
+		- No : Urutan data (dengan paginasi 15 data per halaman)
+		- Waktu Login : Tanggal dan jam login pengguna
+		- Pengguna : Nama User, NPK, dan Username
+		- Departemen & Role : Departemen dan Role pengguna
+		- Status : Status login (SUCCESS / FAILED)
+		- Keterangan : Keterangan hasil login / audit
+
+
+Berikut adalah details masing-masing fitur :
+
+1. Fitur Create BODR ini adalah pembuatan untuk pengajuan BODR. brikut adalah detailsnya :
+	- user : (ambil data dari user login)
+	- Departement : (ambil data dari user login)
+	- Cost Center : (dropdown ambil data dari master data cost center)
+	- Kriteria approval : (dropdown ambil dari master kriteria approval), berikut ada aturannya:
+	- jika user memilih CAP Berarti akan munculkan Asset Master Data, berikut adalah formnya :
+		- Nama Asset : (text field)
+		- Plan : 2301 (default dan di kunci)
+		- Location : dropdown, yang isinya office dan plan
+		- Jika user milih FOH maka Asset Master Data tidak muncul.
+		- Jika user milih GOP maka Asset Master Data tidak muncul.
+	- Start Date :
+	- End Date :
+	- Benefit : (kolom deksripsi)
+	- ID Capex : (dropdown ambil dari data master CAPEX)
+	- amount available : (otomatis ambil sisa dana dari master data capex)
+	- amount : (isi sendiri dengan format IDR)
+	- category : dropdown yang isinya itu budget dan unbudget. jika user nanti milih unbudget itu nanti ada kolom untuk pengisian budget 
+	- remaks
+	- document : upload file berupa file attchement, file yang di upload dalam format pdf, excel, atau ppt sebanyak 50 file.
+
+2. BODR Approval, fitur ini adalah untuk mengapproved BODR yang diajukan oleh requester. untuk fitur ini ada daftar tabelnya, berikut adalah detailsnya :
+	- No 
+	- BODR ID (Ketika semuanya sudah full approved)
+	- BODR NO	
+	- Requester (datanya diambil dari user yang merequest)
+	- Create Date 
+	- Title/Judul
+	- Benefit
+	- Amount
+	- Status BODR
+	- Response Anda
+	- No BODR
+	- Nomor Assets
+	- Acction, untuk action ini ada aturannya yaitu, sebagai berikut :
+		- Approval (Default), Ketika user klik Approval maka secara otomatis akan langsung muncul modal yang isinya adalah komentar dan 		dan juga ada 		button untuk mereject serta ada button untuk langsung approval jika sudah 		memberikan komen.
+		- jika sudah di approval maka button tersebut secara otomatis akan ganti menjadi view details untuk melihat BODRnya secara
+		detailsnya.
+		- disini juga ada button reject untuk merejct dari bodr tersebut. Ketika ada reject maka otomatis akan di kembalikan kepada 
+		user yang request dan harus melalui approval Kembali.
+
+3. Cost Center, fitur ini adalah untuk menjadi cost center si BODR. berikut adalah detailsnya :
+	- Kode Cost Center :
+	- Nama Cost Center :
+	- Deskripsi :
+	- Status : (active/inactive)
+	- Action : (edit/delete)
+
+4. Capex type. fitur ini adalah untuk type si capexnya. berikut adalah detailsnya :
+	- Kode Type :
+	- nama type :
+	- deskripsi :
+	- Status : (active/inactive)
+	- Action : (edit/delete)
+
+5. Capex Reference, fitur ini adalah untuk referensi capexnya. beirkut adalah detailsnya :
+	- Kode Reference :
+	- Nama :
+	- Deskripsi :
+	- Status : (active/inactive)
+	- Action : (edit/delete)
+
+6. Asset Type, fitu ini adalah untuk type dari Assetsnya. berikut adalah detailsnya :
+	- Class :
+	- Nama Type :
+	- Deskripsi :
+	- Status : (active/inactive)
+	- Action : (edit/delete)
+
+7. List BODR, fitur ini adalah untuk melihat list BODR yang sedang di ajukan, fitur ini hanya bisa di akses oleh si user (requester), berikut adalah daftar tabelnya :
+	- No
+	- BODR ID (Ketika semuanya sudah full approved)
+	- BODR NO
+	- Requester (datanya diambil dari user yang merequest)
+	- Create Date 
+	- Title/Judul
+	- Benefit
+	- Amount
+	- Status BODR
+	- Capex
+	- Nomor Assets
+	- Acction, untuk action ini ada aturannya yaitu, sebagai berikut :
+		- Approval (Default), Ketika user klik Approval maka secara otomatis akan langsung muncul modal yang isinya adalah komentar dan dan juga ada button 		untuk mereject serta ada button untuk langsung approval jika sudah memberikan 		komen.
+		- jika sudah di approval maka button tersebut secara otomatis akan ganti menjadi view details untuk melihat BODRnya secara
+		detailsnya.
+		- disini juga ada button reject untuk merejct dari bodr tersebut. Ketika ada reject maka otomatis akan di kembalikan kepada 
+		user yang request dan harus melalui approval Kembali.
+
+	
+	Ketika sudah semua full approval sampai ke presidir, maka secara otomatis Ketika klik view details akan ada button untuk pengajuan
+	otorisasi Harga yang akan menjadi trigger ke purchasing untuk membuat otorisasi Harga. berikut adalah details dari formnya :
+	- No PR :
+	- No BODR : (auto Ketika klik bodr yang akan di ajukan menjadi otorisasi Harga)
+	- Deskripsi :
+	- Amount : (Dana yang ada di BODR tersebut)
+
+8. Dashboard, untuk dashboard disini di bedakan beberapa, berikut adalah detaisnya :
+	- Dashboard Requester, untuk dashboard khusus requester ini ada beberapa informasi yang di tampilkan. Berikut adalah detailsnya :
+		- KPI Jumlah BODR (sesuai user login requester)
+		- KPI Status Pending Approval (Ketika klik secara otomatis akan ke fitur List BODR sesuai dengan status BODRnya PENDING)
+		- Amount Capex Acctual
+		- Capex Budget
+		- Grafik Jumlah BODR, bisa difilter. untuk filternya ada CAP, FOH, GOP
+		- BODR List, untuk melihat semua BODR yang sedang di ajukan. untuk kolom tabelnya sebagai beirkut :
+			- BODR NO
+			- Created BODR
+			- Title BODR
+			- AMOUNT
+			- Kriteria Capex
+			- Status BODR
+
+	- Dashboard Selain Requester (approval), untuk dashboard ini khusus untuk yang 	approval BODR, Berikut adalah detailsnya :
+		- KPI Jumlah BODR (total jumlah BODR yang dibuat)
+		- KPI Pending Action (sesuai dengan user)
+		- Grafik BODR perbulan (bisa di filter sesuai dengan bulan)
+		- Grafik BODR Berdasarkan Kriteria Approval
+
+9. Fitur Progress BODR, untuk fitur adalah untuk monitoring approval BODR mulai dari Create BODR sampai Full approval ke Presidir. untuk fitur ini ada kolomnya yaitu sebagai berikut :
+	- BODR (informasi dari BODR)
+	- Type Approval (sesuaikan dengan type approvalnya)
+	- Approval Head dept (sesuaikan dengan dari menu settings department)
+
+10. Fitur Approval Price, Fitur ini adalah untuk mengapproval otorisasi Harga yang dibuat oleh buyer/purchasing. berikut adalah details dari data tabelnya :
+	- No Doc :
+	- No PR :
+	- No BODR :
+	- Buyer :
+	- Create Date :
+	- Acction, untuk action ini ada aturannya yaitu, sebagai berikut :
+		- Approval (Default), Ketika user klik Approval maka secara otomatis akan langsung muncul modal yang isinya adalah komentar dan juga ada button untuk mereject serta ada button untuk langsung approval jika sudah memberikan 		komen.
+		- jika sudah di approval maka button tersebut secara otomatis akan ganti menjadi view details untuk melihat Approval harganya.
+		- disini juga ada button reject untuk merejct dari bodr tersebut. Ketika ada reject maka otomatis akan di kembalikan kepada 
+		user yang request dan harus melalui approval Kembali.
+	
+sekarang lanjut ke portal Approval Harga. untuk portal ini hanya yang bisa akses adalah departemen purchasing selain department purchasing maka secara otomatis akan ditolak. beirkut adalah detailsnya :
+
+1. Dashboard, untuk dashboard ini akan menampilkan beberapa informasi penting. beirkut adalah detailsnya :
+	- KPI card total otorisasi harga
+	- KPI card total BODR 
+	- Grafik diagram Batang otorisasi harga perbulan
+	- grafik diagaram batang otorisasi harga per departemen.
+	
+
+2. Master Data Vendor, master data ini di khususkan untuk vendor, berikut adalah detailsnya dari formnya:
+	- Kode vendor :
+	- email vendor :
+	- Vendor Name:
+	- Street :
+	- Status : (active/inactive)
+
+3. Master data Part number, master data ini berisikan informasi mengenai tentang details dari part number. berikut adalah details dari formnya :
+	- Name Material :
+	- Deskripsi Material :
+	- Satuan:
+	- Status : (active/inactive)
+
+4. Master data otorasasi, master data ini berisikan informasi mengenai tentang details dari jenis otorasasi. berikut adalah details dari formnya :
+	- Kode jenis :
+	- Nama jenis :
+	- Deskripsi :
+	- Status : (active/inactive)
+
+5. Master Data Jenis Barang, master data ini berisikan informasi mengenai details dari jenis Barang. Berikut adalah details dari formnya :
+	- Kode jenis :
+	- Nama jenis barang :
+	- Deskripsi :
+	- Status : (active/inactive)
+
+6. Master data Departemens, berisikan data dari departemen, berikut adalah details dari formnya:
+		- Kode Departemen :
+		- Nama Departemen :
+		- Deskripsi "
+		- Status : (active/inactive)
+		- action : (edit/delete)
+
+7. Create Otorisasi harga, untuk menu ini ada 2 otorisasi harga. berikut adalah detailsnya :
+	- Non Product, untuk non produk ini dia akan mengambil dari BODR sebagai master datanya. lalu disini akan ada sebuah form, berikut adalah detailsnya :
+		- No PR : (inputan manual berupa angka)
+		- NO BODR : (otomatis ke isi sesuai dengan no PR yang di isi)
+		- Dana BODR : (Otomatis ke isi sesuai dengan BODR yang di ajukan untuk buat otorisasi Harga)
+		- Tanggal: (otomatis ke isi sesuai dengan kalender kerja yaitu senin - jumat dan juga sesuai dengan realtime)
+		- No Doc :  (inputan manual sesuai dengan format yang di ketik)
+
+	setelah mengisi tersebut, ada button add supplier. Buttn Add Supplier ini bisa di klik berkali-kali atau bisa menambahkan suppliernya bisa berkali-kali tanpa ada 	batasannya. kelika klik button add supplier ada form yang harus di isi oleh buyer, 	berikut adalah details dari formnya :
+		- Nama Supplier : (ambil dari data master supplier)
+		- Part Number :(inputan manual)
+		- Part Name : (inputan manual)
+		- QTY : (satuan dalam pcs/kg)
+		- Price qout : (inputan Harga menggunakan format IDR/Rp)
+		- Target Price : (inputan Harga menggunakan format IDR/Rp)
+		- Final Price : (inputan Harga menggunakan format IDR/Rp)
+	
+	setelah mengisi form tersebut, buyer bisa menambahkan atau add item. maka akan ada button add item dan formnya sama persis yang di atas.
+	setelah buyer melakukan beberapa pengisian untuk data supplier, maka akan ada form lagi untuk final supplier. untuk form final supplier
+	ini persupplier jadi dibawah dari form inputan supplier. berikut adalah detais dari formnya :
+		- quality factor : (inputan manual)
+		- delivery factor : (inputan manual)
+		- safety factor : (inputan manual, tapi defaultnya adalah OK)
+
+	Setelah buyer mengisi semuanya ada trigger untuk menentukan Harga supplier yang murah, yaitu dengan cara membandingkan Harga. jadi
+	system akan otomatis menandakan bahwa supplier tersebut yang memiliki Harga yang murah, setelah itu buyer akan submit dan akan terjadi
+	approval Harga oleh beberapa user yang lainnya.
+
+sekarang kita lanjut ke portal capex, disini awal mulanya yaitu bisa mengcreat BODR dan juga otorisasi harga, jadi capex ini adalah portal pertama untuk user (requester) mengajukan atau memplaningkan capex. berikut adalah details dari portal capex :
+
+Untuk portal capex ini hanya ada user yaitu Reqouester dan juga FINACCT, berikut adalah detailsnya :
+
+1. Untuk Requester itu bisa mengajukan capex planning dan juga Relisasi Budget planning dimana kedua tersebut berbeda untuk semuanya, berikut adalah detailsnya :
+	- Dasboard, Dashboard disini berguna untuk mwlihat semua informasi yang ada berikut 	adalah detailsnya  :
+		- KPI Total pengajuan CAPEX
+		- KPI Total Pengajuan relisasi
+		- Grafik Dana Capex
+		- Grafik Capex vs Aktual
+
+
+	- Form Budget Planning, berikut adalah details dari formnya :
+		- User : (sesuai dengan user login)
+		- Departement : (sesuai dengan user login)
+		- Project Name : (inputan manual)
+		- Purpose : (dropdown dengan datanya yaitu, Capacity, Capabilty, Supporting)
+		- Investment Type : (dropdown sesuai dengan purposenya. disni juga ada aturannya yaitu, Ketika user klik capacity maka akan muncul Capacity Up, New Product Expansion. Ketika user klik capability maka akan muncul Increase Value Added, Increase Competency, Restore Capacity. ketika klik supporting 		maka secara otomatis akan keisi supporting).
+		- Benefit : (inputan manual, lalu disini juga ada aturan mainnya yaitu sesuai dengan system penulisan dimana jika ada kayak angka seperti 1. 2. atau enter maka akan secara otomatis akan mengikuti sesuai dengan system penulisan.)
+		- amount : (inputan manual, lalu formatnya berupa IDR/Rp)
+		- Start Date :
+		- End Date :
+		- Attchment Document : (upload berupa file excel, pdf, power point/ppt. untuk uploadnya 20 file dokumen)
+		- Schedule : (tanggal presentasi Ketika sudah di approved oleh FINACCT)
+
+ketika requester tersebut sudah membuat capex planing maka secara otomatis langsung kelempar ke portal FINACCT dan akan masuk ke List Capex
+
+2. untuk FINACCT disini ada fiturnya juga, berikut adalah detailnya :
+	- Dashboard
+	- List Capex, disini semua list capex yang masih outsantding. lalu nanti akan ada 3 button yaitu approved, pending (need document upload), dan revise. ketiga button tersebut ada aturannya yaitu sebagai berikut :
+	- ketika FINACCT klik button Approval maka secara otomatis akan masuk ke komite 	riview sambil mengisi tanggal untuk memberiitahu requester kapan presentasi ke 	komite.
+	- Ketika FINACCT klik button pending maka secara otomatis akan mengupload file 	document untuk document pendukung, setelah di upload maka akan secara otomatis akan 	langsung ke komite riview.
+	- Ketika FINACCT klik button Revise maka secara otomatis akan balik lagi ke requester 	untuk di revisi semuanya.
+
+semua aktivitas itu bisa ke record untuk historynya untuk audit.
+
+	- Komite Riview, disisni semua list capex yang sudah di approved sama FINACCT, berikut adalah detailsnya :
+	- Ketika FINACCT Klik button approved maka secara otomatis akan langsung ke BODR 	sebagai ID CAPEX
+	- Ketika FINACCT Klik button Revise maka secara otomatis akan langsung balik lagi ke 	requester untuk di revisi semuanya
+	- Ketika FINACCT Klik button Reject maka secara otomatis capexnya di cancel atauu 	tidak di lanjutkan
+
+berikkut adalah flow masing-masing portalnya :
+
+Flow Capex :
+
+
+
+Flow BODR :
+user (requester) create bodr ->
+
+Flow Approval Harga :
+1. approval non product
+user send Bodr + No PR -> Buyer create otorisasi Harga -> approval SH PURH -> Approval DH Purch -> Approval User DH -> User Div Head -> Admin Div Head -> Direktur -> Presiden Direktur.
+
+2. approval product :
+buyer creat approval product ->  approval SH PURH -> Approval DH Purch -> Admin Div Head -> Direktur -> Presiden Direktur.
+
+Daftar User Login 
+
+Login Section Head :
+
+1. Purchasing :
+npk : 1519
+pw : 123
+
+2. Quality :
+Npk : 3601
+Pw : 123
+
+3. MKT :
+Npk :2306
+pw :123
+
+4. MTC :
+Npk : 1247
+pw : 123
+
+Daftar User 
+1. Accounting
+Npk : 3790
+Pw : 123
+
+2. MKT Staff
+Npk : 3532
+Pw : 123
+
+3. Accouting 
+Npk : 3616
+Pw : 123
+
+4

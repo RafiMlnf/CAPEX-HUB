@@ -1,0 +1,600 @@
+// This is your Prisma schema file
+// Prisma v7 — multiSchema enabled, all enum types replaced with String
+// to match the existing bodr_db which uses VARCHAR for status columns.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["core", "workflow", "bodr", "purchasing"]
+}
+
+// ============================================================================
+// CORE SCHEMA - MASTER DATA
+// ============================================================================
+
+model Departemen {
+  id              Int      @id @default(autoincrement())
+  kode_departemen String   @unique @db.VarChar(20)
+  nama_departemen String   @db.VarChar(150)
+  deskripsi       String?  @db.Text
+  status          String   @default("active") @db.VarChar(20)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  users                  User[]
+  capex                  Capex[]
+  approvalWorkflows      ApprovalWorkflow[]
+  approvalPriceWorkflows ApprovalPriceWorkflow[]
+  departmentSettings     DepartmentSettings?
+  bodr                   Bodr[]
+
+  @@map("departemens")
+  @@schema("core")
+}
+
+model Role {
+  id         Int      @id @default(autoincrement())
+  kode_role  String   @unique @db.VarChar(20)
+  nama_role  String   @db.VarChar(100)
+  deskripsi  String?  @db.Text
+  status     String   @default("active") @db.VarChar(20)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+  @@schema("core")
+}
+
+model Permission {
+  id               Int      @id @default(autoincrement())
+  kode_permission  String   @unique @db.VarChar(30)
+  nama_permission  String   @db.VarChar(150)
+  deskripsi        String?  @db.Text
+  status           String   @default("active") @db.VarChar(20)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+  @@schema("core")
+}
+
+model TypeApproval {
+  id             Int      @id @default(autoincrement())
+  kode_approval  String   @unique @db.VarChar(20)
+  nama_approval  String   @db.VarChar(100)
+  deskripsi      String?  @db.Text
+  status         String   @default("active") @db.VarChar(20)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("type_approval")
+  @@schema("core")
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  npk            String   @unique @db.VarChar(30)
+  nama_user      String   @db.VarChar(150)
+  email          String   @unique @db.VarChar(150)
+  username       String   @unique @db.VarChar(50)
+  password_hash  String   @db.Text
+  departemen_id  Int
+  role_id        Int
+  status         String   @default("active") @db.VarChar(20)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  departemen          Departemen         @relation(fields: [departemen_id], references: [id])
+  role                Role               @relation(fields: [role_id], references: [id])
+  loginLogs           LoginLog[]
+  portalAccess        UserPortalAccess?
+  bodr                Bodr[]
+  bodrApprovals       BodrApproval[]
+  otorisasiHarga      OtorisasiHarga[]
+  approvalHarga       ApprovalHarga[]
+  workflowSteps       ApprovalWorkflowStep[]
+  priceWorkflowSteps  ApprovalPriceWorkflowStep[]
+  headDeptSettings    DepartmentSettings[] @relation("HeadDept")
+  accountingSettings  DepartmentSettings[] @relation("Accounting")
+
+  @@map("users")
+  @@schema("core")
+}
+
+model CostCenter {
+  id                Int      @id @default(autoincrement())
+  kode_cost_center  String   @unique @db.VarChar(20)
+  nama_cost_center  String   @db.VarChar(150)
+  deskripsi         String?  @db.Text
+  status            String   @default("active") @db.VarChar(20)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  bodr Bodr[]
+
+  @@map("cost_center")
+  @@schema("core")
+}
+
+model CapexType {
+  id          Int      @id @default(autoincrement())
+  kode_type   String   @unique @db.VarChar(20)
+  nama_type   String   @db.VarChar(150)
+  deskripsi   String?  @db.Text
+  status      String   @default("active") @db.VarChar(20)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  capex Capex[]
+
+  @@map("capex_type")
+  @@schema("core")
+}
+
+model CapexReference {
+  id              Int      @id @default(autoincrement())
+  kode_reference  String   @unique @db.VarChar(20)
+  nama            String   @db.VarChar(150)
+  deskripsi       String?  @db.Text
+  status          String   @default("active") @db.VarChar(20)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  capex Capex[]
+
+  @@map("capex_reference")
+  @@schema("core")
+}
+
+model AssetType {
+  id          Int      @id @default(autoincrement())
+  class       String   @db.VarChar(50)
+  nama_type   String   @db.VarChar(150)
+  deskripsi   String?  @db.Text
+  status      String   @default("active") @db.VarChar(20)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  bodrAssets BodrAsset[]
+
+  @@map("asset_type")
+  @@schema("core")
+}
+
+model Capex {
+  id                        Int       @id @default(autoincrement())
+  kode_capex                String    @unique @db.VarChar(30)
+  nama_capex                String    @db.VarChar(150)
+  capex_type_id             Int?
+  capex_reference_id        Int?
+  departemen_id             Int?
+  total_amount              Decimal   @default(0) @db.Decimal(18, 2)
+  allocated_amount          Decimal   @default(0) @db.Decimal(18, 2)
+  status                    String    @default("Gate 0 - Idea") @db.VarChar(50)
+  description               String?   @db.Text
+  pic                       String?   @db.VarChar(100)
+  purpose                   String?   @db.Text
+  investment_type           String?   @db.VarChar(100)
+  start_date                String?   @db.VarChar(50)
+  end_date                  String?   @db.VarChar(50)
+  attachment_name           String?   @db.Text
+  initial_attachment_name   String?   @db.Text
+  revised_attachment_name   String?   @db.Text
+  is_fs_required            Boolean   @default(false)
+  fs_category               String?   @db.VarChar(50)
+  finance_notes             String?   @db.Text
+  finance_approved_at       DateTime? @db.Timestamptz(6)
+  committee_notes           String?   @db.Text
+  committee_approved_at     DateTime? @db.Timestamptz(6)
+  committee_review_schedule String?   @db.VarChar(50)
+  po_number                 String?   @db.VarChar(100)
+  po_date                   String?   @db.VarChar(50)
+  commissioning_doc_name    String?   @db.Text
+  commissioning_notes       String?   @db.Text
+  commissioning_approved_at DateTime? @db.Timestamptz(6)
+  benefit_target            Decimal?  @db.Decimal(18, 2)
+  benefit_realized          Decimal?  @db.Decimal(18, 2)
+  benefit_notes             String?   @db.Text
+  pir_notes                 String?   @db.Text
+  pir_closed_at             DateTime? @db.Timestamptz(6)
+  revision_source           String?   @db.VarChar(50)
+  created_at                DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  capexType      CapexType?      @relation(fields: [capex_type_id], references: [id])
+  capexReference CapexReference? @relation(fields: [capex_reference_id], references: [id])
+  departemen     Departemen?     @relation(fields: [departemen_id], references: [id])
+  bodr           Bodr[]
+
+  @@map("capex")
+  @@schema("core")
+}
+
+model LoginLog {
+  id          Int      @id @default(autoincrement())
+  user_id     Int?
+  npk         String?  @db.VarChar(30)
+  nama_user   String?  @db.VarChar(150)
+  username    String   @db.VarChar(50)
+  departemen  String?  @db.VarChar(150)
+  role        String?  @db.VarChar(100)
+  ip_address  String?  @db.VarChar(50)
+  user_agent  String?  @db.Text
+  status      String   @default("SUCCESS") @db.VarChar(20)
+  keterangan  String?  @db.Text
+  login_time  DateTime @default(now()) @db.Timestamptz(6)
+
+  user User? @relation(fields: [user_id], references: [id])
+
+  @@map("login_logs")
+  @@schema("core")
+}
+
+model UserPortalAccess {
+  id          Int      @id @default(autoincrement())
+  user_id     Int      @unique
+  can_capex   Boolean  @default(true)
+  can_bodr    Boolean  @default(true)
+  can_price   Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_portal_access")
+  @@schema("core")
+}
+
+// ============================================================================
+// WORKFLOW SCHEMA
+// ============================================================================
+
+model RolePermission {
+  id             Int      @id @default(autoincrement())
+  role_id        Int
+  permission_id  Int
+  status         String   @default("active") @db.VarChar(20)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  role       Role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@unique([role_id, permission_id])
+  @@map("role_permissions")
+  @@schema("workflow")
+}
+
+model ApprovalWorkflow {
+  id               Int      @id @default(autoincrement())
+  departemen_id    Int
+  type_approval_id Int
+  status           String   @default("active") @db.VarChar(20)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  departemen Departemen             @relation(fields: [departemen_id], references: [id])
+  steps      ApprovalWorkflowStep[]
+
+  @@unique([departemen_id, type_approval_id])
+  @@map("approval_workflow")
+  @@schema("workflow")
+}
+
+model ApprovalWorkflowStep {
+  id               Int     @id @default(autoincrement())
+  workflow_id      Int
+  step_order       Int
+  approver_user_id Int
+  keterangan       String? @db.VarChar(150)
+
+  workflow ApprovalWorkflow @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  approver User             @relation(fields: [approver_user_id], references: [id])
+
+  @@unique([workflow_id, step_order])
+  @@map("approval_workflow_steps")
+  @@schema("workflow")
+}
+
+model ApprovalPriceWorkflow {
+  id               Int      @id @default(autoincrement())
+  departemen_id    Int
+  type_approval_id Int
+  status           String   @default("active") @db.VarChar(20)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  departemen Departemen                  @relation(fields: [departemen_id], references: [id])
+  steps      ApprovalPriceWorkflowStep[]
+
+  @@unique([departemen_id, type_approval_id])
+  @@map("approval_price_workflow")
+  @@schema("workflow")
+}
+
+model ApprovalPriceWorkflowStep {
+  id               Int     @id @default(autoincrement())
+  workflow_id      Int
+  step_order       Int
+  approver_user_id Int
+  keterangan       String? @db.VarChar(150)
+
+  workflow ApprovalPriceWorkflow @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  approver User                  @relation(fields: [approver_user_id], references: [id])
+
+  @@unique([workflow_id, step_order])
+  @@map("approval_price_workflow_steps")
+  @@schema("workflow")
+}
+
+model DepartmentSettings {
+  id                 Int      @id @default(autoincrement())
+  departemen_id      Int      @unique
+  keterangan         String?  @db.Text
+  head_dept_user_id  Int?
+  accounting_user_id Int?
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  departemen Departemen @relation(fields: [departemen_id], references: [id])
+  headDept   User?      @relation("HeadDept", fields: [head_dept_user_id], references: [id])
+  accounting User?      @relation("Accounting", fields: [accounting_user_id], references: [id])
+
+  @@map("department_settings")
+  @@schema("workflow")
+}
+
+// ============================================================================
+// BODR SCHEMA
+// ============================================================================
+
+model Bodr {
+  id                Int      @id @default(autoincrement())
+  bodr_no           String   @unique @db.VarChar(40)
+  bodr_id_final     String?  @unique @db.VarChar(40)
+  title             String   @db.VarChar(200)
+  user_id           Int
+  departemen_id     Int
+  cost_center_id    Int
+  kriteria_approval String   @db.VarChar(20)
+  start_date        DateTime @db.Date
+  end_date          DateTime @db.Date
+  benefit           String?  @db.Text
+  capex_id          Int
+  amount            Decimal  @db.Decimal(18, 2)
+  category          String   @default("budget") @db.VarChar(20)
+  budget_remarks    String?  @db.Text
+  status            String   @default("draft") @db.VarChar(30)
+  current_step      Int      @default(0)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  user       User       @relation(fields: [user_id], references: [id])
+  departemen Departemen @relation(fields: [departemen_id], references: [id])
+  costCenter CostCenter @relation(fields: [cost_center_id], references: [id])
+  capex      Capex      @relation(fields: [capex_id], references: [id])
+  asset      BodrAsset?
+  documents  BodrDocument[]
+  approvals  BodrApproval[]
+  otorisasiHargaRequests OtorisasiHargaRequest[]
+  otorisasiHarga         OtorisasiHarga[]
+
+  @@map("bodr")
+  @@schema("bodr")
+}
+
+model BodrAsset {
+  id            Int      @id @default(autoincrement())
+  bodr_id       Int      @unique
+  nama_asset    String   @db.VarChar(200)
+  plant         String   @default("2301") @db.VarChar(10)
+  location      String   @default("office") @db.VarChar(20)
+  asset_type_id Int?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  bodr      Bodr       @relation(fields: [bodr_id], references: [id], onDelete: Cascade)
+  assetType AssetType? @relation(fields: [asset_type_id], references: [id])
+
+  @@map("bodr_asset")
+  @@schema("bodr")
+}
+
+model BodrDocument {
+  id          Int      @id @default(autoincrement())
+  bodr_id     Int
+  file_name   String   @db.VarChar(255)
+  file_path   String   @db.Text
+  file_type   String   @db.VarChar(10)
+  uploaded_at DateTime @default(now()) @db.Timestamptz(6)
+
+  bodr Bodr @relation(fields: [bodr_id], references: [id], onDelete: Cascade)
+
+  @@map("bodr_document")
+  @@schema("bodr")
+}
+
+model BodrApproval {
+  id               Int       @id @default(autoincrement())
+  bodr_id          Int
+  step_order       Int
+  approver_user_id Int
+  status           String    @default("pending") @db.VarChar(20)
+  comment          String?   @db.Text
+  action_date      DateTime? @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+
+  bodr     Bodr @relation(fields: [bodr_id], references: [id], onDelete: Cascade)
+  approver User @relation(fields: [approver_user_id], references: [id])
+
+  @@unique([bodr_id, step_order])
+  @@map("bodr_approval")
+  @@schema("bodr")
+}
+
+model OtorisasiHargaRequest {
+  id          Int      @id @default(autoincrement())
+  bodr_id     Int
+  no_pr       String   @db.VarChar(50)
+  deskripsi   String?  @db.Text
+  amount      Decimal  @db.Decimal(18, 2)
+  status      String   @default("submitted") @db.VarChar(20)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  bodr Bodr @relation(fields: [bodr_id], references: [id])
+
+  @@map("otorisasi_harga_request")
+  @@schema("bodr")
+}
+
+// ============================================================================
+// PURCHASING SCHEMA
+// ============================================================================
+
+model Vendor {
+  id           Int      @id @default(autoincrement())
+  kode_vendor  String   @unique @db.VarChar(50)
+  email_vendor String?  @db.VarChar(150)
+  vendor_name  String   @db.VarChar(250)
+  street       String?  @db.Text
+  status       String   @default("active") @db.VarChar(20)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  suppliers OtorisasiHargaSupplier[]
+
+  @@map("vendor")
+  @@schema("purchasing")
+}
+
+model PartNumber {
+  id                 Int      @id @default(autoincrement())
+  part_number        String?  @db.VarChar(100)
+  part_name          String?  @db.VarChar(200)
+  name_material      String?  @db.VarChar(200)
+  deskripsi          String?  @db.Text
+  deskripsi_material String?  @db.Text
+  satuan             String?  @db.VarChar(20)
+  status             String   @default("active") @db.VarChar(20)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("part_number")
+  @@schema("purchasing")
+}
+
+model JenisOtorisasi {
+  id          Int      @id @default(autoincrement())
+  kode        String   @unique @db.VarChar(20)
+  nama        String   @db.VarChar(150)
+  deskripsi   String?  @db.Text
+  status      String   @default("active") @db.VarChar(20)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  otorisasiHarga OtorisasiHarga[]
+
+  @@map("jenis_otorisasi")
+  @@schema("purchasing")
+}
+
+model JenisBarang {
+  id                Int      @id @default(autoincrement())
+  kode              String?  @db.VarChar(50)
+  kode_jenis        String?  @db.VarChar(20)
+  nama              String?  @db.VarChar(150)
+  nama_jenis_barang String?  @db.VarChar(150)
+  deskripsi         String?  @db.Text
+  status            String   @default("active") @db.VarChar(20)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("jenis_barang")
+  @@schema("purchasing")
+}
+
+model OtorisasiHarga {
+  id                 Int      @id @default(autoincrement())
+  no_doc             String   @unique @db.VarChar(50)
+  jenis              String   @default("non_product") @db.VarChar(20)
+  no_pr              String?  @db.VarChar(50)
+  bodr_id            Int?
+  dana_bodr          Decimal? @db.Decimal(18, 2)
+  tanggal            DateTime @default(now()) @db.Date
+  buyer_user_id      Int
+  jenis_otorisasi_id Int?
+  status             String   @default("Pending Review") @db.VarChar(30)
+  current_step       Int      @default(1)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  bodr           Bodr?           @relation(fields: [bodr_id], references: [id])
+  buyer          User            @relation(fields: [buyer_user_id], references: [id])
+  jenisOtorisasi JenisOtorisasi? @relation(fields: [jenis_otorisasi_id], references: [id])
+  suppliers      OtorisasiHargaSupplier[]
+  approvals      ApprovalHarga[]
+
+  @@map("otorisasi_harga")
+  @@schema("purchasing")
+}
+
+model OtorisasiHargaSupplier {
+  id                 Int      @id @default(autoincrement())
+  otorisasi_harga_id Int
+  vendor_id          Int
+  quality_factor     String?  @db.VarChar(50)
+  delivery_factor    String?  @db.VarChar(50)
+  safety_factor      String   @default("OK") @db.VarChar(50)
+  is_lowest_price    Boolean  @default(false)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+
+  otorisasiHarga OtorisasiHarga       @relation(fields: [otorisasi_harga_id], references: [id], onDelete: Cascade)
+  vendor         Vendor               @relation(fields: [vendor_id], references: [id])
+  items          OtorisasiHargaItem[]
+
+  @@map("otorisasi_harga_supplier")
+  @@schema("purchasing")
+}
+
+model OtorisasiHargaItem {
+  id           Int      @id @default(autoincrement())
+  supplier_id  Int
+  part_number  String   @db.VarChar(100)
+  part_name    String   @db.VarChar(200)
+  qty          Decimal  @db.Decimal(18, 2)
+  satuan       String   @default("pcs") @db.VarChar(20)
+  price_quote  Decimal  @db.Decimal(18, 2)
+  target_price Decimal  @db.Decimal(18, 2)
+  final_price  Decimal  @db.Decimal(18, 2)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  supplier OtorisasiHargaSupplier @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+
+  @@map("otorisasi_harga_item")
+  @@schema("purchasing")
+}
+
+model ApprovalHarga {
+  id                 Int       @id @default(autoincrement())
+  otorisasi_harga_id Int
+  step_order         Int
+  approver_user_id   Int
+  status             String    @default("pending") @db.VarChar(20)
+  comment            String?   @db.Text
+  action_date        DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+
+  otorisasiHarga OtorisasiHarga @relation(fields: [otorisasi_harga_id], references: [id], onDelete: Cascade)
+  approver       User           @relation(fields: [approver_user_id], references: [id])
+
+  @@unique([otorisasi_harga_id, step_order])
+  @@map("approval_harga")
+  @@schema("purchasing")
+}
