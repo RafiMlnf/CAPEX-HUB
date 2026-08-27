@@ -220,16 +220,20 @@ function PlanningPageContent() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                    PIC PENGAJU <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      PIC PENGAJU <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-[9px] text-blue-600 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                      Sesuai Akun Login
+                    </span>
+                  </div>
                   <input
                     type="text"
+                    readOnly
                     required
-                    placeholder="Nama PIC pengaju..."
-                    value={pic}
-                    onChange={(e) => setPic(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-2xs font-medium"
+                    value={currentUser?.name || currentUser?.username || pic || "User"}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 focus:outline-none shadow-2xs font-semibold cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -458,10 +462,27 @@ function PlanningPageContent() {
                           <td className="py-3 px-3.5 font-bold text-blue-600 text-right">
                             Rp {p.estimatedCost.toLocaleString("id-ID")}
                           </td>
-                          <td className="py-3 px-3.5 text-center text-[10px] text-slate-500 font-mono">
-                            {p.startDate && p.endDate && p.startDate !== "-" && p.endDate !== "-"
-                              ? `${p.startDate} s/d ${p.endDate}`
-                              : p.startDate || "-"}
+                          <td className="py-3 px-3.5 text-center text-[10px] font-mono">
+                            {p.startDate && p.endDate && p.startDate !== "-" && p.endDate !== "-" ? (
+                              <div className="space-y-0.5">
+                                <span className="text-slate-600 block">{p.startDate} s/d {p.endDate}</span>
+                                {(() => {
+                                  const s = new Date(p.startDate).getTime();
+                                  const e = new Date(p.endDate).getTime();
+                                  if (!isNaN(s) && !isNaN(e) && e >= s) {
+                                    const days = Math.round((e - s) / (1000 * 60 * 60 * 24));
+                                    return (
+                                      <span className="inline-block px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                        ⏱️ {days} Hari
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                            ) : (
+                              <span className="text-slate-500">{p.startDate || "-"}</span>
+                            )}
                           </td>
                           <td className="py-3 px-3.5 text-center">
                             {firstDoc ? (
