@@ -379,16 +379,22 @@ export default function FinanceReviewPage() {
                           </label>
                           <select
                             value={editPurpose}
-                            onChange={(e) => setEditPurpose(e.target.value)}
+                            onChange={(e) => {
+                              const newPurpose = e.target.value;
+                              setEditPurpose(newPurpose);
+                              if (newPurpose === "Capacity") {
+                                setEditInvestmentType("Capacity Up");
+                              } else if (newPurpose === "Capability") {
+                                setEditInvestmentType("Increase Value Added");
+                              } else if (newPurpose === "Supporting") {
+                                setEditInvestmentType("Supporting");
+                              }
+                            }}
                             className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-600 cursor-pointer"
                           >
                             <option value="Capacity">Capacity</option>
-                            <option value="Cost Reduction">Cost Reduction</option>
-                            <option value="Quality">Quality</option>
-                            <option value="Safety / Environment">Safety / Environment</option>
-                            <option value="Replacement / Overhaul">Replacement / Overhaul</option>
+                            <option value="Capability">Capability</option>
                             <option value="Supporting">Supporting</option>
-                            <option value="Other">Other</option>
                           </select>
                         </div>
                         <div>
@@ -397,18 +403,30 @@ export default function FinanceReviewPage() {
                           </label>
                           <select
                             value={editInvestmentType}
+                            disabled={editPurpose === "Supporting"}
                             onChange={(e) => setEditInvestmentType(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-600 cursor-pointer"
+                            className={`w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:border-blue-600 ${
+                              editPurpose === "Supporting"
+                                ? "bg-slate-100 text-slate-600 cursor-not-allowed"
+                                : "bg-slate-50 text-slate-800 cursor-pointer"
+                            }`}
                           >
-                            <option value="Capacity Up">Capacity Up</option>
-                            <option value="Line Expansion">Line Expansion</option>
-                            <option value="New Model">New Model</option>
-                            <option value="Machine Renewal">Machine Renewal</option>
-                            <option value="Automation">Automation</option>
-                            <option value="Cost Down">Cost Down</option>
-                            <option value="Safety / 5S">Safety / 5S</option>
-                            <option value="Supporting">Supporting</option>
-                            <option value="Other">Other</option>
+                            {editPurpose === "Capacity" && (
+                              <>
+                                <option value="Capacity Up">Capacity Up</option>
+                                <option value="New Product Expansion">New Product Expansion</option>
+                              </>
+                            )}
+                            {editPurpose === "Capability" && (
+                              <>
+                                <option value="Increase Value Added">Increase Value Added</option>
+                                <option value="Increase Competency">Increase Competency</option>
+                                <option value="Restore Capacity">Restore Capacity</option>
+                              </>
+                            )}
+                            {editPurpose === "Supporting" && (
+                              <option value="Supporting">Supporting</option>
+                            )}
                           </select>
                         </div>
                       </div>
@@ -552,63 +570,70 @@ export default function FinanceReviewPage() {
                   </div>
 
                   {/* Attachment Upload by Finance (Perhitungan Feasibility Study / FS) */}
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                         LAMPIRAN PERHITUNGAN FEASIBILITY STUDY (FS) OLEH FINANCE
                       </label>
-                      {editPurpose.toLowerCase().includes("supporting") && (
-                        <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
-                          Supporting Purpose (FS Tidak Wajib)
+                      {editPurpose === "Supporting" && (
+                        <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-medium">
+                          Supporting Purpose (FS Bebas / Tidak Perlu)
                         </span>
                       )}
                     </div>
 
-                    {editPurpose.toLowerCase().includes("supporting") ? (
-                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 text-xs flex items-center gap-2">
-                        <span className="text-blue-600">ℹ️</span>
-                        <span>Usulan dengan Purpose <strong>Supporting</strong> tidak memerlukan perhitungan Feasibility Study (FS). Upload lampiran bersifat opsional.</span>
-                      </div>
-                    ) : null}
-
-                    <label className="flex flex-col items-center justify-center w-full py-4 px-3 border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50/40 hover:bg-slate-50 hover:border-slate-300 transition-all text-center">
-                      <svg className="w-5 h-5 text-slate-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <span className="text-[11px] font-semibold text-slate-700">
-                        {isUploading ? "Mengunggah file..." : "Klik untuk upload lampiran perhitungan FS Finance"}
-                      </span>
-                      <span className="text-[10px] text-slate-400 mt-0.5">
-                        PDF, Excel (Kalkulasi ROI/NPV/Payback), Word, PPT up to 10MB
-                      </span>
-                      <input
-                        type="file"
-                        multiple
-                        disabled={isUploading}
-                        className="hidden"
-                        onChange={(e) => handleFileUpload(e.target.files)}
-                      />
-                    </label>
-
-                    {/* Uploaded files chips */}
-                    {uploadedFiles.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {uploadedFiles.map((fn, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200"
-                          >
-                            <span className="truncate max-w-48">{fn}</span>
-                            <button
-                              type="button"
-                              onClick={() => setUploadedFiles((prev) => prev.filter((_, i) => i !== idx))}
-                              className="text-blue-400 hover:text-red-600 font-bold ml-0.5 cursor-pointer"
-                            >
-                              ✕
-                            </button>
+                    {editPurpose === "Supporting" ? (
+                      <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-2.5">
+                        <span className="text-base shrink-0">✅</span>
+                        <div>
+                          <span className="font-bold block text-emerald-900">Purpose: Supporting</span>
+                          <span className="text-[11px] text-emerald-700 font-normal">
+                            Usulan ini tidak memerlukan dokumen perhitungan Feasibility Study (FS). Finance dapat langsung menentukan keputusan ulasan review.
                           </span>
-                        ))}
+                        </div>
                       </div>
+                    ) : (
+                      <>
+                        <label className="flex flex-col items-center justify-center w-full py-4 px-3 border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50/40 hover:bg-slate-50 hover:border-slate-300 transition-all text-center">
+                          <svg className="w-5 h-5 text-slate-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          <span className="text-[11px] font-semibold text-slate-700">
+                            {isUploading ? "Mengunggah file..." : "Klik untuk upload lampiran perhitungan FS Finance"}
+                          </span>
+                          <span className="text-[10px] text-slate-400 mt-0.5">
+                            PDF, Excel (Kalkulasi ROI/NPV/Payback), Word, PPT up to 10MB
+                          </span>
+                          <input
+                            type="file"
+                            multiple
+                            disabled={isUploading}
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(e.target.files)}
+                          />
+                        </label>
+
+                        {/* Uploaded files chips */}
+                        {uploadedFiles.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {uploadedFiles.map((fn, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                              >
+                                <span className="truncate max-w-48">{fn}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setUploadedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                                  className="text-blue-400 hover:text-red-600 font-bold ml-0.5 cursor-pointer"
+                                >
+                                  ✕
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 

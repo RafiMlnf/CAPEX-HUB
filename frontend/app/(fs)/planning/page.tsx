@@ -170,35 +170,62 @@ function PlanningPageContent() {
                   </label>
                   <select
                     value={purpose}
-                    onChange={(e) => setPurpose(e.target.value)}
+                    onChange={(e) => {
+                      const newPurpose = e.target.value;
+                      setPurpose(newPurpose);
+                      if (newPurpose === "Capacity") {
+                        setInvestmentType("Capacity Up");
+                      } else if (newPurpose === "Capability") {
+                        setInvestmentType("Increase Value Added");
+                      } else if (newPurpose === "Supporting") {
+                        setInvestmentType("Supporting");
+                      }
+                    }}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-600 shadow-2xs cursor-pointer"
                   >
                     <option value="Capacity">Capacity</option>
-                    <option value="Cost Reduction">Cost Reduction</option>
-                    <option value="Quality">Quality</option>
-                    <option value="Safety / Environment">Safety / Environment</option>
-                    <option value="Replacement / Overhaul">Replacement / Overhaul</option>
-                    <option value="Other">Other</option>
+                    <option value="Capability">Capability</option>
+                    <option value="Supporting">Supporting</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                    INVESTMENT TYPE <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      INVESTMENT TYPE <span className="text-red-500">*</span>
+                    </label>
+                    {purpose === "Supporting" && (
+                      <span className="text-[9px] text-blue-600 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                        Otomatis Supporting
+                      </span>
+                    )}
+                  </div>
                   <select
                     value={investmentType}
+                    disabled={purpose === "Supporting"}
                     onChange={(e) => setInvestmentType(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-600 shadow-2xs cursor-pointer"
+                    className={`w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-blue-600 shadow-2xs ${
+                      purpose === "Supporting"
+                        ? "bg-slate-50 text-slate-600 cursor-not-allowed"
+                        : "bg-white text-slate-800 cursor-pointer"
+                    }`}
                   >
-                    <option value="Capacity Up">Capacity Up</option>
-                    <option value="Line Expansion">Line Expansion</option>
-                    <option value="New Model">New Model</option>
-                    <option value="Machine Renewal">Machine Renewal</option>
-                    <option value="Automation">Automation</option>
-                    <option value="Cost Down">Cost Down</option>
-                    <option value="Safety / 5S">Safety / 5S</option>
-                    <option value="Other">Other</option>
+                    {purpose === "Capacity" && (
+                      <>
+                        <option value="Capacity Up">Capacity Up</option>
+                        <option value="New Product Expansion">New Product Expansion</option>
+                      </>
+                    )}
+                    {purpose === "Capability" && (
+                      <>
+                        <option value="Increase Value Added">Increase Value Added</option>
+                        <option value="Increase Competency">Increase Competency</option>
+                        <option value="Restore Capacity">Restore Capacity</option>
+                      </>
+                    )}
+                    {purpose === "Supporting" && (
+                      <option value="Supporting">Supporting</option>
+                    )}
                   </select>
                 </div>
               </div>
