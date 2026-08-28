@@ -323,15 +323,15 @@ export default function FinanceReviewPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Purpose / Type</span>
+                            <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Purpose</span>
                             <p className="text-xs font-medium text-slate-800 mt-0.5">
-                              {selectedProposal.purpose || "-"} / {selectedProposal.investmentType || "-"}
+                              {selectedProposal.purpose || "-"}
                             </p>
                           </div>
                           <div>
-                            <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Estimasi Cost</span>
-                            <p className="text-xs font-semibold text-blue-600 mt-0.5">
-                              Rp {selectedProposal.estimatedCost.toLocaleString("id-ID")}
+                            <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Investment Type</span>
+                            <p className="text-xs font-medium text-slate-800 mt-0.5">
+                              {selectedProposal.investmentType || "-"}
                             </p>
                           </div>
                         </div>

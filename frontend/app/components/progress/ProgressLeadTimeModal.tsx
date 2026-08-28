@@ -7,6 +7,7 @@ import { getUsers, getCurrentUser, User } from "../../lib/api";
 interface ActivityLogItem {
   id: string | number;
   date: string;
+  rawTimestamp?: number;
   roleName: string;
   submitBy: string;
   approvalType: string;
@@ -61,13 +62,25 @@ export default function ProgressLeadTimeModal({
 
   // Helper to find a specific user by identifier (exact name, username, or NPK)
   const findUserByIdentifier = (rawId?: string): User | undefined => {
-    if (!rawId || !usersList.length) return undefined;
+    if (!rawId) return undefined;
     const q = rawId.trim().toLowerCase();
-    return usersList.find(
-      (u) =>
-        (u.name && u.name.trim().toLowerCase() === q) ||
-        (u.username && u.username.trim().toLowerCase() === q) ||
-        (u.npk && u.npk.trim().toLowerCase() === q)
+    const loggedIn = getCurrentUser();
+    if (
+      loggedIn &&
+      ((loggedIn.name && loggedIn.name.trim().toLowerCase() === q) ||
+        (loggedIn.username && loggedIn.username.trim().toLowerCase() === q) ||
+        (loggedIn.npk && loggedIn.npk.trim().toLowerCase() === q))
+    ) {
+      return loggedIn;
+    }
+    if (!usersList.length) return undefined;
+    return (
+      usersList.find(
+        (u) =>
+          (u.name && u.name.trim().toLowerCase() === q) ||
+          (u.username && u.username.trim().toLowerCase() === q) ||
+          (u.npk && u.npk.trim().toLowerCase() === q)
+      ) || undefined
     );
   };
 
@@ -79,21 +92,32 @@ export default function ProgressLeadTimeModal({
     dateStr?: string,
     daysVal: number = 1
   ): ActivityLogItem => {
-    const rawPic = (picIdentifier || "").trim();
-    const found = findUserByIdentifier(rawPic) || (getCurrentUser()?.name?.toLowerCase() === rawPic.toLowerCase() ? getCurrentUser() : undefined);
+    const rawPicCandidate = (picIdentifier || "").trim();
+    const isTestCandidate =
+      !rawPicCandidate ||
+      rawPicCandidate.toLowerCase() === "test user" ||
+      rawPicCandidate.toLowerCase() === "pemohon" ||
+      rawPicCandidate.toLowerCase() === "staff user";
+    const resolvedIdentifier = isTestCandidate
+      ? (proposal?.pic || raw?.pic || getCurrentUser()?.name || "")
+      : rawPicCandidate;
+
+    const found =
+      findUserByIdentifier(resolvedIdentifier) ||
+      (getCurrentUser()?.name?.toLowerCase() === resolvedIdentifier.toLowerCase() ? getCurrentUser() : undefined);
+
     const roleName = found?.role
-      ? found.department
-        ? `${found.role} (${found.department})`
-        : found.role
-      : deptFallback
-      ? `Proposer / Pemohon (${deptFallback})`
-      : "Proposer / Pemohon";
+      ? (found.department ? `${found.role} (${found.department})` : found.role)
+      : (deptFallback ? `Proposer / Pemohon (${deptFallback})` : "Proposer / Pemohon");
+
+    const submitByName = (found?.name || resolvedIdentifier || getCurrentUser()?.name || "Pemohon").toUpperCase();
 
     return {
       id: 1,
       date: formatDateWIB(dateStr),
+      rawTimestamp: new Date(dateStr || 0).getTime() || 0,
       roleName,
-      submitBy: (found?.name || rawPic || "Staff User").toUpperCase(),
+      submitBy: submitByName,
       approvalType: "Capex Planning",
       action: "SUBMITTED",
       actionType: "default",
@@ -110,26 +134,43 @@ export default function ProgressLeadTimeModal({
     dateStr?: string,
     id: number = 4
   ): ActivityLogItem => {
-    const rawPic = (uploaderIdentifier || "").trim();
-    const found = findUserByIdentifier(rawPic) || (getCurrentUser()?.name?.toLowerCase() === rawPic.toLowerCase() ? getCurrentUser() : undefined);
+    const rawUploaderCandidate = (uploaderIdentifier || "").trim();
+    const isTestCandidate =
+      !rawUploaderCandidate ||
+      rawUploaderCandidate.toLowerCase() === "test user" ||
+      rawUploaderCandidate.toLowerCase() === "pemohon" ||
+      rawUploaderCandidate.toLowerCase() === "staff user";
+    const resolvedIdentifier = isTestCandidate
+      ? (proposal?.pic || raw?.pic || getCurrentUser()?.name || "")
+      : rawUploaderCandidate;
+
+    const found =
+      findUserByIdentifier(resolvedIdentifier) ||
+      (getCurrentUser()?.name?.toLowerCase() === resolvedIdentifier.toLowerCase() ? getCurrentUser() : undefined);
+
     const roleName = found?.role
-      ? found.department
-        ? `${found.role} (${found.department})`
-        : found.role
-      : deptFallback
-      ? `Proposer / Pemohon (${deptFallback})`
-      : "Proposer / Pemohon";
+      ? (found.department ? `${found.role} (${found.department})` : found.role)
+      : (deptFallback ? `Proposer / Pemohon (${deptFallback})` : "Proposer / Pemohon");
+
+    const cleanFiles = (fileNames || "")
+      .replace(/^Dokumen Revisi Diunggah oleh Pemohon:\s*/i, "")
+      .replace(/^Dokumen pendukung diunggah:\s*/i, "")
+      .replace(/^Dokumen Diunggah Ulang \/ Pendukung:\s*/i, "")
+      .trim();
+
+    const submitByName = (found?.name || resolvedIdentifier || getCurrentUser()?.name || "Pemohon").toUpperCase();
 
     return {
       id,
       date: formatDateWIB(dateStr),
+      rawTimestamp: new Date(dateStr || 0).getTime() || 0,
       roleName,
-      submitBy: (found?.name || rawPic || "Staff User").toUpperCase(),
+      submitBy: submitByName,
       approvalType: "Document Upload",
       action: "UPLOAD",
       actionType: "upload",
       days: "1 Day",
-      description: fileNames ? `Dokumen Revisi Diunggah oleh Pemohon: ${fileNames}` : "Dokumen pendukung diunggah oleh pemohon.",
+      description: cleanFiles ? `Dokumen Pendukung: ${cleanFiles}` : "Dokumen pendukung diunggah oleh pemohon.",
     };
   };
 
@@ -145,11 +186,8 @@ export default function ProgressLeadTimeModal({
     daysVal: number = 1,
     id: number = 3
   ): ActivityLogItem => {
-    // Prioritize explicitActor (from live history entry) over static approvedByField
     const target = (explicitActor || approvedByField || "").trim();
-    let found = target && !target.toLowerCase().includes("accounting officer") && !target.toLowerCase().includes("finance (accounting)")
-      ? findUserByIdentifier(target)
-      : undefined;
+    let found = target ? findUserByIdentifier(target) : undefined;
 
     if (!found) {
       const loggedIn = getCurrentUser();
@@ -162,23 +200,24 @@ export default function ProgressLeadTimeModal({
       }
     }
 
-    if (!found) {
+    if (!found && usersList.length > 0) {
       found =
         usersList.find((u) => (u.department || "").toLowerCase().includes("finan") && (u.can_admin || (u.allowed_portals && u.allowed_portals.includes("admin")))) ||
         usersList.find((u) => (u.department || "").toLowerCase().includes("finan") || (u.role || "").toLowerCase().includes("account"));
     }
 
     const roleName = found?.role
-      ? found.department
-        ? `${found.role} (${found.department})`
-        : found.role
-      : "Accounting Officer (Finance & Accounting)";
+      ? (found.department ? `${found.role} (${found.department})` : found.role)
+      : (target ? `Finance (${target})` : "Finance & Accounting");
+
+    const submitByName = (found?.name || target || "Finance Reviewer").toUpperCase();
 
     return {
       id,
       date: formatDateWIB(dateStr),
+      rawTimestamp: new Date(dateStr || 0).getTime() || 0,
       roleName,
-      submitBy: (found?.name || target || "ACCOUNTING OFFICER").toUpperCase(),
+      submitBy: submitByName,
       approvalType: "Finance Review",
       action: isApproved ? "Approved" : isRevised ? "Revised" : isPending ? "Pending" : "Review",
       actionType: isApproved ? "approved" : isRevised ? "revised" : isPending ? "review" : "review",
@@ -206,40 +245,38 @@ export default function ProgressLeadTimeModal({
     daysVal: number = 1,
     id: number = 5
   ): ActivityLogItem => {
-    // Prioritize explicitActor (from live history entry) over static approvedByField
     const target = (explicitActor || approvedByField || "").trim();
-    let found = target && !target.toLowerCase().includes("komite") && !target.toLowerCase().includes("committee") && !target.toLowerCase().includes("direksi")
-      ? findUserByIdentifier(target)
-      : undefined;
+    let found = target ? findUserByIdentifier(target) : undefined;
 
     if (!found) {
       const loggedIn = getCurrentUser();
       if (loggedIn) {
         const uRole = (loggedIn.role || "").toLowerCase();
         const uDept = (loggedIn.department || "").toLowerCase();
-        if (uRole.includes("account") || uRole.includes("finan") || uDept.includes("account") || uDept.includes("finan") || uRole.includes("admin")) {
+        if (uRole.includes("komite") || uRole.includes("committee") || uRole.includes("direksi") || uRole.includes("admin")) {
           found = loggedIn;
         }
       }
     }
 
-    if (!found) {
+    if (!found && usersList.length > 0) {
       found =
-        usersList.find((u) => (u.department || "").toLowerCase().includes("finan") && (u.can_admin || (u.allowed_portals && u.allowed_portals.includes("admin")))) ||
-        usersList.find((u) => (u.department || "").toLowerCase().includes("finan") || (u.role || "").toLowerCase().includes("account"));
+        usersList.find((u) => (u.department || "").toLowerCase().includes("komite") || (u.role || "").toLowerCase().includes("komite") || (u.role || "").toLowerCase().includes("direksi")) ||
+        usersList.find((u) => u.can_admin || (u.allowed_portals && u.allowed_portals.includes("admin")));
     }
 
     const roleName = found?.role
-      ? found.department
-        ? `${found.role} (${found.department})`
-        : found.role
-      : "Accounting Officer (Finance & Accounting)";
+      ? (found.department ? `${found.role} (${found.department})` : found.role)
+      : (target ? `Komite (${target})` : "Komite Investasi");
+
+    const submitByName = (found?.name || target || "Komite Investasi").toUpperCase();
 
     return {
       id,
       date: formatDateWIB(dateStr),
+      rawTimestamp: new Date(dateStr || 0).getTime() || 0,
       roleName,
-      submitBy: (found?.name || target || "ACCOUNTING OFFICER").toUpperCase(),
+      submitBy: submitByName,
       approvalType: "Committee Approval",
       action: isApproved ? "Approved" : isRejected ? "Rejected" : isRevised ? "Revised" : "Review",
       actionType: isApproved ? "approved" : isRejected ? "rejected" : isRevised ? "revised" : "review",
@@ -264,7 +301,7 @@ export default function ProgressLeadTimeModal({
 
     const logs: ActivityLogItem[] = [];
     const dept = proposal.department || "DEPT";
-    const pic = proposal.pic || raw.pic || "Staff User";
+    const pic = proposal.pic || raw.pic || getCurrentUser()?.name || "STAFF USER";
     const createdAt = proposal.createdAt || raw.createdAt || new Date().toISOString();
     const gs = (proposal.gateStatus || raw.gateStatus || "Idea").toLowerCase();
 
@@ -283,13 +320,36 @@ export default function ProgressLeadTimeModal({
         if (!h) return;
         const actLower = (h.action || "").toLowerCase();
         const actorLower = (h.actor || "").toLowerCase();
+        const notesLower = (h.notes || "").toLowerCase();
+
+        // Skip test verification entries
+        if (actLower.startsWith("test") || notesLower.includes("entry ini harus tersimpan")) return;
 
         const isFin = actorLower.includes("finan") || actorLower.includes("account") || h.gate === 1;
         const isComm = actorLower.includes("komite") || actorLower.includes("committee") || actorLower.includes("division") || actorLower.includes("direksi") || h.gate === 2;
         const isUpload = actLower.includes("upload") || actLower.includes("unggah") || actLower.includes("dokumen");
 
         if (isUpload) {
-          logs.push(buildDocumentUploadStageLog(h.actor, dept, h.notes, h.timestamp || createdAt, 100 + idx));
+          const lastLog = logs[logs.length - 1];
+          const cleanFiles = (h.notes || "")
+            .replace(/^Dokumen Revisi Diunggah oleh Pemohon:\s*/i, "")
+            .replace(/^Dokumen pendukung diunggah:\s*/i, "")
+            .replace(/^Dokumen Diunggah Ulang \/ Pendukung:\s*/i, "")
+            .trim();
+
+          if (
+            lastLog &&
+            lastLog.action === "UPLOAD" &&
+            lastLog.approvalType === "Document Upload" &&
+            (lastLog.submitBy.toLowerCase() === (h.actor || "").trim().toLowerCase() ||
+             lastLog.submitBy.toLowerCase() === "pemohon")
+          ) {
+            if (cleanFiles && !lastLog.description.includes(cleanFiles)) {
+              lastLog.description = `${lastLog.description}, ${cleanFiles}`;
+            }
+          } else {
+            logs.push(buildDocumentUploadStageLog(h.actor, dept, h.notes, h.timestamp || createdAt, 100 + idx));
+          }
         } else if (isComm) {
           const isAppr = actLower.includes("approv") || actLower.includes("setuju");
           const isRej = actLower.includes("reject") || actLower.includes("tolak");
@@ -407,8 +467,54 @@ export default function ProgressLeadTimeModal({
       );
     }
 
+    // Sort chronologically ascending by timestamp so activities appear in exact timeline order
+    logs.sort((a, b) => {
+      const timeA = a.rawTimestamp || 0;
+      const timeB = b.rawTimestamp || 0;
+      if (timeA !== timeB) return timeA - timeB;
+      return (typeof a.id === "number" ? a.id : 0) - (typeof b.id === "number" ? b.id : 0);
+    });
+
+    // Recalculate step-by-step lead time (in days/hours) based on elapsed time from previous activity
+    for (let i = 0; i < logs.length; i++) {
+      if (i === 0) {
+        logs[i].days = "0 Day";
+      } else {
+        const prevTime = logs[i - 1].rawTimestamp || logs[0].rawTimestamp || 0;
+        const curTime = logs[i].rawTimestamp || prevTime;
+        const diffMs = Math.max(0, curTime - prevTime);
+        const hours = diffMs / (1000 * 60 * 60);
+        const days = hours / 24;
+
+        if (hours === 0) {
+          logs[i].days = "0 Day";
+        } else if (days < 1) {
+          logs[i].days = `${days.toFixed(1)} Day`;
+        } else {
+          logs[i].days = `${days.toFixed(1)} Days`;
+        }
+      }
+    }
+
     return logs;
   }, [proposal, raw, usersList]);
+
+  // Compute total accumulated lead time across all activities
+  const totalLeadTimeDisplay = useMemo(() => {
+    if (activityLogs.length === 0) return "0 Day";
+    const firstTime = activityLogs[0]?.rawTimestamp || 0;
+    const lastTime = activityLogs[activityLogs.length - 1]?.rawTimestamp || firstTime;
+    const diffMs = Math.max(0, lastTime - firstTime);
+    const hours = diffMs / (1000 * 60 * 60);
+    const days = hours / 24;
+
+    if (hours === 0) return "0 Day";
+    if (days < 1) {
+      const roundedHours = Math.max(1, Math.round(hours));
+      return `${days.toFixed(1)} Day (~${roundedHours} Jam)`;
+    }
+    return `${days.toFixed(1)} Days`;
+  }, [activityLogs]);
 
   const totalRecords = activityLogs.length;
   const totalPages = Math.ceil(totalRecords / itemsPerPage) || 1;
@@ -426,7 +532,7 @@ export default function ProgressLeadTimeModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-200">
       <div
-        className="bg-white border border-slate-200 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden my-6 text-slate-800 flex flex-col max-h-[90vh]"
+        className="bg-white border border-slate-200 w-full max-w-[95vw] 2xl:max-w-7xl rounded-2xl shadow-2xl overflow-hidden my-4 text-slate-800 flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -527,17 +633,17 @@ export default function ProgressLeadTimeModal({
           {/* Detailed Activity Stages Table */}
           <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs bg-white">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[750px]">
+              <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-semibold uppercase text-slate-500 tracking-wider">
-                    <th className="py-3 px-3 w-12 text-center border-r border-slate-100">NO</th>
-                    <th className="py-3 px-3 w-40 border-r border-slate-100 whitespace-nowrap">DATE</th>
-                    <th className="py-3 px-3.5 w-48 border-r border-slate-100 whitespace-nowrap">ROLE NAME</th>
-                    <th className="py-3 px-3.5 w-44 border-r border-slate-100 whitespace-nowrap">SUBMIT BY</th>
-                    <th className="py-3 px-3 w-32 border-r border-slate-100 whitespace-nowrap">APPROVAL TYPE</th>
-                    <th className="py-3 px-3 w-28 text-center border-r border-slate-100 whitespace-nowrap">ACTION</th>
-                    <th className="py-3 px-3 w-24 text-center border-r border-slate-100 whitespace-nowrap">DAYS</th>
-                    <th className="py-3 px-4 min-w-[220px]">BENEFIT</th>
+                    <th className="py-3 px-2.5 w-10 text-center border-r border-slate-100">NO</th>
+                    <th className="py-3 px-3 w-36 border-r border-slate-100 whitespace-nowrap">DATE</th>
+                    <th className="py-3 px-3 w-44 border-r border-slate-100 whitespace-nowrap">ROLE NAME</th>
+                    <th className="py-3 px-3 w-40 border-r border-slate-100 whitespace-nowrap">SUBMIT BY</th>
+                    <th className="py-3 px-3 w-36 border-r border-slate-100 whitespace-nowrap">APPROVAL TYPE</th>
+                    <th className="py-3 px-2.5 w-24 text-center border-r border-slate-100 whitespace-nowrap">ACTION</th>
+                    <th className="py-3 px-2.5 w-20 text-center border-r border-slate-100 whitespace-nowrap">DAYS</th>
+                    <th className="py-3 px-4 min-w-[200px]">BENEFIT</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs font-normal">
@@ -545,22 +651,22 @@ export default function ProgressLeadTimeModal({
                     const rowNumber = (currentPage - 1) * itemsPerPage + index + 1;
                     return (
                       <tr key={log.id} className="hover:bg-blue-50/20 transition-colors">
-                        <td className="py-3 px-3 text-center text-slate-400 font-mono border-r border-slate-100">
+                        <td className="py-3 px-2.5 text-center text-slate-400 font-mono border-r border-slate-100">
                           {rowNumber}
                         </td>
                         <td className="py-3 px-3 font-mono text-[11px] text-slate-600 border-r border-slate-100 whitespace-nowrap">
                           {log.date}
                         </td>
-                        <td className="py-3 px-3.5 font-normal text-slate-700 border-r border-slate-100 whitespace-nowrap">
+                        <td className="py-3 px-3 font-normal text-slate-700 border-r border-slate-100">
                           {log.roleName}
                         </td>
-                        <td className="py-3 px-3.5 font-normal text-slate-600 border-r border-slate-100 whitespace-nowrap">
+                        <td className="py-3 px-3 font-normal text-slate-700 border-r border-slate-100">
                           {log.submitBy}
                         </td>
                         <td className="py-3 px-3 text-slate-600 border-r border-slate-100 whitespace-nowrap font-normal">
                           {log.approvalType}
                         </td>
-                        <td className="py-3 px-3 text-center border-r border-slate-100 whitespace-nowrap">
+                        <td className="py-3 px-2.5 text-center border-r border-slate-100 whitespace-nowrap">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium uppercase tracking-wider ${
                               log.actionType === "approved"
@@ -577,12 +683,12 @@ export default function ProgressLeadTimeModal({
                             {log.action}
                           </span>
                         </td>
-                        <td className="py-3 px-3 text-center border-r border-slate-100 whitespace-nowrap font-mono text-[11px]">
+                        <td className="py-3 px-2.5 text-center border-r border-slate-100 whitespace-nowrap font-mono text-[11px]">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-normal bg-slate-100 text-slate-600 border border-slate-200">
                             {typeof log.days === "number" ? `${log.days} Days` : log.days || "1 Day"}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-slate-700 font-normal leading-relaxed">
+                        <td className="py-3 px-4 text-slate-700 font-normal leading-relaxed break-words">
                           {log.description}
                         </td>
                       </tr>
@@ -596,6 +702,21 @@ export default function ProgressLeadTimeModal({
                     </tr>
                   )}
                 </tbody>
+                {activityLogs.length > 0 && (
+                  <tfoot className="bg-slate-50/90 border-t-2 border-slate-200 font-semibold text-slate-800 text-xs">
+                    <tr>
+                      <td colSpan={6} className="py-3.5 px-4 text-right uppercase tracking-wider text-[11px] text-slate-700 font-bold border-r border-slate-200">
+                        TOTAL LEAD TIME:
+                      </td>
+                      <td className="py-3.5 px-2.5 text-center font-mono text-[11px] border-r border-slate-200 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300 shadow-2xs">
+                          {totalLeadTimeDisplay}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-400 font-normal text-[11px]"></td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </div>

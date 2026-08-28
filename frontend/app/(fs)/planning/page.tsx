@@ -128,7 +128,7 @@ function PlanningPageContent() {
       if (proposalData.id) {
         const existingP = proposals.find((p) => p.id === proposalData.id);
         const now = new Date().toISOString();
-        const actorName = currentUser?.name || proposalData.pic || "Pemohon";
+        const actorName = currentUser?.name || currentUser?.username || proposalData.pic || "Pemohon";
 
         await editProposal(proposalData.id, {
           name: proposalData.name,
@@ -257,13 +257,9 @@ function PlanningPageContent() {
             {/* Header Controls: Title, Search, Filter & Add Planning Button */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">
                   Daftar Perencanaan Budget Planning
                 </h3>
-                <p className="text-xs text-slate-500 font-normal mt-0.5">
-                  Kelola usulan belanja modal baru, pantau status verifikasi Finance & persetujuan Komite Investasi
-                </p>
               </div>
 
               <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
@@ -336,14 +332,17 @@ function PlanningPageContent() {
                     <th className="py-3.5 px-4 w-36 border-r border-slate-100 whitespace-nowrap">
                       ID Capex
                     </th>
-                    <th className="py-3.5 px-4 min-w-[260px] border-r border-slate-100">
+                    <th className="py-3.5 px-4 min-w-[240px] border-r border-slate-100">
                       Nama Proyek
                     </th>
                     <th className="py-3.5 px-4 w-36 border-r border-slate-100 whitespace-nowrap">
                       Departemen
                     </th>
-                    <th className="py-3.5 px-4 w-40 border-r border-slate-100 whitespace-nowrap">
-                      Purpose / Type
+                    <th className="py-3.5 px-4 w-36 border-r border-slate-100 whitespace-nowrap">
+                      Purpose
+                    </th>
+                    <th className="py-3.5 px-4 w-36 border-r border-slate-100 whitespace-nowrap">
+                      Investment Type
                     </th>
                     <th className="py-3.5 px-4 w-32 border-r border-slate-100 whitespace-nowrap">
                       PIC
@@ -368,7 +367,7 @@ function PlanningPageContent() {
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {loadingProposals ? (
                     <tr>
-                      <td colSpan={11} className="text-center text-slate-400 font-normal py-12">
+                      <td colSpan={12} className="text-center text-slate-400 font-normal py-12">
                         Memuat daftar perencanaan budget...
                       </td>
                     </tr>
@@ -392,9 +391,11 @@ function PlanningPageContent() {
                         <td className="py-3.5 px-4 text-slate-600 font-medium border-r border-slate-100 whitespace-nowrap">
                           {p.department}
                         </td>
-                        <td className="py-3.5 px-4 border-r border-slate-100">
-                          <div className="font-medium text-slate-800">{p.purpose || "-"}</div>
-                          <div className="text-[10px] text-slate-400 font-normal">{p.investmentType || "-"}</div>
+                        <td className="py-3.5 px-4 text-slate-800 font-medium border-r border-slate-100 whitespace-nowrap">
+                          {p.purpose || "-"}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600 font-normal border-r border-slate-100 whitespace-nowrap">
+                          {p.investmentType || "-"}
                         </td>
                         <td className="py-3.5 px-4 text-slate-600 font-normal border-r border-slate-100 whitespace-nowrap">
                           {p.pic}
@@ -436,7 +437,7 @@ function PlanningPageContent() {
 
                   {!loadingProposals && filteredProposals.length === 0 && (
                     <tr>
-                      <td colSpan={11} className="text-center text-slate-400 font-normal py-12">
+                      <td colSpan={12} className="text-center text-slate-400 font-normal py-12">
                         {searchQuery
                           ? `Tidak ada perencanaan yang cocok dengan pencarian "${searchQuery}"`
                           : "Belum ada usulan perencanaan budget planning."}
@@ -709,9 +710,15 @@ function PlanningPageContent() {
                 <p className="font-semibold text-slate-800 mt-0.5 truncate">{viewingProposal.pic || "-"}</p>
               </div>
               <div>
-                <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">Purpose / Investment Type</span>
+                <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">Purpose</span>
                 <p className="font-medium text-slate-700 mt-0.5 truncate">
-                  {viewingProposal.purpose || "-"} / {viewingProposal.investmentType || "-"}
+                  {viewingProposal.purpose || "-"}
+                </p>
+              </div>
+              <div>
+                <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">Investment Type</span>
+                <p className="font-medium text-slate-700 mt-0.5 truncate">
+                  {viewingProposal.investmentType || "-"}
                 </p>
               </div>
               <div>

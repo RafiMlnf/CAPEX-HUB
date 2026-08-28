@@ -144,7 +144,24 @@ export class CapexService {
       },
       include: { departemen: true, capexType: true, capexReference: true, capexHistory: { orderBy: { timestamp: 'asc' } } },
     });
-    return this.formatProposal(record);
+
+    const initialActor = data.actor || data.pic || 'Staff User';
+    await this.prisma.capexHistory.create({
+      data: {
+        capex_id: record.id,
+        gate: 0,
+        action: 'SUBMITTED',
+        actor: initialActor,
+        timestamp: new Date(),
+        notes: data.description ?? 'Pengajuan usulan CAPEX baru',
+      },
+    });
+
+    const fullRecord = await this.prisma.capex.findFirst({
+      where: { id: record.id },
+      include: { departemen: true, capexType: true, capexReference: true, capexHistory: { orderBy: { timestamp: 'asc' } } },
+    });
+    return this.formatProposal(fullRecord || record);
   }
 
   async updateProposal(id: string, data: any) {

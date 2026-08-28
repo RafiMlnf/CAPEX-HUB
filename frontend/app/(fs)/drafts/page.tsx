@@ -577,7 +577,7 @@ function DraftsPageContent() {
                 <button
                   onClick={async () => {
                     const now = new Date().toISOString();
-                    const uploaderName = currentUser?.name || uploadProposal.pic || "Pemohon";
+                    const uploaderName = currentUser?.name || currentUser?.username || uploadProposal.pic || "Pemohon";
                     const fileListStr = supportingFiles.join(", ");
 
                     await editProposal(uploadProposal.id, {
