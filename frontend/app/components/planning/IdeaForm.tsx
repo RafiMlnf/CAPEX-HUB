@@ -32,11 +32,14 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
   const { currentUser } = useCapex();
 
   const investmentTypesMap: Record<string, string[]> = {
-    Capacity: ["Capacity Up", "New Product Expansion"],
+    Capacity: ["Capacity Up"],
     Capability: [
-      "Increase Value Added",
-      "Increase Competency",
+      "Improve Product Quality",
+      "Cost Reduction",
+      "Safety",
+      "Environment",
       "Restore Capacity",
+      "Increase Value Added",
     ],
     Supporting: ["Supporting"],
   };
@@ -55,22 +58,20 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
         .filter(Boolean) || []
     : [];
 
+  const [purpose, setPurpose] = useState(initialData?.purpose || "");
+  const [investmentType, setInvestmentType] = useState(initialData?.investmentType || "");
   const [name, setName] = useState(initialData?.name || "");
-  const [purpose, setPurpose] = useState(initialData?.purpose || "Capacity");
-  const [investmentType, setInvestmentType] = useState(initialData?.investmentType || "Capacity Up");
-  const [department, setDepartment] = useState(initialData?.department || "PE");
-  const [pic, setPic] = useState(initialData?.pic || currentUser?.name || currentUser?.username || "");
   const [description, setDescription] = useState(initialData?.description || "");
-  const [estimatedCost, setEstimatedCost] = useState(
-    initialData?.estimatedCost ? String(initialData.estimatedCost) : ""
-  );
+  const [department, setDepartment] = useState(initialData?.department || currentUser?.department || "Engineering");
+  const [pic, setPic] = useState(initialData?.pic || currentUser?.name || currentUser?.username || "");
+  const [estimatedCost, setEstimatedCost] = useState(initialData?.estimatedCost ? initialData.estimatedCost.toLocaleString("id-ID") : "");
   const [startDate, setStartDate] = useState(initialData?.startDate || "");
   const [endDate, setEndDate] = useState(initialData?.endDate || "");
   const [attachmentNames, setAttachmentNames] = useState<string[]>(
-    isRevisionMode
-      ? initialData?.revisedAttachmentName
-        ? initialData.revisedAttachmentName.split(", ").filter(Boolean)
-        : []
+    initialData?.revisedAttachmentName
+      ? initialData.revisedAttachmentName.split(", ").filter(Boolean)
+      : isRevisionMode
+      ? []
       : initialData?.attachmentName
       ? initialData.attachmentName.split(", ").filter(Boolean)
       : []
@@ -81,10 +82,6 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
     setPurpose(val);
     if (val === "Supporting") {
       setInvestmentType("Supporting");
-    } else if (val === "Capacity") {
-      setInvestmentType("Capacity Up");
-    } else if (val === "Capability") {
-      setInvestmentType("Increase Value Added");
     } else {
       setInvestmentType("");
     }
@@ -162,8 +159,8 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
       department: department || currentUser?.department || "Engineering",
       pic: pic || currentUser?.name || currentUser?.username || "Budi Santoso",
       estimatedCost: numericCost,
-      purpose: purpose || "Capacity",
-      investmentType: investmentType || (purpose === "Supporting" ? "Supporting" : "Capacity Up"),
+      purpose: purpose || (isDraft ? "" : "Capacity"),
+      investmentType: investmentType || (isDraft ? "" : (purpose === "Supporting" ? "Supporting" : "Capacity Up")),
       startDate: startDate || "",
       endDate: endDate || "",
       attachmentName: finalAttachmentName,
@@ -173,8 +170,8 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
     });
 
     // Reset form fields
-    setPurpose("Capacity");
-    setInvestmentType("Capacity Up");
+    setPurpose("");
+    setInvestmentType("");
     setName("");
     setDescription("");
     setPic(currentUser?.name || currentUser?.username || "Budi Santoso");

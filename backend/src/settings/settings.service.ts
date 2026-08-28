@@ -214,18 +214,22 @@ export class SettingsService {
   }
 
   async upsertDeptSettings(data: any) {
+    const deptId = parseInt(data.departemen_id || data.dept_id);
+    const headDeptId = data.head_dept_id || data.head_dept_user_id;
+    const accountingId = data.accounting_id || data.accounting_user_id;
+
     const result = await this.prisma.departmentSettings.upsert({
-      where: { departemen_id: parseInt(data.departemen_id) },
+      where: { departemen_id: deptId },
       create: {
-        departemen_id: parseInt(data.departemen_id),
+        departemen_id: deptId,
         keterangan: data.keterangan ?? null,
-        head_dept_user_id: data.head_dept_id ? parseInt(data.head_dept_id) : null,
-        accounting_user_id: data.accounting_id ? parseInt(data.accounting_id) : null,
+        head_dept_user_id: headDeptId ? parseInt(headDeptId) : null,
+        accounting_user_id: accountingId ? parseInt(accountingId) : null,
       },
       update: {
         keterangan: data.keterangan ?? null,
-        head_dept_user_id: data.head_dept_id ? parseInt(data.head_dept_id) : null,
-        accounting_user_id: data.accounting_id ? parseInt(data.accounting_id) : null,
+        head_dept_user_id: headDeptId ? parseInt(headDeptId) : null,
+        accounting_user_id: accountingId ? parseInt(accountingId) : null,
       },
     });
     return { id: result.id.toString() };
@@ -243,29 +247,54 @@ export class SettingsService {
       orderBy: { nama_user: 'asc' },
     });
 
-    return users.map((u) => ({
-      user_id: u.id,
-      npk: u.npk,
-      name: u.nama_user,
-      username: u.username,
-      department: u.departemen?.nama_departemen ?? '',
-      role: u.role?.nama_role ?? '',
-      can_capex: u.portalAccess?.can_capex ?? true,
-      can_bodr: u.portalAccess?.can_bodr ?? true,
-      can_price: u.portalAccess?.can_price ?? true,
-      allowed_portals: [
-        ...(u.portalAccess?.can_capex !== false ? ['capex'] : []),
-        ...(u.portalAccess?.can_bodr !== false ? ['bodr'] : []),
-        ...(u.portalAccess?.can_price !== false ? ['price'] : []),
-      ],
-    }));
+    return users.map((u) => {
+      const roleName = (u.role?.nama_role ?? '').toLowerCase();
+      const isAdm = roleName === 'admin' || (u.username || '').toLowerCase() === 'admin';
+      const canAdmin = isAdm || (u.portalAccess?.can_admin === true);
+
+      return {
+        user_id: u.id,
+        npk: u.npk,
+        name: u.nama_user,
+        username: u.username,
+        department: u.departemen?.nama_departemen ?? '',
+        role: u.role?.nama_role ?? '',
+        can_capex: u.portalAccess?.can_capex ?? true,
+        can_bodr: u.portalAccess?.can_bodr ?? true,
+        can_price: u.portalAccess?.can_price ?? true,
+        can_admin: canAdmin,
+        allowed_portals: [
+          ...(u.portalAccess?.can_capex !== false ? ['capex'] : []),
+          ...(u.portalAccess?.can_bodr !== false ? ['bodr'] : []),
+          ...(u.portalAccess?.can_price !== false ? ['price'] : []),
+          ...(canAdmin ? ['admin'] : []),
+        ],
+      };
+    });
   }
 
-  async upsertPortalAccess(data: { user_id: number; can_capex: boolean; can_bodr: boolean; can_price: boolean }) {
+  async upsertPortalAccess(data: { user_id: number; can_capex: boolean; can_bodr: boolean; can_price: boolean; can_admin?: boolean }) {
+    const userId = Number(data.user_id);
+    const canCapex = Boolean(data.can_capex);
+    const canBodr = Boolean(data.can_bodr);
+    const canPrice = Boolean(data.can_price);
+    const canAdmin = Boolean(data.can_admin);
+
     await this.prisma.userPortalAccess.upsert({
-      where: { user_id: data.user_id },
-      create: { user_id: data.user_id, can_capex: data.can_capex, can_bodr: data.can_bodr, can_price: data.can_price },
-      update: { can_capex: data.can_capex, can_bodr: data.can_bodr, can_price: data.can_price },
+      where: { user_id: userId },
+      create: {
+        user_id: userId,
+        can_capex: canCapex,
+        can_bodr: canBodr,
+        can_price: canPrice,
+        can_admin: canAdmin,
+      },
+      update: {
+        can_capex: canCapex,
+        can_bodr: canBodr,
+        can_price: canPrice,
+        can_admin: canAdmin,
+      },
     });
     return { success: true, message: 'Portal access berhasil diperbarui' };
   }

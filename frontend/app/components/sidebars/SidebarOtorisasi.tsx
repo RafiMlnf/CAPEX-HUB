@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCapex } from "../../context/CapexContext";
@@ -40,6 +40,12 @@ const masterDataMenu = {
   ]
 };
 
+// Module-level persistent state across page transitions to completely prevent re-render flicker
+const sidebarStateCache: Record<string, boolean> = {
+  otorisasi: true,
+  masterdata: true,
+};
+
 export default function SidebarOtorisasi() {
   const pathname = usePathname();
   const { currentUser, hasPermission } = useCapex();
@@ -50,24 +56,22 @@ export default function SidebarOtorisasi() {
                          pathname.startsWith("/otorisasi-harga/jenis-otorisasi") ||
                          pathname.startsWith("/otorisasi-harga/jenis-barang");
 
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    otorisasi: true,
-    masterdata: true,
-  });
+  // Keep active section open synchronously
+  if (isOtorisasiActive) {
+    sidebarStateCache.otorisasi = true;
+  }
+  if (isMasterActive) {
+    sidebarStateCache.masterdata = true;
+  }
 
-  useEffect(() => {
-    if (isOtorisasiActive) {
-      setOpenSections(prev => ({ ...prev, otorisasi: true }));
-    }
-    if (isMasterActive) {
-      setOpenSections(prev => ({ ...prev, masterdata: true }));
-    }
-  }, [isOtorisasiActive, isMasterActive]);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ ...sidebarStateCache });
 
   const toggleSection = (section: string) => {
+    const nextVal = !openSections[section];
+    sidebarStateCache[section] = nextVal;
     setOpenSections(prev => ({
       ...prev,
-      [section]: !prev[section],
+      [section]: nextVal,
     }));
   };
 
@@ -75,6 +79,12 @@ export default function SidebarOtorisasi() {
   const role = (currentUser?.role || "").toLowerCase();
   const username = (currentUser?.username || "").toLowerCase();
   const isAdmin = role === "admin" || username === "admin";
+
+  const canAccessMasterData =
+    isAdmin ||
+    hasPermission("perm_manage_master_price") ||
+    hasPermission("perm_manage_config") ||
+    hasPermission("perm_manage_settings");
 
   let portalCount = 0;
   if (currentUser?.allowed_portals && Array.isArray(currentUser.allowed_portals)) {
@@ -184,7 +194,7 @@ export default function SidebarOtorisasi() {
         )}
 
         {/* Dropdown 2: Master Data */}
-        {(hasPermission("perm_manage_config") || hasPermission("perm_manage_settings")) && (
+        {canAccessMasterData && (
           <div>
             <button
               type="button"

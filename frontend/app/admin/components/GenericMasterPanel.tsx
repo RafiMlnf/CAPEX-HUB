@@ -116,15 +116,32 @@ export default function GenericMasterPanel<T extends GenericItem>({
       });
     } catch (err: any) {
       let errorMsg = err.message || "Gagal menyimpan data master.";
-      if (errorMsg.includes("duplicate key") || errorMsg.includes("23505") || errorMsg.includes("unique constraint")) {
+      const isDuplicate =
+        errorMsg.toLowerCase().includes("duplicate") ||
+        errorMsg.toLowerCase().includes("duplikat") ||
+        errorMsg.toLowerCase().includes("sudah terdaftar") ||
+        errorMsg.toLowerCase().includes("unique constraint") ||
+        errorMsg.toLowerCase().includes("23505") ||
+        errorMsg.toLowerCase().includes("p2002");
+
+      if (isDuplicate) {
         errorMsg = `Kode "${kode}" sudah terdaftar dalam sistem. Silakan gunakan kode lain yang unik.`;
+        Swal.fire({
+          title: "Kode Sudah Terdaftar!",
+          text: errorMsg,
+          icon: "warning",
+          confirmButtonColor: "#3b82f6",
+          confirmButtonText: "Tutup",
+        });
+      } else {
+        Swal.fire({
+          title: "Gagal Menyimpan",
+          text: errorMsg,
+          icon: "error",
+          confirmButtonColor: "#ef4444",
+          confirmButtonText: "Tutup",
+        });
       }
-      Swal.fire({
-        title: "Gagal Menyimpan",
-        text: errorMsg,
-        icon: "error",
-        confirmButtonColor: "#ef4444",
-      });
     } finally {
       setIsSaving(false);
     }

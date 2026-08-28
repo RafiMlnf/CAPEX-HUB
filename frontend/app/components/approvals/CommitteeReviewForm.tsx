@@ -211,15 +211,15 @@ export default function CommitteeReviewForm({ pendingApprovals, onDecision }: Co
 
                     <div className="grid grid-cols-2 gap-4 border-t border-slate-200/80 pt-3">
                       <div>
-                        <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Purpose / Type</span>
+                        <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Purpose</span>
                         <p className="text-xs font-medium text-slate-700 mt-0.5">
-                          {selectedProposal.purpose || "-"} / {selectedProposal.investmentType || "-"}
+                          {selectedProposal.purpose || "-"}
                         </p>
                       </div>
                       <div>
-                        <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Estimasi Biaya</span>
-                        <p className="text-xs font-bold text-blue-600 mt-0.5 font-mono">
-                          Rp {selectedProposal.estimatedCost.toLocaleString("id-ID")}
+                        <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Investment Type</span>
+                        <p className="text-xs font-medium text-slate-700 mt-0.5">
+                          {selectedProposal.investmentType || "-"}
                         </p>
                       </div>
                     </div>

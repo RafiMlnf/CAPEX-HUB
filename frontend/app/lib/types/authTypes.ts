@@ -28,6 +28,7 @@ export interface User {
   can_capex?: boolean;
   can_bodr?: boolean;
   can_price?: boolean;
+  can_admin?: boolean;
   created_at?: string;
 }
 
@@ -85,5 +86,6 @@ export interface ApiPortalAccess {
   can_capex: boolean;
   can_bodr: boolean;
   can_price: boolean;
+  can_admin?: boolean;
   allowed_portals: string[];
 }

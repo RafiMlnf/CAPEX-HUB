@@ -97,17 +97,16 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       if (!currentUser && !isPublicPath) {
         router.push("/");
       } else if (currentUser) {
-        const userRole = (currentUser.role || "").toLowerCase().trim();
-        const userName = (currentUser.username || "").toLowerCase().trim();
-        const isAdmin =
-          userRole === "admin" ||
-          userName === "admin" ||
-          userRole === "administrator" ||
-          userRole === "superadmin" ||
-          (currentUser as any).is_admin === true;
+        const userRole = (currentUser.role || "").toLowerCase();
+        const userName = (currentUser.username || "").toLowerCase();
+        const isAdmin = userRole === "admin" || userName === "admin";
+        const hasAdminAccess =
+          isAdmin ||
+          currentUser.can_admin === true ||
+          (currentUser.allowed_portals && currentUser.allowed_portals.includes("admin"));
 
         if (pathname === "/login") {
-          router.push("/");
+          router.push(isAdmin ? "/admin" : "/");
         } else {
           // Route permissions based on user portal access settings
           const hasCapex = isAdmin || (currentUser.allowed_portals ? currentUser.allowed_portals.includes("capex") : currentUser.can_capex !== false);
@@ -132,7 +131,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             pathname.startsWith("/audit");
           const isAdminRoute = pathname.startsWith("/admin");
 
-          if (isAdminRoute && !isAdmin) {
+          if (isAdminRoute && !hasAdminAccess) {
             router.push("/");
           } else if (isBodrRoute && !hasBodr) {
             router.push("/");

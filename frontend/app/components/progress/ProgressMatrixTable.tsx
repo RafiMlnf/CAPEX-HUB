@@ -49,11 +49,17 @@ export function ProgressStatusPill({ status }: { status: string }) {
 
 export interface ProgressRowData {
   id: string;
+  capexId?: string;
   name: string;
   department: string;
   purpose?: string;
   investmentType?: string;
   estimatedCost?: number;
+  pic?: string;
+  createdAt?: string;
+  gateStatus?: string;
+  attachmentName?: string;
+  rawProposal?: any;
   g0Days: string;
   g0Status: string;
   g1Days: string;
@@ -69,6 +75,7 @@ interface ProgressMatrixTableProps {
   itemsPerPage: number;
   onPageChange: (page: number) => void;
   onItemsPerPageChange: (items: number) => void;
+  onSelectProject?: (row: ProgressRowData) => void;
 }
 
 export default function ProgressMatrixTable({
@@ -78,6 +85,7 @@ export default function ProgressMatrixTable({
   itemsPerPage,
   onPageChange,
   onItemsPerPageChange,
+  onSelectProject,
 }: ProgressMatrixTableProps) {
   const totalEntries = rows.length;
   const totalPages = Math.ceil(totalEntries / itemsPerPage) || 1;
@@ -95,7 +103,7 @@ export default function ProgressMatrixTable({
           <thead>
             {/* Top Header Grouping */}
             <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-700 uppercase tracking-wider">
-              <th colSpan={5} className="py-2.5 px-3 text-center border-r border-slate-200 bg-slate-100/60">
+              <th colSpan={7} className="py-2.5 px-3 text-center border-r border-slate-200 bg-slate-100/60">
                 DETAILS
               </th>
               <th colSpan={2} className="py-2.5 px-2 text-center border-r border-slate-200 bg-blue-50/40 text-blue-800">
@@ -113,7 +121,9 @@ export default function ProgressMatrixTable({
             <tr className="border-b border-slate-200 bg-slate-50/80 text-[9px] font-bold text-slate-500 uppercase tracking-wider select-none">
               <th className="py-2 px-2.5 w-10 text-center border-r border-slate-200">No</th>
               <th className="py-2 px-2.5 w-28 border-r border-slate-200 whitespace-nowrap">ID Capex</th>
-              <th className="py-2 px-3 min-w-[180px] border-r border-slate-200">Nama Proyek</th>
+              <th className="py-2 px-3 min-w-[140px] border-r border-slate-200">Nama Proyek</th>
+              <th className="py-2 px-3 min-w-[120px] border-r border-slate-200 whitespace-nowrap">Kategori</th>
+              <th className="py-2 px-3 min-w-[130px] border-r border-slate-200 whitespace-nowrap">Tipe Investasi</th>
               <th className="py-2 px-2.5 w-28 border-r border-slate-200 whitespace-nowrap">Departemen</th>
               <th className="py-2 px-2.5 w-28 border-r border-slate-200 text-right whitespace-nowrap">Budget (Rp)</th>
 
@@ -134,13 +144,13 @@ export default function ProgressMatrixTable({
           <tbody className="divide-y divide-slate-100 text-xs">
             {loading ? (
               <tr>
-                <td colSpan={11} className="py-8 text-center text-slate-400 italic">
+                <td colSpan={13} className="py-8 text-center text-slate-400 italic">
                   Memuat data matrix progres...
                 </td>
               </tr>
             ) : paginatedRows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-8 text-center text-slate-400 italic">
+                <td colSpan={13} className="py-8 text-center text-slate-400 italic">
                   Tidak ada usulan capex yang sesuai dengan filter.
                 </td>
               </tr>
@@ -153,15 +163,20 @@ export default function ProgressMatrixTable({
                       {globalIndex}
                     </td>
                     <td className="py-2.5 px-2.5 font-mono font-semibold text-blue-600 border-r border-slate-100 whitespace-nowrap">
-                      {r.id}
+                      {r.capexId && r.capexId !== "-" ? r.capexId : "-"}
                     </td>
-                    <td className="py-2.5 px-3 font-medium text-slate-800 border-r border-slate-100">
-                      <div>{r.name}</div>
-                      {r.purpose && (
-                        <div className="text-[10px] text-slate-400 font-normal">
-                          {r.purpose} {r.investmentType ? `• ${r.investmentType}` : ""}
-                        </div>
-                      )}
+                    <td
+                      onClick={() => onSelectProject?.(r)}
+                      className="py-2.5 px-3 font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer border-r border-slate-100 transition-colors"
+                      title={`Klik untuk melihat detail riwayat lead time proyek "${r.name}"`}
+                    >
+                      {r.name}
+                    </td>
+                    <td className="py-2.5 px-3 font-medium text-slate-700 border-r border-slate-100 whitespace-nowrap text-xs">
+                      {r.purpose || "—"}
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-600 border-r border-slate-100 whitespace-nowrap text-xs">
+                      {r.investmentType || "—"}
                     </td>
                     <td className="py-2.5 px-2.5 text-slate-600 border-r border-slate-100 whitespace-nowrap font-normal">
                       {r.department}

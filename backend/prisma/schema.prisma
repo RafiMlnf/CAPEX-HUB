@@ -188,6 +188,7 @@ model Capex {
   attachment_name           String?   @db.Text
   initial_attachment_name   String?   @db.Text
   revised_attachment_name   String?   @db.Text
+  revised_attachment_history String?  @db.Text
   is_fs_required            Boolean   @default(false)
   fs_category               String?   @db.VarChar(50)
   finance_notes             String?   @db.Text
@@ -213,8 +214,25 @@ model Capex {
   capexReference CapexReference? @relation(fields: [capex_reference_id], references: [id])
   departemen     Departemen?     @relation(fields: [departemen_id], references: [id])
   bodr           Bodr[]
+  capexHistory   CapexHistory[]
 
   @@map("capex")
+  @@schema("core")
+}
+
+model CapexHistory {
+  id         Int      @id @default(autoincrement())
+  capex_id   Int
+  gate       Int      @default(0)
+  action     String   @db.VarChar(255)
+  actor      String   @db.VarChar(150)
+  timestamp  DateTime @db.Timestamptz(6)
+  notes      String?  @db.Text
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  capex Capex @relation(fields: [capex_id], references: [id], onDelete: Cascade)
+
+  @@map("capex_history")
   @@schema("core")
 }
 
@@ -244,6 +262,7 @@ model UserPortalAccess {
   can_capex   Boolean  @default(true)
   can_bodr    Boolean  @default(true)
   can_price   Boolean  @default(true)
+  can_admin   Boolean  @default(false)
   created_at  DateTime @default(now()) @db.Timestamptz(6)
   updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 

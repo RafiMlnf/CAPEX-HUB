@@ -54,10 +54,9 @@ export default function PortalPage() {
     },
     {
       id: "admin",
-      title: "Admin Panel",
-      desc: "Master Data & System Settings",
-      href: "/admin",
-      isAdminOnly: true,
+      title: "Portal Admin",
+      desc: "Master Data & Pengaturan Sistem",
+      href: "/admin?tab=masterdata",
       icon: (
         <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -67,19 +66,25 @@ export default function PortalPage() {
     },
   ];
 
-  const userRole = (currentUser?.role || "").toLowerCase().trim();
-  const userName = (currentUser?.username || "").toLowerCase().trim();
-  const isAdmin =
-    userRole === "admin" ||
-    userName === "admin" ||
-    userRole === "administrator" ||
-    userRole === "superadmin";
-
   // Saring portal berdasarkan hak akses pengguna
   const allowedPortals = allPortals.filter((p) => {
     if (!currentUser) return false;
-    if (p.isAdminOnly) return isAdmin;
-    if (isAdmin) return true;
+    const userRole = (currentUser?.role || "").toLowerCase();
+    const userName = (currentUser?.username || "").toLowerCase();
+    const isAdm = userRole === "admin" || userName === "admin";
+
+    if (p.id === "admin") {
+      return (
+        isAdm ||
+        currentUser.can_admin === true ||
+        (currentUser.allowed_portals && currentUser.allowed_portals.includes("admin")) ||
+        (userPermissions && (
+          userPermissions.includes("perm_manage_config") ||
+          userPermissions.includes("perm_manage_users") ||
+          userPermissions.includes("ALL_ACCESS")
+        ))
+      );
+    }
     if (currentUser.allowed_portals && Array.isArray(currentUser.allowed_portals)) {
       return currentUser.allowed_portals.includes(p.id);
     }
@@ -89,11 +94,20 @@ export default function PortalPage() {
     return true;
   });
 
+  const isAdmin =
+    (currentUser?.role || "").toLowerCase() === "admin" ||
+    (currentUser?.username || "").toLowerCase() === "admin";
+
   // Auto-redirect logic:
-  // Hanya jika non-admin user hanya punya akses ke 1 portal, otomatis langsung masuk ke portal tersebut
+  // 1. Admin otomatis ke /admin
+  // 2. Jika user hanya punya akses ke 1 portal dan memiliki permission, otomatis langsung masuk ke portal tersebut
   useEffect(() => {
     if (!currentUser) return;
-    if (!isAdmin && allowedPortals.length === 1 && userPermissions && userPermissions.length > 0) {
+    if (isAdmin) {
+      router.replace("/admin");
+      return;
+    }
+    if (allowedPortals.length === 1 && userPermissions && userPermissions.length > 0) {
       router.replace(allowedPortals[0].href);
     }
   }, [currentUser, isAdmin, allowedPortals, userPermissions, router]);
@@ -120,25 +134,24 @@ export default function PortalPage() {
       if (user) {
         setUsername("");
         setPassword("");
-        const role = (user.role || "").toLowerCase().trim();
-        const uname = (user.username || "").toLowerCase().trim();
-        const userIsAdmin = role === "admin" || uname === "admin" || role === "administrator" || role === "superadmin";
-        
-        // Non-admin with single portal goes straight to their portal
-        if (!userIsAdmin) {
-          const userAllowed = allPortals.filter((p) => {
-            if (p.isAdminOnly) return false;
-            if (user.allowed_portals && Array.isArray(user.allowed_portals)) {
-              return user.allowed_portals.includes(p.id);
-            }
-            if (p.id === "capex") return user.can_capex !== false;
-            if (p.id === "bodr") return user.can_bodr !== false;
-            if (p.id === "price") return user.can_price !== false;
-            return true;
-          });
-          if (userAllowed.length === 1) {
-            router.push(userAllowed[0].href);
+        const userIsAdmin =
+          (user.role || "").toLowerCase() === "admin" ||
+          (user.username || "").toLowerCase() === "admin";
+        if (userIsAdmin) {
+          router.push("/admin");
+          return;
+        }
+        const userAllowed = allPortals.filter((p) => {
+          if (user.allowed_portals && Array.isArray(user.allowed_portals)) {
+            return user.allowed_portals.includes(p.id);
           }
+          if (p.id === "capex") return user.can_capex !== false;
+          if (p.id === "bodr") return user.can_bodr !== false;
+          if (p.id === "price") return user.can_price !== false;
+          return true;
+        });
+        if (userAllowed.length === 1) {
+          router.push(userAllowed[0].href);
         }
       } else {
         setError("Invalid NPK or Password!");
@@ -164,8 +177,8 @@ export default function PortalPage() {
     logout();
   };
 
-  // Tampilan loading redirect single portal non-admin
-  if (currentUser && !isAdmin && allowedPortals.length === 1) {
+  // Tampilan loading redirect admin atau single portal
+  if (currentUser && (isAdmin || allowedPortals.length === 1)) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-slate-100 font-sans">
         <div className="text-slate-600 font-medium text-sm flex items-center gap-2">
@@ -173,7 +186,11 @@ export default function PortalPage() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
-          <span>Redirecting to {allowedPortals[0]?.title || "Portal"}...</span>
+          <span>
+            {isAdmin
+              ? "Redirecting to Admin Panel..."
+              : `Redirecting to ${allowedPortals[0]?.title || "Portal"}...`}
+          </span>
         </div>
       </div>
     );
@@ -311,7 +328,7 @@ export default function PortalPage() {
       <div className="absolute inset-0 bg-slate-950/45 backdrop-blur-[3px] z-0" />
 
       <div
-        className={`w-full ${allowedPortals.length >= 4 ? "max-w-4xl" : "max-w-3xl"} bg-white rounded-2xl shadow-2xl border border-slate-200 p-8 relative z-10`}
+        className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-8 relative z-10"
         style={{ boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)" }}
       >
         {/* Header */}
@@ -332,9 +349,7 @@ export default function PortalPage() {
                 ? "grid-cols-1 max-w-sm mx-auto"
                 : allowedPortals.length === 2
                 ? "grid-cols-1 sm:grid-cols-2 max-w-xl mx-auto"
-                : allowedPortals.length === 3
-                ? "grid-cols-1 sm:grid-cols-3"
-                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+                : "grid-cols-1 sm:grid-cols-3"
             }`}
           >
             {allowedPortals.map((portal) => (

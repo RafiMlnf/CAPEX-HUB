@@ -67,8 +67,8 @@ export default function BodrOtorisasiModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-slate-800">
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-          <h3 className="text-sm font-black uppercase tracking-wider text-slate-800">Pengajuan Otorisasi Harga</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-red-500 font-bold transition-colors">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-800">Pengajuan Otorisasi Harga</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-red-500 font-semibold transition-colors cursor-pointer">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -76,10 +76,10 @@ export default function BodrOtorisasiModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && <p className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">{error}</p>}
+          {error && <p className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200 font-normal">{error}</p>}
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
+            <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
               No. PR (Input Manual) *
             </label>
             <input
@@ -88,60 +88,60 @@ export default function BodrOtorisasiModal({
               value={prNo}
               onChange={(e) => setPrNo(e.target.value)}
               placeholder="Contoh: PR-2026-001"
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none font-medium"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
               No. BODR (Otomatis)
             </label>
             <input
               type="text"
-              value={proposal.bodrNo}
               disabled
-              className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-mono font-bold"
+              value={proposal.bodrNo || "-"}
+              className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 font-mono"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-              Deskripsi
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+              Judul Investasi
             </label>
             <input
               type="text"
+              disabled
               value={proposal.title}
-              disabled
-              className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium"
+              className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 truncate"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-              Amount (Dana BODR)
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+              Nilai Investasi (Dana BODR)
             </label>
             <input
               type="text"
-              value={`Rp ${proposal.amount.toLocaleString("id-ID")}`}
               disabled
-              className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-emerald-700 font-mono font-bold"
+              value={`Rp ${proposal.amount.toLocaleString("id-ID")}`}
+              className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold font-mono text-blue-600"
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
             >
-              {submitting ? "Mengirim..." : "Kirim ke Purchasing"}
+              {submitting ? "Memproses..." : "Kirim Pengajuan"}
             </button>
           </div>
         </form>

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -15,6 +16,9 @@ export class UsersService {
 
   // ── Format user response ──────────────────────────────────────────────────
   private formatUser(user: any) {
+    const roleName = (user.role?.nama_role ?? '').toLowerCase();
+    const isAdm = roleName === 'admin' || (user.username || '').toLowerCase() === 'admin';
+
     return {
       id: user.id.toString(),
       npk: user.npk,
@@ -27,6 +31,13 @@ export class UsersService {
       can_capex: user.portalAccess?.can_capex ?? true,
       can_bodr: user.portalAccess?.can_bodr ?? true,
       can_price: user.portalAccess?.can_price ?? true,
+      can_admin: isAdm || (user.portalAccess?.can_admin ?? false),
+      allowed_portals: [
+        ...(user.portalAccess?.can_capex !== false ? ['capex'] : []),
+        ...(user.portalAccess?.can_bodr !== false ? ['bodr'] : []),
+        ...(user.portalAccess?.can_price !== false ? ['price'] : []),
+        ...(isAdm || (user.portalAccess?.can_admin === true) ? ['admin'] : []),
+      ],
       created_at: user.created_at,
     };
   }
@@ -179,21 +190,30 @@ export class UsersService {
 
     const namaUser = dto.nama_user || dto.name || dto.username;
 
-    const user = await this.prisma.user.create({
-      data: {
-        npk: dto.npk,
-        nama_user: namaUser,
-        email: dto.email,
-        username: dto.username,
-        password_hash,
-        departemen_id: deptId!,
-        role_id: roleId!,
-        status: (dto.status as any) ?? 'active',
-      },
-      include: { role: true, departemen: true, portalAccess: true },
-    });
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          npk: dto.npk,
+          nama_user: namaUser,
+          email: dto.email,
+          username: dto.username,
+          password_hash,
+          departemen_id: deptId!,
+          role_id: roleId!,
+          status: (dto.status as any) ?? 'active',
+        },
+        include: { role: true, departemen: true, portalAccess: true },
+      });
 
-    return this.formatUser(user);
+      return this.formatUser(user);
+    } catch (err: any) {
+      if (err?.code === 'P2002') {
+        throw new BadRequestException(
+          `Data user gagal disimpan: NPK ("${dto.npk}") atau Username ("${dto.username}") sudah terdaftar dalam sistem. Silakan gunakan NPK/Username yang berbeda.`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ── Update user ───────────────────────────────────────────────────────────
@@ -227,13 +247,22 @@ export class UsersService {
       updateData.password_hash = await bcrypt.hash(dto.password, saltRounds);
     }
 
-    const user = await this.prisma.user.update({
-      where: { id: parseInt(id) },
-      data: updateData,
-      include: { role: true, departemen: true, portalAccess: true },
-    });
+    try {
+      const user = await this.prisma.user.update({
+        where: { id: parseInt(id) },
+        data: updateData,
+        include: { role: true, departemen: true, portalAccess: true },
+      });
 
-    return this.formatUser(user);
+      return this.formatUser(user);
+    } catch (err: any) {
+      if (err?.code === 'P2002') {
+        throw new BadRequestException(
+          `Data user gagal diperbarui: NPK atau Username sudah digunakan oleh akun lain.`,
+        );
+      }
+      throw err;
+    }
   }
 
   // ── Delete user (permanent delete) ────────────────────────────────────────

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import Swal from "sweetalert2";
 import Sidebar from "../../components/sidebars/SidebarFS";
 import Header from "../../components/Header";
 import StatusBadge from "../../components/StatusBadge";
 import { useCapex } from "../../context/CapexContext";
 import { CapexProposal, GateStatus, api } from "../../lib/api";
+import { getCurrentUser } from "../../lib/authApi";
 
 function formatDateDisplay(dateStr?: string) {
   if (!dateStr || dateStr === "-" || dateStr.trim() === "") return "-";
@@ -29,18 +29,12 @@ function formatDateDisplay(dateStr?: string) {
 export default function FinanceReviewPage() {
   const { proposals, hasPermission, editProposal } = useCapex();
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
-  const [decisionStatus, setDecisionStatus] = useState<GateStatus>("Gate 2 - Committee Review");
-  const [scheduleTime, setScheduleTime] = useState("");
+  const [decisionStatus, setDecisionStatus] = useState<GateStatus | "">("");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleClock, setScheduleClock] = useState("09:00");
   const [notes, setNotes] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-
-  // Editable fields by Finance (Purpose, Investment Type, Start Date, End Date)
-  const [editPurpose, setEditPurpose] = useState("Capacity");
-  const [editInvestmentType, setEditInvestmentType] = useState("Capacity Up");
-  const [editStartDate, setEditStartDate] = useState("");
-  const [editEndDate, setEditEndDate] = useState("");
-
   const [toast, setToast] = useState<{ show: boolean; message: string; type: "success" | "error" }>({
     show: false,
     message: "",
@@ -76,12 +70,12 @@ export default function FinanceReviewPage() {
           <p className="text-xs text-slate-600 leading-relaxed font-normal">
             Halaman ini hanya dapat diakses oleh pengguna dengan izin <span className="font-semibold">Finance Review</span>.
           </p>
-          <Link
+          <a
             href="/"
             className="inline-block px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-2xs cursor-pointer w-full text-center mt-2"
           >
             Kembali ke Portal Utama
-          </Link>
+          </a>
         </div>
       </div>
     );
@@ -97,39 +91,14 @@ export default function FinanceReviewPage() {
 
   const selectedProposal = proposals.find((p) => p.id === selectedProposalId);
 
-  // Synchronize edit fields when selected proposal changes
-  useEffect(() => {
-    if (selectedProposal) {
-      setEditPurpose(selectedProposal.purpose || "Capacity");
-      setEditInvestmentType(selectedProposal.investmentType || "Capacity Up");
-      setEditStartDate(selectedProposal.startDate || "");
-      setEditEndDate(selectedProposal.endDate || "");
-      setUploadedFiles([]);
-      setNotes("");
-    }
-  }, [selectedProposalId, selectedProposal]);
-
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setIsUploading(true);
-    try {
-      const results = await api.uploadMultipleDocuments(Array.from(files));
-      const names = results.map((r) => r.file_name || r.original_name);
-      setUploadedFiles((prev) => Array.from(new Set([...prev, ...names])));
-    } catch (err: any) {
-      Swal.fire({
-        title: "Gagal Mengunggah",
-        text: err.message || "Gagal mengunggah lampiran Finance.",
-        icon: "error",
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!selectedProposal) return;
+
+    if (!decisionStatus) {
+      showAlert("Silakan pilih Keputusan Status Review terlebih dahulu.", "Pilihan Diperlukan");
+      return;
+    }
 
     const effectiveNotes = notes.trim() || (
       decisionStatus === "Gate 2 - Committee Review"
@@ -140,10 +109,10 @@ export default function FinanceReviewPage() {
     );
 
     const now = new Date().toISOString();
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 3);
-    const defaultSchedule = futureDate.toISOString().slice(0, 10) + "T09:00";
-    const effectiveSchedule = scheduleTime || (decisionStatus === "Gate 2 - Committee Review" ? defaultSchedule : undefined);
+    const defaultDateStr = new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10);
+    const finalDate = scheduleDate || defaultDateStr;
+    const finalClock = scheduleClock || "09:00";
+    const effectiveSchedule = decisionStatus === "Gate 2 - Committee Review" ? `${finalDate}T${finalClock}` : undefined;
 
     let actionLabel = "";
     if (decisionStatus === "Gate 0 - Idea") {
@@ -162,23 +131,23 @@ export default function FinanceReviewPage() {
         ? Array.from(new Set([...currentAttachments, ...uploadedFiles])).join(", ")
         : selectedProposal.attachmentName;
 
+    const user = getCurrentUser();
+    const reviewerName = user?.name || "Staff Accounting & Finance";
+
     const updatedData: Partial<CapexProposal> = {
-      purpose: editPurpose,
-      investmentType: editInvestmentType,
-      startDate: editStartDate,
-      endDate: editEndDate,
       gateStatus: decisionStatus,
       financeNotes: effectiveNotes,
       attachmentName: combinedAttachments,
-      financeApprovedAt: decisionStatus === "Gate 2 - Committee Review" ? now : undefined,
-      committeeReviewSchedule: decisionStatus === "Gate 2 - Committee Review" ? effectiveSchedule : undefined,
+      financeApprovedBy: reviewerName,
+      financeApprovedAt: now,
+      committeeReviewSchedule: effectiveSchedule,
       revisionSource: decisionStatus === "Gate 0 - Idea" ? "Finance" : undefined,
       history: [
         ...selectedProposal.history,
         {
           gate: 1,
           action: actionLabel,
-          actor: "Finance (Accounting)",
+          actor: reviewerName,
           timestamp: now,
           notes: effectiveNotes,
         },
@@ -198,8 +167,8 @@ export default function FinanceReviewPage() {
       });
       setSelectedProposalId(null);
       setNotes("");
-      setScheduleTime("");
-      setUploadedFiles([]);
+      setScheduleDate("");
+      setScheduleClock("09:00");
       setUploadedFiles([]);
     } catch (err: any) {
       console.error("Submit finance review error:", err);
@@ -228,440 +197,493 @@ export default function FinanceReviewPage() {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto px-6 py-5 space-y-4 w-full min-w-0">
-          <div className={`grid grid-cols-1 ${selectedProposal ? "xl:grid-cols-2" : "grid-cols-1"} gap-4 items-start w-full transition-all`}>
-            
-            {/* Left Card: Daftar Pengajuan */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-2xs w-full">
-              <div className="pb-2 border-b border-slate-200 flex items-center gap-2">
-                <span className="w-1.5 h-4.5 rounded-full bg-blue-600 inline-block" />
-                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  DAFTAR PENGAJUAN MENUNGGU FINANCE REVIEW ({pendingProposals.length})
-                </h2>
-              </div>
-
-              {pendingProposals.length === 0 ? (
-                <div className="py-16 text-center text-slate-400 font-medium text-xs">
-                  Tidak ada pengajuan investasi yang menunggu Finance Review.
-                </div>
-              ) : (
-                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                  <table className="w-full border-collapse text-left">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 text-[10px] font-bold uppercase tracking-wider select-none">
-                        <th className="py-3 px-3.5">ID CAPEX</th>
-                        <th className="py-3 px-3.5">PROJECT NAME</th>
-                        <th className="py-3 px-3.5">PIC</th>
-                        <th className="py-3 px-3.5 text-right">COST</th>
-                        <th className="py-3 px-3.5 text-center">STATUS</th>
-                        <th className="py-3 px-3.5 text-center">AKSI</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
-                      {pendingProposals.map((p) => {
-                        const isSelected = selectedProposalId === p.id;
-                        return (
-                          <tr
-                            key={p.id}
-                            className={`transition-colors ${
-                              isSelected ? "bg-blue-50/50 font-semibold" : "hover:bg-slate-50/70 bg-white"
-                            }`}
-                          >
-                            <td className="py-3 px-3.5 font-mono text-slate-800 text-[11px]">
-                              {p.capexId && p.capexId !== "-" ? p.capexId : p.id}
-                            </td>
-                            <td className="py-3 px-3.5 text-slate-800 font-medium text-xs">{p.name}</td>
-                            <td className="py-3 px-3.5 text-slate-600 font-normal text-xs">{p.pic}</td>
-                            <td className="py-3 px-3.5 font-bold text-slate-800 text-right text-xs">
-                              <div className="text-[10px] text-slate-400 font-normal">Rp</div>
-                              Rp {p.estimatedCost.toLocaleString("id-ID")}
-                            </td>
-                            <td className="py-3 px-3.5 text-center">
-                              <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                FinAcct Review
-                              </span>
-                            </td>
-                            <td className="py-3 px-3.5 text-center">
-                              <button
-                                onClick={() => {
-                                  setSelectedProposalId(p.id);
-                                  const targetDecision: GateStatus =
-                                    p.gateStatus === "Gate 1 - Pending User Feedback"
-                                      ? "Gate 1 - Pending User Feedback"
-                                      : p.gateStatus === "Gate 0 - Idea"
-                                      ? "Gate 0 - Idea"
-                                      : "Gate 2 - Committee Review";
-                                  setDecisionStatus(targetDecision);
-                                  setNotes(p.financeNotes || "");
-                                  const futureDate = new Date();
-                                  futureDate.setDate(futureDate.getDate() + 3);
-                                  const defaultSchedule = futureDate.toISOString().slice(0, 10) + "T09:00";
-                                  setScheduleTime(p.committeeReviewSchedule || defaultSchedule);
-                                  setUploadedFiles([]);
-                                }}
-                                className="px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold tracking-wide transition-all shadow-2xs cursor-pointer"
-                              >
-                                Pilih
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+        <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4 w-full min-w-0 overflow-x-hidden">
+          {/* List Table */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-xs w-full">
+            <div className="pb-2 border-b border-slate-200 flex items-center gap-2">
+              <span className="w-2 h-5 rounded-full bg-blue-600 inline-block" />
+              <h2 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+                Daftar Pengajuan Menunggu Finance Review ({pendingProposals.length})
+              </h2>
             </div>
 
-            {/* Right Card: Ulasan & Keputusan Review */}
-            {selectedProposal && (
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-2xs w-full">
-                {/* Header */}
-                <div className="pb-2 border-b border-slate-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-4.5 rounded-full bg-blue-600 inline-block" />
-                    <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      ULASAN & KEPUTUSAN REVIEW: {selectedProposal.capexId || selectedProposal.id}
-                    </h2>
-                  </div>
-                  <button
-                    onClick={() => setSelectedProposalId(null)}
-                    className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                    title="Tutup Panel"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Details Section */}
-                <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-4 space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Left Column: Fixed Info */}
-                    <div className="space-y-2.5">
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">PROJECT NAME</span>
-                        <p className="text-xs font-bold text-slate-800 mt-0.5">{selectedProposal.name}</p>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">DEPARTEMEN</span>
-                        <p className="text-xs font-semibold text-slate-700 mt-0.5">{selectedProposal.department || "PE"}</p>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">PIC PENGAJU</span>
-                        <p className="text-xs font-medium text-slate-700 mt-0.5">{selectedProposal.pic || "-"}</p>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">ESTIMASI BIAYA</span>
-                        <p className="text-xs font-bold text-blue-600 mt-0.5">
-                          Rp {selectedProposal.estimatedCost.toLocaleString("id-ID")}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">BENEFIT</span>
-                        <p className="text-xs text-slate-600 mt-0.5 leading-relaxed font-normal">{selectedProposal.description || "-"}</p>
-                      </div>
-                    </div>
-
-                    {/* Right Column: Editable by Finance & Existing Attachments */}
-                    <div className="space-y-3 bg-white p-3 rounded-lg border border-slate-200/80">
-                      <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block border-b border-slate-100 pb-1 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                        Penyesuaian Finance (Edit Data)
-                      </span>
-
-                      {/* Purpose & Investment Type Edit */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                            PURPOSE
-                          </label>
-                          <select
-                            value={editPurpose}
-                            onChange={(e) => {
-                              const newPurpose = e.target.value;
-                              setEditPurpose(newPurpose);
-                              if (newPurpose === "Capacity") {
-                                setEditInvestmentType("Capacity Up");
-                              } else if (newPurpose === "Capability") {
-                                setEditInvestmentType("Increase Value Added");
-                              } else if (newPurpose === "Supporting") {
-                                setEditInvestmentType("Supporting");
+            {pendingProposals.length === 0 ? (
+              <p className="text-xs text-slate-500 italic text-center py-12">
+                Tidak ada pengajuan investasi baru yang menunggu Finance Review.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-semibold uppercase tracking-wider select-none">
+                      <th className="py-2.5 px-3 w-28">ID Capex</th>
+                      <th className="py-2.5 px-3">Project Name</th>
+                      <th className="py-2.5 px-3 w-28">PIC</th>
+                      <th className="py-2.5 px-3 w-32 text-right">Cost</th>
+                      <th className="py-2.5 px-3 text-center w-36">Status</th>
+                      <th className="py-2.5 px-3 text-center w-24">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
+                    {pendingProposals.map((p) => (
+                      <tr
+                        key={p.id}
+                        className={`hover:bg-blue-50/20 transition-colors ${
+                          selectedProposalId === p.id ? "bg-blue-50/40 font-semibold" : "bg-white"
+                        }`}
+                      >
+                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-800">
+                          {p.capexId && p.capexId !== "-" ? p.capexId : "-"}
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-800 font-medium">{p.name}</td>
+                        <td className="py-2.5 px-3 text-slate-600 font-normal">{p.pic}</td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-800 text-right">
+                          Rp {p.estimatedCost.toLocaleString("id-ID")}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <StatusBadge status={p.gateStatus} size="sm" />
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <button
+                            onClick={() => {
+                              setSelectedProposalId(p.id);
+                              setDecisionStatus("");
+                              setNotes(p.financeNotes || "");
+                              const defaultDateStr = new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10);
+                              const rawSchedule = p.committeeReviewSchedule || "";
+                              let initDate = defaultDateStr;
+                              let initClock = "09:00";
+                              if (rawSchedule.includes("T")) {
+                                const parts = rawSchedule.split("T");
+                                initDate = parts[0] || defaultDateStr;
+                                initClock = parts[1] || "09:00";
+                              } else if (rawSchedule) {
+                                initDate = rawSchedule;
                               }
+                              setScheduleDate(initDate);
+                              setScheduleClock(initClock);
+                              setUploadedFiles([]);
                             }}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-600 cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-semibold tracking-wide transition-all shadow-2xs cursor-pointer"
                           >
-                            <option value="Capacity">Capacity</option>
-                            <option value="Capability">Capability</option>
-                            <option value="Supporting">Supporting</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                            INVESTMENT TYPE
-                          </label>
-                          <select
-                            value={editInvestmentType}
-                            disabled={editPurpose === "Supporting"}
-                            onChange={(e) => setEditInvestmentType(e.target.value)}
-                            className={`w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:border-blue-600 ${
-                              editPurpose === "Supporting"
-                                ? "bg-slate-100 text-slate-600 cursor-not-allowed"
-                                : "bg-slate-50 text-slate-800 cursor-pointer"
-                            }`}
-                          >
-                            {editPurpose === "Capacity" && (
-                              <>
-                                <option value="Capacity Up">Capacity Up</option>
-                                <option value="New Product Expansion">New Product Expansion</option>
-                              </>
-                            )}
-                            {editPurpose === "Capability" && (
-                              <>
-                                <option value="Increase Value Added">Increase Value Added</option>
-                                <option value="Increase Competency">Increase Competency</option>
-                                <option value="Restore Capacity">Restore Capacity</option>
-                              </>
-                            )}
-                            {editPurpose === "Supporting" && (
-                              <option value="Supporting">Supporting</option>
-                            )}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Start Date & End Date Edit */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                            START DATE
-                          </label>
-                          <input
-                            type="date"
-                            value={editStartDate}
-                            onChange={(e) => setEditStartDate(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-blue-600 cursor-pointer"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                            END DATE
-                          </label>
-                          <input
-                            type="date"
-                            value={editEndDate}
-                            onChange={(e) => setEditEndDate(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-blue-600 cursor-pointer"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Existing proposal attachments */}
-                      <div className="pt-1 border-t border-slate-100">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">LAMPIRAN PEMOHON</span>
-                        {(() => {
-                          const allDocs = (selectedProposal.attachmentName || "")
-                            .split(", ")
-                            .map((s) => s.trim())
-                            .filter(Boolean);
-                          if (allDocs.length === 0) return <span className="text-xs text-slate-400 italic">Tidak ada lampiran</span>;
-                          return (
-                            <div className="flex flex-col gap-1">
-                              {allDocs.map((doc, idx) => (
-                                <a
-                                  key={idx}
-                                  href={api.getUploadFileUrl(doc)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-[11px] font-medium underline"
-                                >
-                                  <svg className="w-3 h-3 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                  </svg>
-                                  <span className="truncate">{doc}</span>
-                                </a>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Form Decisions */}
-                <form id="finance-review-form" onSubmit={handleSubmit} className="space-y-4">
-                  {/* Radio Choice Cards */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">
-                      KEPUTUSAN STATUS REVIEW <span className="text-red-500">*</span>
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      {/* 1. APPROVAL */}
-                      <div
-                        onClick={() => setDecisionStatus("Gate 2 - Committee Review")}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                          decisionStatus === "Gate 2 - Committee Review"
-                            ? "border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/20"
-                            : "border-slate-200 hover:border-slate-300 bg-white"
-                        }`}
-                      >
-                        <p className="text-xs font-bold text-emerald-600">1. APPROVAL</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Approve & jadwalkan komite</p>
-                      </div>
-
-                      {/* 2. PENDING */}
-                      <div
-                        onClick={() => setDecisionStatus("Gate 1 - Pending User Feedback")}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                          decisionStatus === "Gate 1 - Pending User Feedback"
-                            ? "border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/20"
-                            : "border-slate-200 hover:border-slate-300 bg-white"
-                        }`}
-                      >
-                        <p className="text-xs font-bold text-amber-600">2. PENDING</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Butuh dokumen tambahan</p>
-                      </div>
-
-                      {/* 3. REVISE */}
-                      <div
-                        onClick={() => setDecisionStatus("Gate 0 - Idea")}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                          decisionStatus === "Gate 0 - Idea"
-                            ? "border-red-500 bg-red-50/50 ring-2 ring-red-500/20"
-                            : "border-slate-200 hover:border-slate-300 bg-white"
-                        }`}
-                      >
-                        <p className="text-xs font-bold text-red-600">3. REVISE</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Kembalikan ke Draft</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Date Time Picker for Committee Review Schedule */}
-                  {decisionStatus === "Gate 2 - Committee Review" && (
-                    <div className="space-y-1.5 animate-fadeIn">
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                        JADWAL REVIEW KOMITE <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        required
-                        type="datetime-local"
-                        value={scheduleTime}
-                        onChange={(e) => setScheduleTime(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 shadow-2xs font-normal"
-                      />
-                    </div>
-                  )}
-
-                  {/* Notes Textarea */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                      CATATAN / ULASAN FINANCE
-                    </label>
-                    <textarea
-                      rows={3}
-                      placeholder="Masukkan ulasan kelayakan FS atau revisi yang diperlukan..."
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-colors resize-none shadow-2xs font-normal"
-                    />
-                  </div>
-
-                  {/* Attachment Upload by Finance (Perhitungan Feasibility Study / FS) */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                        LAMPIRAN PERHITUNGAN FEASIBILITY STUDY (FS) OLEH FINANCE
-                      </label>
-                      {editPurpose === "Supporting" && (
-                        <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-medium">
-                          Supporting Purpose (FS Bebas / Tidak Perlu)
-                        </span>
-                      )}
-                    </div>
-
-                    {editPurpose === "Supporting" ? (
-                      <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-2.5">
-                        <span className="text-base shrink-0">✅</span>
-                        <div>
-                          <span className="font-bold block text-emerald-900">Purpose: Supporting</span>
-                          <span className="text-[11px] text-emerald-700 font-normal">
-                            Usulan ini tidak memerlukan dokumen perhitungan Feasibility Study (FS). Finance dapat langsung menentukan keputusan ulasan review.
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <label className="flex flex-col items-center justify-center w-full py-4 px-3 border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50/40 hover:bg-slate-50 hover:border-slate-300 transition-all text-center">
-                          <svg className="w-5 h-5 text-slate-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                          </svg>
-                          <span className="text-[11px] font-semibold text-slate-700">
-                            {isUploading ? "Mengunggah file..." : "Klik untuk upload lampiran perhitungan FS Finance"}
-                          </span>
-                          <span className="text-[10px] text-slate-400 mt-0.5">
-                            PDF, Excel (Kalkulasi ROI/NPV/Payback), Word, PPT up to 10MB
-                          </span>
-                          <input
-                            type="file"
-                            multiple
-                            disabled={isUploading}
-                            className="hidden"
-                            onChange={(e) => handleFileUpload(e.target.files)}
-                          />
-                        </label>
-
-                        {/* Uploaded files chips */}
-                        {uploadedFiles.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {uploadedFiles.map((fn, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200"
-                              >
-                                <span className="truncate max-w-48">{fn}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setUploadedFiles((prev) => prev.filter((_, i) => i !== idx))}
-                                  className="text-blue-400 hover:text-red-600 font-bold ml-0.5 cursor-pointer"
-                                >
-                                  ✕
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Footer Actions */}
-                  <div className="flex items-center justify-end gap-2.5 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedProposalId(null);
-                        setUploadedFiles([]);
-                      }}
-                      className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isUploading}
-                      className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer active:scale-95"
-                    >
-                      {isUploading ? "Menyimpan..." : "Simpan Keputusan Review"}
-                    </button>
-                  </div>
-                </form>
+                            Pilih
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
+
+          {/* Review Modal Dialog - Landscape 2-Column Layout */}
+          {selectedProposal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+              <div className="bg-white border border-slate-200 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in my-8">
+                {/* Modal Header */}
+                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-6 rounded-full bg-blue-600 inline-block" />
+                    <div>
+                      <h2 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+                        Ulasan & Keputusan Review: {selectedProposal.name}
+                      </h2>
+                      <p className="text-[11px] text-slate-500 font-normal mt-0.5">
+                        Tinjau kelayakan finansial dan tentukan status gerbang Gate 1
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedProposalId(null)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors font-bold text-sm cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="p-6 max-h-[calc(85vh-130px)] overflow-y-auto">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left Column: Proposal Info & Documents Details */}
+                    <div className="lg:col-span-6 bg-slate-50/70 border border-slate-200 rounded-xl p-4 space-y-3.5 flex flex-col justify-between">
+                      <div className="space-y-3.5">
+                        <div>
+                          <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Project Name</span>
+                          <p className="text-sm font-semibold text-slate-800 mt-0.5">{selectedProposal.name}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Departemen</span>
+                            <p className="text-xs font-semibold text-slate-800 mt-0.5">{selectedProposal.department || "Engineering"}</p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">PIC Pengaju</span>
+                            <p className="text-xs font-medium text-slate-700 mt-0.5">{selectedProposal.pic || "-"}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Purpose</span>
+                            <p className="text-xs font-medium text-slate-800 mt-0.5">
+                              {selectedProposal.purpose || "-"}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Investment Type</span>
+                            <p className="text-xs font-medium text-slate-800 mt-0.5">
+                              {selectedProposal.investmentType || "-"}
+                            </p>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Durasi Proyek</span>
+                          <p className="text-xs font-medium text-slate-700 mt-0.5">
+                            {selectedProposal.startDate && selectedProposal.endDate && selectedProposal.startDate !== "-" && selectedProposal.endDate !== "-"
+                              ? `${formatDateDisplay(selectedProposal.startDate)} s/d ${formatDateDisplay(selectedProposal.endDate)}`
+                              : selectedProposal.startDate && selectedProposal.startDate !== "-"
+                              ? formatDateDisplay(selectedProposal.startDate)
+                              : "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider block mb-1">
+                            Lampiran Dokumen Usulan
+                          </span>
+
+                          {(() => {
+                            const initialDocs = (selectedProposal.initialAttachmentName || "")
+                              .split(", ")
+                              .map((s) => s.trim())
+                              .filter(Boolean);
+                            const revisedDocs = (selectedProposal.revisedAttachmentName || "")
+                              .split(", ")
+                              .map((s) => s.trim())
+                              .filter(Boolean);
+                            const allDocs = (selectedProposal.attachmentName || "")
+                              .split(", ")
+                              .map((s) => s.trim())
+                              .filter(Boolean);
+
+                            const hasSeparateRevisions =
+                              initialDocs.length > 0 &&
+                              (revisedDocs.length > 0 ||
+                                (allDocs.length > 0 &&
+                                  JSON.stringify(initialDocs) !== JSON.stringify(allDocs)));
+
+                            const effectiveRevised =
+                              revisedDocs.length > 0
+                                ? revisedDocs
+                                : hasSeparateRevisions
+                                ? allDocs.filter((d) => !initialDocs.includes(d))
+                                : [];
+
+                            if (hasSeparateRevisions && (initialDocs.length > 0 || effectiveRevised.length > 0)) {
+                              return (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-1">
+                                  {/* Dokumen Awal */}
+                                  <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5 shadow-2xs">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[9px] uppercase font-bold text-slate-600 tracking-wider">
+                                        Dokumen Awal
+                                      </span>
+                                      <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.2 rounded font-mono">
+                                        {initialDocs.length} File
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      {initialDocs.map((filename, i) => (
+                                        <a
+                                          key={i}
+                                          href={api.getUploadFileUrl(filename)}
+                                          download={filename}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center justify-between text-slate-700 hover:text-blue-600 font-mono font-medium text-[11px] bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded px-2 py-1 transition-all group"
+                                          title={`Unduh Dokumen Awal: ${filename}`}
+                                        >
+                                          <span className="truncate underline font-normal">{filename}</span>
+                                          <svg className="w-3 h-3 text-slate-400 group-hover:text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                          </svg>
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* Dokumen Revisi */}
+                                  <div className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-1.5 shadow-2xs">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[9px] uppercase font-bold text-emerald-700 tracking-wider">
+                                        Dokumen Revisi
+                                      </span>
+                                      <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded font-mono font-semibold">
+                                        {(effectiveRevised.length > 0 ? effectiveRevised : allDocs).length} File
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                      {(effectiveRevised.length > 0 ? effectiveRevised : allDocs).map((filename, i) => (
+                                        <a
+                                          key={i}
+                                          href={api.getUploadFileUrl(filename)}
+                                          download={filename}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center justify-between text-emerald-800 hover:text-emerald-900 font-mono font-medium text-[11px] bg-emerald-50/60 hover:bg-emerald-100/70 border border-emerald-200 rounded px-2 py-1 transition-all group"
+                                          title={`Unduh Dokumen Revisi: ${filename}`}
+                                        >
+                                          <span className="truncate underline font-normal">{filename}</span>
+                                          <svg className="w-3 h-3 text-emerald-600 group-hover:translate-y-0.5 shrink-0 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                          </svg>
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                {allDocs.length > 0 ? (
+                                  allDocs.map((filename, i) => {
+                                    const cleanName = filename.trim();
+                                    const downloadUrl = api.getUploadFileUrl(cleanName);
+                                    return (
+                                      <a
+                                        key={i}
+                                        href={downloadUrl}
+                                        download={cleanName}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100/70 font-mono font-medium text-xs bg-blue-50/80 border border-blue-200/80 rounded-lg px-2.5 py-1.5 transition-all cursor-pointer group shadow-2xs w-fit max-w-full"
+                                        title={`Klik untuk mengunduh berkas: ${cleanName}`}
+                                      >
+                                        <svg className="w-3.5 h-3.5 text-blue-500 shrink-0 group-hover:translate-y-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        <span className="truncate underline font-normal">{cleanName}</span>
+                                      </a>
+                                    );
+                                  })
+                                ) : (
+                                  <span className="text-xs font-medium text-slate-500">-</span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-slate-200">
+                        <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Benefit</span>
+                        <p className="text-xs text-slate-600 leading-relaxed mt-0.5 font-normal">{selectedProposal.description}</p>
+                      </div>
+                    </div>
+
+                    {/* Right Column: Review & Decision Form */}
+                    <div className="lg:col-span-6 flex flex-col justify-between">
+                      <form id="finance-review-form" onSubmit={handleSubmit} className="space-y-4">
+                        {/* Status Options Dropdown Selection */}
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
+                            Keputusan Status Review <span className="text-red-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <select
+                              required
+                              value={decisionStatus}
+                              onChange={(e) => setDecisionStatus(e.target.value as GateStatus)}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-medium focus:outline-none focus:bg-white focus:border-blue-600 transition-colors appearance-none cursor-pointer pr-10"
+                            >
+                              <option value="" disabled>Pilih Keputusan Status Review</option>
+                              <option value="Gate 2 - Committee Review">Approval (Disetujui dan Jadwalkan Komite)</option>
+                              <option value="Gate 1 - Pending User Feedback">Pending (Butuh Dokumen Tambahan)</option>
+                              <option value="Gate 0 - Idea">Revise (Kembali Masuk ke Draft)</option>
+                            </select>
+                            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Separate Date and Time Pickers for Committee Review Schedule */}
+                        {decisionStatus === "Gate 2 - Committee Review" && (
+                          <div className="animate-fadeIn space-y-1.5">
+                            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                              Jadwal Review Komite <span className="text-red-500">*</span>
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {/* Tanggal Sidang */}
+                              <div>
+                                <label className="block text-[10px] font-medium text-slate-500 mb-1">
+                                  Tanggal Sidang
+                                </label>
+                                <input
+                                  required
+                                  type="date"
+                                  value={scheduleDate}
+                                  onChange={(e) => setScheduleDate(e.target.value)}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:bg-white focus:border-blue-600 transition-colors font-normal cursor-pointer"
+                                />
+                              </div>
+
+                              {/* Jam / Waktu Sidang */}
+                              <div>
+                                <label className="block text-[10px] font-medium text-slate-500 mb-1">
+                                  Jam / Waktu (WIB)
+                                </label>
+                                <input
+                                  required
+                                  type="time"
+                                  value={scheduleClock}
+                                  onChange={(e) => setScheduleClock(e.target.value)}
+                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:bg-white focus:border-blue-600 transition-colors font-normal cursor-pointer"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Upload Supporting Document Field */}
+                        {decisionStatus !== "Gate 0 - Idea" && (
+                          <div className="animate-fadeIn space-y-2">
+                            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                              Upload Dokumen Pendukung Finance
+                              <span className="text-[10px] text-slate-400 font-normal ml-1.5 normal-case">
+                                (Opsional - Dokumen Feasibility Study / Verifikasi)
+                              </span>
+                            </label>
+
+                            <div className="flex items-center justify-center w-full">
+                              <label className="flex flex-col items-center justify-center w-full py-3 px-4 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 hover:border-slate-400 transition-all">
+                                <div className="flex items-center justify-center gap-2">
+                                  {isUploading ? (
+                                    <svg className="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                    </svg>
+                                  )}
+                                  <span className="text-[11px] text-slate-600 font-medium">
+                                    {isUploading ? "Mengunggah dokumen..." : "Klik untuk upload file dokumen pendukung (PDF/Excel/Docx/Gambar)"}
+                                  </span>
+                                </div>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  multiple
+                                  disabled={isUploading}
+                                  onChange={async (e) => {
+                                    const files = e.target.files;
+                                    if (files && files.length > 0) {
+                                      setIsUploading(true);
+                                      try {
+                                        const uploadResults = await api.uploadMultipleDocuments(Array.from(files));
+                                        const names = uploadResults.map((r) => r.file_name || r.original_name);
+                                        setUploadedFiles((prev) => Array.from(new Set([...prev, ...names])));
+                                      } catch (err) {
+                                        console.error("Upload error in finance review modal:", err);
+                                        showAlert("Gagal mengunggah dokumen pendukung.", "Upload Gagal");
+                                      } finally {
+                                        setIsUploading(false);
+                                      }
+                                    }
+                                    e.target.value = "";
+                                  }}
+                                />
+                              </label>
+                            </div>
+
+                            {uploadedFiles.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 pt-1">
+                                {uploadedFiles.map((fn, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 px-2.5 py-1 rounded-lg text-xs font-mono font-medium"
+                                  >
+                                    <span className="truncate max-w-55" title={fn}>{fn}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setUploadedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                                      className="text-blue-400 hover:text-red-500 font-bold ml-1 cursor-pointer"
+                                      title="Hapus file"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Notes / Catatan Finance */}
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
+                            Catatan / Ulasan Finance
+                          </label>
+                          <textarea
+                            rows={3}
+                            placeholder="Masukkan ulasan kelayakan FS atau revisi yang diperlukan..."
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 transition-colors resize-none font-normal"
+                          />
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedProposalId(null);
+                      setUploadedFiles([]);
+                    }}
+                    className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    form="finance-review-form"
+                    disabled={isUploading}
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-xs active:scale-95"
+                  >
+                    {isUploading ? "Mengunggah Dokumen..." : "Simpan Keputusan Review"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
+      {/* Custom Centered Alert Modal */}
+      {alertConfig.show && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white border border-slate-200 w-full max-w-sm rounded-2xl shadow-2xl p-6 text-slate-800 space-y-4 animate-scale-in">
+            <h4 className="font-semibold text-sm uppercase tracking-wider text-slate-800 flex items-center gap-2">
+              {alertConfig.title}
+            </h4>
+            <p className="text-xs text-slate-600 leading-relaxed font-normal">{alertConfig.message}</p>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setAlertConfig({ show: false, message: "" })}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl uppercase tracking-wider transition-all cursor-pointer shadow-2xs"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

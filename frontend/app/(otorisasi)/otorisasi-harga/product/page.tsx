@@ -98,12 +98,12 @@ export default function ProductPage() {
 
           {/* Table */}
           {loading ? (
-            <div className="p-8 text-center text-slate-400 font-bold text-xs">Memuat data dari database...</div>
+            <div className="p-8 text-center text-slate-400 font-semibold text-xs">Memuat data dari database...</div>
           ) : (
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 uppercase text-[9px] font-black tracking-wider">
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[9px] font-semibold tracking-wider">
                     <th className="py-3 px-4">Part / Product</th>
                     <th className="py-3 px-4">Jenis Source</th>
                     <th className="py-3 px-4">Buyer</th>
@@ -114,10 +114,10 @@ export default function ProductPage() {
                     <th className="py-3 px-4 text-right">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-bold">
+                <tbody className="divide-y divide-slate-100 font-normal">
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400 italic font-bold">
+                      <td colSpan={8} className="py-8 text-center text-slate-400 italic font-normal">
                         Tidak ada dokumen otorisasi product ditemukan.
                       </td>
                     </tr>
@@ -125,20 +125,20 @@ export default function ProductPage() {
                     filtered.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="py-3 px-4">
-                          <p className="text-slate-900 text-xs font-black">{item.product || item.part_number || "Barang Product"}</p>
+                          <p className="text-slate-900 text-xs font-semibold">{item.product || item.part_number || "Barang Product"}</p>
                           <p className="text-slate-400 font-mono text-[10px]">{item.part_number ? `PN: ${item.part_number}` : `DOC: ${item.id}`}</p>
                         </td>
                         <td className="py-3 px-4 text-slate-700">
                           {item.jenis_otorisasi || "-"}
                         </td>
                         <td className="py-3 px-4 text-slate-700">{item.buyer || "-"}</td>
-                        <td className="py-3 px-4 text-right font-mono text-slate-900">{fmt(item.dana_bodr || 0)}</td>
-                        <td className="py-3 px-4 text-right font-mono text-blue-600 font-black">
+                        <td className="py-3 px-4 text-right font-mono text-slate-900 font-semibold">{fmt(item.dana_bodr || 0)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-blue-600 font-semibold">
                           {item.final_price ? fmt(item.final_price) : "-"}
                         </td>
                         <td className="py-3 px-4 text-slate-600 font-mono text-[11px]">{item.step || "SH PURH"}</td>
                         <td className="py-3 px-4 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${statusBadge(item.status)}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase border ${statusBadge(item.status)}`}>
                             {item.status}
                           </span>
                         </td>

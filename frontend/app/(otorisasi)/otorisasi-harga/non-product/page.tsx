@@ -97,28 +97,28 @@ export default function OtorisasiNPListPage() {
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>{["No","No. Dokumen","No. PR","No. BODR","Buyer","Dana BODR","Step","Status","Aksi"].map(h=><th key={h} className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>)}</tr>
+                <tr>{["No","No. Dokumen","No. PR","No. BODR","Buyer","Dana BODR","Step","Status","Aksi"].map(h=><th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtered.map((item, idx) => (
                   <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 text-slate-400 text-xs">{idx+1}</td>
-                    <td className="px-4 py-3 font-mono font-bold text-blue-600 whitespace-nowrap">{item.no_doc}</td>
+                    <td className="px-4 py-3 font-mono font-semibold text-blue-600 whitespace-nowrap">{item.no_doc}</td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-600">{item.no_pr||"—"}</td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-600">{item.no_bodr||"—"}</td>
-                    <td className="px-4 py-3 text-slate-800 font-bold text-xs">{item.buyer_nama}</td>
-                    <td className="px-4 py-3 text-slate-700 font-bold text-xs whitespace-nowrap">{fmt(item.dana_bodr)}</td>
+                    <td className="px-4 py-3 text-slate-800 font-semibold text-xs">{item.buyer_nama}</td>
+                    <td className="px-4 py-3 text-slate-700 font-semibold text-xs whitespace-nowrap">{fmt(item.dana_bodr)}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{getFullStepName(item.step)}</td>
-                    <td className="px-4 py-3"><span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${statusBadge(item.status)}`}>{item.status}</span></td>
+                    <td className="px-4 py-3"><span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${statusBadge(item.status)}`}>{item.status}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
-                        <Link href={`/otorisasi-harga/non-product/${item.id}`} className="text-blue-600 hover:text-blue-800 text-xs font-bold">Detail</Link>
-                        <button onClick={()=>handleDelete(item.id, item.no_doc)} className="text-red-500 hover:text-red-700 text-xs font-bold">Hapus</button>
+                        <Link href={`/otorisasi-harga/non-product/${item.id}`} className="text-blue-600 hover:text-blue-800 text-xs font-semibold">Detail</Link>
+                        <button onClick={()=>handleDelete(item.id, item.no_doc)} className="text-red-500 hover:text-red-700 text-xs font-semibold">Hapus</button>
                       </div>
                     </td>
                   </tr>
                 ))}
-                {filtered.length===0&&<tr><td colSpan={9} className="text-center text-slate-400 py-12 text-sm">Belum ada dokumen Otorisasi Harga Non-Product</td></tr>}
+                {filtered.length===0&&<tr><td colSpan={9} className="text-center text-slate-400 py-12 text-sm font-normal">Belum ada dokumen Otorisasi Harga Non-Product</td></tr>}
               </tbody>
             </table>
           </div>

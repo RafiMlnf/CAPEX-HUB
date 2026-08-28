@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Swal from "sweetalert2";
 import { api, getUsers, User, ApiDeptSettings, ApiDepartemen } from "../../lib/api";
 import Modal from "../../components/shared/Modal";
 import FormField from "../../components/shared/FormField";
@@ -36,8 +37,8 @@ export default function DeptSettingsPanel() {
     setEditing(item);
     setFDeptId(String(item.departemen_id || ""));
     setFKet(item.keterangan || "");
-    setFHeadId(String((item as any).head_dept_id || ""));
-    setFAccId(String((item as any).accounting_id || ""));
+    setFHeadId(String(item.head_dept_id || (item as any).head_dept_user_id || ""));
+    setFAccId(String(item.accounting_id || (item as any).accounting_user_id || ""));
     setOpen(true);
   };
 
@@ -52,23 +53,49 @@ export default function DeptSettingsPanel() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!fDeptId) {
+      Swal.fire({
+        title: "Peringatan",
+        text: "Silakan pilih Departemen terlebih dahulu.",
+        icon: "warning",
+      });
+      return;
+    }
     const dept = departemens.find((d) => String(d.id) === String(fDeptId));
     const head = users.find((u) => String(u.id) === String(fHeadId));
     const acc = users.find((u) => String(u.id) === String(fAccId));
 
-    await api.upsertDeptSettings({
-      departemen_id: Number(fDeptId) || 0,
-      departemen: dept?.nama || "",
-      department: dept?.nama || "",
-      keterangan: fKet,
-      head_dept: head?.name || "",
-      head_dept_nama: head?.name || "",
-      accounting: acc?.name || "",
-      accounting_nama: acc?.name || "",
-      ...(editing ? { id: editing.id } : {}),
-    });
-    refresh();
-    setOpen(false);
+    try {
+      await api.upsertDeptSettings({
+        departemen_id: Number(fDeptId) || 0,
+        departemen_nama: dept?.nama || "",
+        keterangan: fKet,
+        head_dept_id: fHeadId ? Number(fHeadId) : null,
+        head_dept_user_id: fHeadId ? Number(fHeadId) : null,
+        head_dept_nama: head?.name || "",
+        accounting_id: fAccId ? Number(fAccId) : null,
+        accounting_user_id: fAccId ? Number(fAccId) : null,
+        accounting_nama: acc?.name || "",
+        ...(editing ? { id: editing.id } : {}),
+      });
+      refresh();
+      setOpen(false);
+      Swal.fire({
+        title: "Berhasil",
+        text: "Konfigurasi Departemen Settings berhasil disimpan.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (err: any) {
+      console.error("Gagal menyimpan dept settings:", err);
+      Swal.fire({
+        title: "Gagal Menyimpan",
+        text: err?.message || "Gagal menyimpan konfigurasi departemen.",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
+    }
   };
 
   const filteredItems = useMemo(() => {
@@ -151,14 +178,10 @@ export default function DeptSettingsPanel() {
                   <td className="px-4 py-3 font-semibold text-slate-800">{deptName}</td>
                   <td className="px-4 py-3 text-slate-500 text-xs font-normal">{item.keterangan || "-"}</td>
                   <td className="px-4 py-3 text-slate-700 text-xs font-normal">
-                    <span className="px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 font-medium">
-                      {headName}
-                    </span>
+                    {headName || "-"}
                   </td>
                   <td className="px-4 py-3 text-slate-700 text-xs font-normal">
-                    <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 font-medium">
-                      {accName}
-                    </span>
+                    {accName || "-"}
                   </td>
                   <td className="px-4 py-3">
                     <button onClick={() => openEdit(item)} className="text-blue-600 hover:text-blue-700 text-xs font-medium cursor-pointer">

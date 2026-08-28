@@ -24,7 +24,7 @@ function DraftsPageContent() {
     message: "",
     type: "success",
   });
-  const [activeTab, setActiveTab] = useState<"revisi" | "pending" | "ditolak">("revisi");
+  const [activeTab, setActiveTab] = useState<"drafts" | "revisions" | "pending" | "rejected">("drafts");
   const [uploadProposal, setUploadProposal] = useState<CapexProposal | null>(null);
   const [supportingFiles, setSupportingFiles] = useState<string[]>([]);
   const [selectedNotesProposal, setSelectedNotesProposal] = useState<CapexProposal | null>(null);
@@ -38,45 +38,67 @@ function DraftsPageContent() {
     hasPermission("perm_review_capex") ||
     hasPermission("perm_committee_review") ||
     hasPermission("perm_view_reports") ||
-    (currentUser?.role || "").toLowerCase() === "admin";
+    (currentUser?.role || "").toLowerCase() === "admin" ||
+    (currentUser?.role || "").toLowerCase().includes("accounting") ||
+    (currentUser?.role || "").toLowerCase().includes("finance") ||
+    (currentUser?.role || "").toLowerCase().includes("director") ||
+    (currentUser?.role || "").toLowerCase().includes("division head");
 
-  // Filter proposals strictly per logged-in user / PIC unless admin
+  // Filter proposals according to user login & role permissions
   const userProposals = useMemo(() => {
     if (isAllAccess) return proposals;
     if (!currentUser) return proposals;
 
+    const userDept = (currentUser.department || "").toLowerCase().trim();
     const userName = (currentUser.name || "").toLowerCase().trim();
     const userNpk = (currentUser.npk || "").toLowerCase().trim();
     const username = (currentUser.username || "").toLowerCase().trim();
 
     return proposals.filter((p: any) => {
+      const pDept = (p.department || "").toLowerCase().trim();
       const pPic = (p.pic || "").toLowerCase().trim();
-      return (
+
+      const isSameDept = userDept && (pDept === userDept || pDept.includes(userDept) || userDept.includes(pDept));
+      const isSamePic =
         (userName && (pPic === userName || pPic.includes(userName))) ||
-        (username && (pPic === username || pPic.includes(username))) ||
-        (userNpk && pPic === userNpk)
-      );
+        (username && pPic === username) ||
+        (userNpk && pPic === userNpk);
+
+      return isSameDept || isSamePic;
     });
   }, [proposals, isAllAccess, currentUser]);
 
-  // 1. Revisi (Revisi Finance, Revisi Komite, atau Draft tersimpan)
+  // 1. Pure Drafts (Dibuat dari Simpan sebagai Draft baru tanpa revisi/penolakan)
+  const pureDrafts = userProposals.filter(
+    (p: any) =>
+      (p.gateStatus === "Gate 0 - Idea" || p.gateStatus === "Gate 0 - Draft" || p.gateStatus === "Draft") &&
+      !p.revisionSource &&
+      !p.financeNotes &&
+      !p.committeeNotes
+  );
+
+  // 2. Revisions (Dikembalikan untuk revisi oleh Finance atau Komite)
+  const financeDrafts = userProposals.filter(
+    (p: any) =>
+      (p.gateStatus === "Gate 0 - Idea" || p.gateStatus === "Gate 0 - Draft" || p.gateStatus === "Gate 2 - Revised") &&
+      p.revisionSource === "Finance"
+  );
+  const committeeDrafts = userProposals.filter(
+    (p: any) =>
+      (p.gateStatus === "Gate 0 - Idea" || p.gateStatus === "Gate 0 - Draft" || p.gateStatus === "Gate 2 - Revised") &&
+      p.revisionSource === "Committee"
+  );
   const revisionProposals = userProposals.filter(
     (p: any) =>
       p.gateStatus === "Gate 2 - Revised" ||
-      p.gateStatus === "Gate 0 - Idea" ||
-      p.gateStatus === "Gate 0 - Draft" ||
-      p.gateStatus === "Draft" ||
-      p.revisionSource === "Finance" ||
-      p.revisionSource === "Committee"
+      ((p.gateStatus === "Gate 0 - Idea" || p.gateStatus === "Gate 0 - Draft") && (p.revisionSource || p.financeNotes || p.committeeNotes))
   );
 
-  // 2. Pending Upload Dokumen (Menunggu dokumen tambahan dari pengaju)
+  // 3. Pending Upload File (Menunggu dokumen tambahan dari pengaju)
   const pendingProposals = userProposals.filter((p: any) => p.gateStatus === "Gate 1 - Pending User Feedback");
 
-  // 3. Ditolak Komite (Rejected)
-  const rejectedProposals = userProposals.filter(
-    (p: any) => p.gateStatus === "Gate 2 - Rejected" || p.gateStatus === "Rejected"
-  );
+  // 4. Ditolak Komite (Rejected)
+  const rejectedProposals = userProposals.filter((p: any) => p.gateStatus === "Gate 2 - Rejected" || p.gateStatus === "Rejected");
 
   return (
     <div className="flex min-h-screen bg-slate-100 font-sans text-xs text-slate-800">
@@ -102,25 +124,39 @@ function DraftsPageContent() {
                 Pusat Tindakan & Draft CAPEX
               </h2>
               <p className="text-xs opacity-90 leading-relaxed font-normal">
-                Kelola usulan Anda yang memerlukan tindakan perbaikan (Revisi), permintaan dokumen pendukung (Pending), dan arsip usulan Ditolak.
+                Kelola usulan draft Anda, penuhi permintaan dokumen pendukung dari Finance, atau lihat detail revisi & penolakan komite.
               </p>
             </div>
           </div>
 
-          {/* Action Tabs: Revisi, Pending, Ditolak */}
+          {/* Action Tabs */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-2xs">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div className="flex flex-wrap gap-2 bg-slate-100 p-1 rounded-xl">
                 <button
-                  onClick={() => setActiveTab("revisi")}
+                  onClick={() => setActiveTab("drafts")}
                   className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === "revisi"
-                      ? "bg-amber-500 text-white shadow-2xs"
+                    activeTab === "drafts"
+                      ? "bg-blue-600 text-white shadow-2xs"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  1. Revisi
-                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === "revisi" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
+                  Draft CAPEX
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === "drafts" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
+                    {pureDrafts.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("revisions")}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeTab === "revisions"
+                      ? "bg-blue-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Perlu Revisi
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === "revisions" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
                     {revisionProposals.length}
                   </span>
                 </button>
@@ -133,37 +169,33 @@ function DraftsPageContent() {
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  2. Pending
+                  Pending Upload File
                   <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === "pending" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
                     {pendingProposals.length}
                   </span>
                 </button>
 
                 <button
-                  onClick={() => setActiveTab("ditolak")}
+                  onClick={() => setActiveTab("rejected")}
                   className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === "ditolak"
-                      ? "bg-red-600 text-white shadow-2xs"
+                    activeTab === "rejected"
+                      ? "bg-blue-600 text-white shadow-2xs"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  3. Ditolak
-                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === "ditolak" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
+                  Ditolak Komite
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === "rejected" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
                     {rejectedProposals.length}
                   </span>
                 </button>
               </div>
-
-              <div className="text-[11px] text-slate-500 font-medium">
-                PIC Pengguna: <span className="font-semibold text-slate-700">{currentUser?.name || currentUser?.username || "All"}</span>
-              </div>
             </div>
 
-            {/* Tab 1: Revisi Content */}
-            {activeTab === "revisi" && (
-              revisionProposals.length === 0 ? (
+            {/* Tab 1: Pure Drafts Content */}
+            {activeTab === "drafts" && (
+              pureDrafts.length === 0 ? (
                 <div className="py-12 text-center text-slate-500 italic text-xs font-normal">
-                  Tidak ada draft atau usulan CAPEX yang perlu direvisi saat ini.
+                  Tidak ada draft CAPEX baru yang disimpan saat ini.
                 </div>
               ) : (
                 <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
@@ -175,62 +207,173 @@ function DraftsPageContent() {
                         <th className="py-2.5 px-3 border-r border-slate-200">Nama Project</th>
                         <th className="py-2.5 px-3 w-28 border-r border-slate-200">Dept</th>
                         <th className="py-2.5 px-3 w-28 text-right border-r border-slate-200">Estimasi Biaya</th>
-                        <th className="py-2.5 px-3 border-r border-slate-200 text-center">Tipe / Catatan</th>
-                        <th className="py-2.5 px-3 w-32 text-center">Aksi</th>
+                        <th className="py-2.5 px-3 border-r border-slate-200 text-center">Status</th>
+                        <th className="py-2.5 px-3 w-36 text-center">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-150 text-xs">
-                      {revisionProposals.map((p, idx) => {
-                        const isFinanceRev = p.revisionSource === "Finance" || p.financeNotes;
-                        const isCommitteeRev = p.revisionSource === "Committee" || p.committeeNotes;
-                        return (
-                          <tr key={p.id} className="hover:bg-slate-50/50">
-                            <td className="py-2.5 px-3 text-center border-r border-slate-200 font-medium">{idx + 1}</td>
-                            <td className="py-2.5 px-3 border-r border-slate-200 font-mono font-semibold text-slate-800">{p.id}</td>
-                            <td className="py-2.5 px-3 border-r border-slate-200 font-semibold text-slate-800">
-                              <div>{p.name}</div>
-                              {p.description && (
-                                <div className="text-[11px] text-slate-400 font-normal truncate max-w-xs">{p.description}</div>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3 border-r border-slate-200 font-medium">{p.department}</td>
-                            <td className="py-2.5 px-3 text-right border-r border-slate-200 font-semibold text-blue-600">
-                              Rp {p.estimatedCost.toLocaleString("id-ID")}
-                            </td>
-                            <td className="py-2.5 px-3 border-r border-slate-200 text-center">
-                              {isCommitteeRev ? (
-                                <button
-                                  onClick={() => setSelectedNotesProposal(p)}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer"
-                                >
-                                  Revisi Komite
-                                </button>
-                              ) : isFinanceRev ? (
-                                <button
-                                  onClick={() => setSelectedNotesProposal(p)}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
-                                >
-                                  Revisi Finance
-                                </button>
-                              ) : (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                                  Draft Pengaju
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3 text-center">
-                              <button
-                                onClick={() => router.push(`/planning?edit=${p.id}`)}
-                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg tracking-wider transition-all shadow-2xs cursor-pointer text-[10px]"
-                              >
-                                EDIT / KIRIM
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {pureDrafts.map((p, idx) => (
+                        <tr key={p.id} className="hover:bg-slate-50/50">
+                          <td className="py-2.5 px-3 text-center border-r border-slate-200 font-medium">{idx + 1}</td>
+                          <td className="py-2.5 px-3 border-r border-slate-200 font-mono font-semibold text-blue-600">{p.id}</td>
+                          <td className="py-2.5 px-3 border-r border-slate-200 font-semibold text-slate-800">
+                            <div>{p.name}</div>
+                            {p.description && (
+                              <div className="text-[11px] text-slate-400 font-normal truncate max-w-xs">{p.description}</div>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 border-r border-slate-200 font-medium">{p.department}</td>
+                          <td className="py-2.5 px-3 text-right border-r border-slate-200 font-semibold text-blue-600">
+                            Rp {p.estimatedCost.toLocaleString("id-ID")}
+                          </td>
+                          <td className="py-2.5 px-3 border-r border-slate-200 text-center">
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md font-semibold text-[10px] border border-slate-200">
+                              Draft
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <button
+                              onClick={() => router.push(`/planning?edit=${p.id}`)}
+                              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg tracking-wider transition-all shadow-2xs cursor-pointer text-[10px]"
+                            >
+                              LANJUTKAN / KIRIM
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
+                </div>
+              )
+            )}
+
+            {/* Tab 2: Revisions Content */}
+            {activeTab === "revisions" && (
+              revisionProposals.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 italic text-xs font-normal">
+                  Tidak ada usulan CAPEX yang perlu direvisi saat ini.
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Sub-Section 1: Revisi oleh Finance */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 bg-slate-50 px-3 py-2 rounded-xl border border-slate-150">
+                      Revisi oleh Finance ({financeDrafts.length})
+                    </h4>
+                    {financeDrafts.length === 0 ? (
+                      <p className="text-xs text-slate-500 italic py-2 pl-3">Tidak ada draft revisi dari Finance.</p>
+                    ) : (
+                      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-semibold uppercase tracking-wider">
+                              <th className="py-2.5 px-3 w-12 text-center border-r border-slate-200">No</th>
+                              <th className="py-2.5 px-3 w-28 border-r border-slate-200">ID CAPEX</th>
+                              <th className="py-2.5 px-3 border-r border-slate-200">Nama Project</th>
+                              <th className="py-2.5 px-3 w-28 border-r border-slate-200">Dept</th>
+                              <th className="py-2.5 px-3 w-28 text-right border-r border-slate-200">Estimasi Biaya</th>
+                              <th className="py-2.5 px-3 border-r border-slate-200 text-center">Catatan Finance</th>
+                              <th className="py-2.5 px-3 w-32 text-center">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-150 text-xs">
+                            {financeDrafts.map((p, idx) => {
+                              const lastHistory = p.history[p.history.length - 1];
+                              return (
+                                <tr key={p.id} className="hover:bg-slate-50/50">
+                                  <td className="py-2.5 px-3 text-center border-r border-slate-200 font-medium">{idx + 1}</td>
+                                  <td className="py-2.5 px-3 border-r border-slate-200 font-mono font-semibold text-slate-800">{p.id}</td>
+                                  <td className="py-2.5 px-3 border-r border-slate-200 font-semibold text-slate-800">{p.name}</td>
+                                  <td className="py-2.5 px-3 border-r border-slate-200 font-medium">{p.department}</td>
+                                  <td className="py-2.5 px-3 text-right border-r border-slate-200 font-semibold text-blue-600">
+                                    Rp {p.estimatedCost.toLocaleString("id-ID")}
+                                  </td>
+                                  <td className="py-2.5 px-3 border-r border-slate-200 text-center">
+                                    {lastHistory?.notes ? (
+                                      <button
+                                        onClick={() => setSelectedNotesProposal(p)}
+                                        className="text-xs text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+                                      >
+                                        Lihat Ulasan
+                                      </button>
+                                    ) : "-"}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    <button
+                                      onClick={() => router.push(`/planning?edit=${p.id}`)}
+                                      className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg tracking-wider transition-all shadow-2xs cursor-pointer text-[10px]"
+                                    >
+                                      EDIT / KIRIM
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sub-Section 2: Revisi oleh Komite */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 bg-slate-50 px-3 py-2 rounded-xl border border-slate-150">
+                      Revisi oleh Komite ({committeeDrafts.length})
+                    </h4>
+                    {committeeDrafts.length === 0 ? (
+                      <p className="text-xs text-slate-500 italic py-2 pl-3">Tidak ada draft revisi dari Komite.</p>
+                    ) : (
+                      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-semibold uppercase tracking-wider">
+                              <th className="py-2.5 px-3 w-12 text-center border-r border-slate-200">No</th>
+                              <th className="py-2.5 px-3 w-28 border-r border-slate-200">ID CAPEX</th>
+                              <th className="py-2.5 px-3 border-r border-slate-200">Nama Project</th>
+                              <th className="py-2.5 px-3 w-28 border-r border-slate-200">Dept</th>
+                              <th className="py-2.5 px-3 w-28 text-right border-r border-slate-200">Estimasi Biaya</th>
+                              <th className="py-2.5 px-3 border-r border-slate-200 text-center">Catatan Komite</th>
+                              <th className="py-2.5 px-3 w-32 text-center">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-150 text-xs">
+                            {committeeDrafts.map((p, idx) => {
+                              const lastHistory = p.history[p.history.length - 1];
+                              return (
+                                <tr key={p.id} className="hover:bg-slate-50/50">
+                                  <td className="py-2.5 px-3 text-center border-r border-slate-200 font-medium">{idx + 1}</td>
+                                  <td className="py-2.5 px-3 border-r border-slate-200 font-mono font-semibold text-slate-800">{p.id}</td>
+                                  <td className="py-2.5 px-3 border-r border-slate-200 font-semibold text-slate-800">{p.name}</td>
+                                  <td className="py-2.5 px-3 border-r border-slate-200 font-medium">{p.department}</td>
+                                  <td className="py-2.5 px-3 text-right border-r border-slate-200 font-semibold text-blue-600">
+                                    Rp {p.estimatedCost.toLocaleString("id-ID")}
+                                  </td>
+                                  <td className="py-2.5 px-3 border-r border-slate-200 text-center">
+                                    {lastHistory?.notes ? (
+                                      <button
+                                        onClick={() => setSelectedNotesProposal(p)}
+                                        className="text-xs text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+                                      >
+                                        Lihat Ulasan
+                                      </button>
+                                    ) : "-"}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    <button
+                                      onClick={() => router.push(`/planning?edit=${p.id}`)}
+                                      className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg tracking-wider transition-all shadow-2xs cursor-pointer text-[10px]"
+                                    >
+                                      EDIT / KIRIM
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )
             )}
@@ -290,7 +433,7 @@ function DraftsPageContent() {
               )
             )}
 
-            {activeTab === "ditolak" && (
+            {activeTab === "rejected" && (
               rejectedProposals.length === 0 ? (
                 <div className="py-12 text-center text-slate-500 italic text-xs font-normal">
                   Tidak ada proposal yang ditolak oleh Komite Review.
@@ -433,9 +576,24 @@ function DraftsPageContent() {
                 </button>
                 <button
                   onClick={async () => {
+                    const now = new Date().toISOString();
+                    const uploaderName = currentUser?.name || currentUser?.username || uploadProposal.pic || "Pemohon";
+                    const fileListStr = supportingFiles.join(", ");
+
                     await editProposal(uploadProposal.id, {
-                      attachmentName: supportingFiles.join(", "),
+                      attachmentName: fileListStr,
+                      revisedAttachmentName: fileListStr,
                       gateStatus: "Gate 1 - Finance Review", // send back to finance review
+                      history: [
+                        ...(uploadProposal.history || []),
+                        {
+                          gate: 1,
+                          action: "Dokumen Diunggah Ulang / Pendukung",
+                          actor: uploaderName,
+                          timestamp: now,
+                          notes: `Dokumen pendukung diunggah: ${fileListStr}`,
+                        },
+                      ],
                     });
                     setUploadProposal(null);
                     triggerToast("Dokumen pendukung berhasil dikirim ke Finance Review!");
@@ -473,10 +631,21 @@ function DraftsPageContent() {
                 </p>
               </div>
             </div>
-            <div className="flex justify-end pt-2">
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  const id = selectedNotesProposal.id;
+                  setSelectedNotesProposal(null);
+                  router.push(`/planning?edit=${id}`);
+                }}
+                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-xl tracking-wider transition-all cursor-pointer shadow-2xs"
+              >
+                Lanjutkan / Edit Usulan
+              </button>
               <button
                 onClick={() => setSelectedNotesProposal(null)}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl uppercase tracking-wider transition-all cursor-pointer shadow-2xs"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-2xs"
               >
                 Tutup
               </button>

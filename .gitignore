@@ -5,3 +5,7 @@ node_modules/
 dist/
 .next/
 build/
+uploads/*
+!uploads/.gitkeep
+backend/uploads/*
+!backend/uploads/.gitkeep

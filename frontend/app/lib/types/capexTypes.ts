@@ -22,8 +22,10 @@ export interface CapexProposal {
   isFsRequired?: boolean;
   fsCategory?: FsCategory;
   financeNotes?: string;
+  financeApprovedBy?: string;
   financeApprovedAt?: string;
   committeeNotes?: string;
+  committeeApprovedBy?: string;
   committeeApprovedAt?: string;
   poNumber?: string;
   poDate?: string;
@@ -43,6 +45,7 @@ export interface CapexProposal {
   attachmentName?: string;
   initialAttachmentName?: string;
   revisedAttachmentName?: string;
+  revisedAttachmentHistory?: string | null; // JSON: string[][] — array of revision batches
   committeeReviewSchedule?: string;
   revisionSource?: "Finance" | "Committee";
 }

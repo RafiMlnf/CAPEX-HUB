@@ -12,23 +12,10 @@ import ProgressStatusLegend from "../../components/progress/ProgressStatusLegend
 import ProgressStageTabs from "../../components/progress/ProgressStageTabs";
 import ProgressStepper from "../../components/progress/ProgressStepper";
 import ProgressMatrixTable, { ProgressRowData } from "../../components/progress/ProgressMatrixTable";
-
-function calculateDays(startDateStr?: string, endDateStr?: string): string {
-  if (!startDateStr) return "1";
-  const start = new Date(startDateStr).getTime();
-  if (isNaN(start)) return "1";
-  if (endDateStr) {
-    const end = new Date(endDateStr).getTime();
-    if (!isNaN(end) && end > start) {
-      const diffMs = end - start;
-      return Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24))).toString();
-    }
-  }
-  return "1";
-}
+import ProgressLeadTimeModal from "../../components/progress/ProgressLeadTimeModal";
 
 export default function CapexProgressPage() {
-  const { proposals, refreshProposals } = useCapex();
+  const { proposals, refreshProposals, currentUser } = useCapex();
   const [dbCapexItems, setDbCapexItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -37,6 +24,7 @@ export default function CapexProgressPage() {
   const [exportToast, setExportToast] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedLeadTimeProject, setSelectedLeadTimeProject] = useState<ProgressRowData | null>(null);
 
   // Sync real-time database data on component mount
   useEffect(() => {
@@ -63,47 +51,68 @@ export default function CapexProgressPage() {
     }
     if (dbCapexItems && dbCapexItems.length > 0) {
       return dbCapexItems.map((c: any, idx: number) => ({
-        id: c.code || c.kode_capex || c.id || `CPX-2026-${String(idx + 1).padStart(3, "0")}`,
-        name: c.name || c.nama_capex || c.item_name || c.capex_name || "Investasi Belanja Modal",
+        id: c.id || `CPX-2026-${String(idx + 1).padStart(3, "0")}`,
+        capexId: c.capexId || c.code || c.kode_capex || "-",
+        name: c.name || c.nama_capex || c.item_name || c.capex_name || "-",
         description: c.description || "-",
-        department: c.department || c.departemen || "Production",
-        purpose: c.purpose || "Capacity",
-        investmentType: c.investmentType || c.investment_type || c.capex_type || "Capacity Up",
-        pic: c.pic || "Budi Santoso",
+        department: c.department || c.departemen || c.departemen?.nama_departemen || currentUser?.department || "-",
+        purpose: c.purpose || "-",
+        investmentType: c.investmentType || c.investment_type || c.capex_type || "-",
+        pic: c.pic || currentUser?.name || currentUser?.username || "-",
         estimatedCost: Number(c.total_amount || c.estimatedCost || c.budget || c.amount || 0),
         gateStatus: c.gateStatus || c.status || "Gate 0 - Idea",
+        createdAt: c.createdAt || new Date().toISOString(),
         history: c.history || [],
       }));
     }
     return [];
-  }, [proposals, dbCapexItems]);
+  }, [proposals, dbCapexItems, currentUser]);
+
+function calculateDays(startDateStr?: string, endDateStr?: string): string {
+  if (!startDateStr) return "1";
+  const start = new Date(startDateStr).getTime();
+  if (isNaN(start)) return "1";
+  const end = endDateStr ? new Date(endDateStr).getTime() : Date.now();
+  if (isNaN(end)) return "1";
+  const diffMs = Math.max(0, end - start);
+  const diffDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  return diffDays.toString();
+}
 
   // Compute Gate Status & Actual Days for each row
   const enrichedRows: ProgressRowData[] = useMemo(() => {
     return combinedProposals.map((p: any) => {
       const gs = p.gateStatus || "Gate 0 - Idea";
+      const createdAt = p.createdAt || new Date().toISOString();
 
       // Gate 0 (Planning)
       let g0Status = "Waiting";
       let g0Days = "-";
       if (gs === "Gate 0 - Idea" || gs === "Gate 0 - Draft") {
         g0Status = "Open";
-        g0Days = calculateDays(p.createdAt);
+        g0Days = calculateDays(createdAt);
       } else {
         g0Status = "Closed";
-        g0Days = "1";
+        const g0End =
+          (Array.isArray(p.history) && p.history.find((h: any) => h.gate >= 1)?.timestamp) ||
+          p.financeApprovedAt ||
+          createdAt;
+        g0Days = calculateDays(createdAt, g0End);
       }
 
       // Gate 1 (FinAcct Review)
-      // Dihitung langsung saat user merilis capex ke tahap Gate 1
       let g1Status = "Waiting";
       let g1Days = "-";
+      const g1Start =
+        (Array.isArray(p.history) && p.history.find((h: any) => h.gate >= 1)?.timestamp) ||
+        createdAt;
+
       if (gs === "Gate 1 - Finance Review" || gs === "Gate 1 - Revise") {
         g1Status = "In Progress";
-        g1Days = calculateDays(p.createdAt);
+        g1Days = calculateDays(g1Start);
       } else if (gs === "Gate 1 - Pending User Feedback") {
         g1Status = "Semi Close";
-        g1Days = calculateDays(p.createdAt);
+        g1Days = calculateDays(g1Start);
       } else if (
         gs === "Gate 2 - Committee Review" ||
         gs === "Gate 3 - Procurement" ||
@@ -111,38 +120,50 @@ export default function CapexProgressPage() {
         gs === "Closed"
       ) {
         g1Status = "Closed";
-        g1Days = calculateDays(p.createdAt, p.financeApprovedAt || p.createdAt);
+        const g1End = p.financeApprovedAt || g1Start;
+        g1Days = calculateDays(g1Start, g1End);
       }
 
       // Gate 2 (Komite Review)
-      // Otomatis dihitung secara real-time dari saat Accounting melakukan approval
       let g2Status = "Waiting";
       let g2Days = "-";
+      const g2Start =
+        p.financeApprovedAt ||
+        (Array.isArray(p.history) && p.history.find((h: any) => h.gate === 2)?.timestamp) ||
+        g1Start;
+
       if (gs === "Gate 2 - Committee Review") {
         g2Status = "In Progress";
-        g2Days = calculateDays(p.financeApprovedAt || p.createdAt);
+        g2Days = calculateDays(g2Start);
       } else if (gs === "Gate 2 - Revised") {
         g2Status = "Open";
-        g2Days = calculateDays(p.financeApprovedAt || p.createdAt);
+        g2Days = calculateDays(g2Start);
       } else if (gs === "Gate 2 - Rejected") {
         g2Status = "Overdue, Closed";
-        g2Days = calculateDays(p.financeApprovedAt || p.createdAt);
+        g2Days = calculateDays(g2Start);
       } else if (
         gs === "Approved / Archived" ||
         gs === "Gate 3 - Procurement" ||
         gs === "Closed"
       ) {
         g2Status = "Closed";
-        g2Days = calculateDays(p.financeApprovedAt || p.createdAt, p.committeeApprovedAt || p.financeApprovedAt);
+        const g2End = p.committeeApprovedAt || g2Start;
+        g2Days = calculateDays(g2Start, g2End);
       }
 
       return {
         id: p.id,
+        capexId: p.capexId && p.capexId !== "-" ? p.capexId : "-",
         name: p.name,
         department: p.department,
         purpose: p.purpose,
         investmentType: p.investmentType,
         estimatedCost: p.estimatedCost,
+        pic: p.pic,
+        createdAt: p.createdAt,
+        gateStatus: p.gateStatus,
+        attachmentName: p.attachmentName,
+        rawProposal: p,
         g0Days,
         g0Status,
         g1Days,
@@ -168,6 +189,7 @@ export default function CapexProgressPage() {
     return tabFiltered.filter((r) => {
       const matchSearch =
         r.id.toLowerCase().includes(search.toLowerCase()) ||
+        (r.capexId && r.capexId.toLowerCase().includes(search.toLowerCase())) ||
         r.name.toLowerCase().includes(search.toLowerCase()) ||
         r.department.toLowerCase().includes(search.toLowerCase()) ||
         (r.purpose && r.purpose.toLowerCase().includes(search.toLowerCase()));
@@ -263,10 +285,18 @@ export default function CapexProgressPage() {
                 setItemsPerPage(num);
                 setCurrentPage(1);
               }}
+              onSelectProject={(row) => setSelectedLeadTimeProject(row)}
             />
           </div>
         </main>
       </div>
+
+      {/* Details of Lead Time & Stage Activities Modal */}
+      <ProgressLeadTimeModal
+        isOpen={!!selectedLeadTimeProject}
+        onClose={() => setSelectedLeadTimeProject(null)}
+        proposal={selectedLeadTimeProject}
+      />
     </div>
   );
 }

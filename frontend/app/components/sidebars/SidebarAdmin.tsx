@@ -4,16 +4,27 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+import { useCapex } from "../../context/CapexContext";
+
 type AdminSection = "dashboard" | "masterdata" | "settings" | "history";
-type MasterSub = "users" | "departemen" | "roles" | "permissions" | "type_approval";
+type MasterBodrSub = "users" | "departemen" | "roles" | "permissions" | "type_approval" | "cost_centers";
+type MasterPriceSub = "vendor" | "part_number" | "jenis_otorisasi" | "jenis_barang";
 type SettingsSub = "role_permission" | "approval_workflow" | "approval_price" | "dept_settings" | "portal_access";
 
-const masterItems: { key: MasterSub; label: string }[] = [
-  { key: "users", label: "Users" },
-  { key: "departemen", label: "Department" },
-  { key: "roles", label: "Roles" },
-  { key: "permissions", label: "Permissions" },
-  { key: "type_approval", label: "Approval Types" },
+const masterBodrItems: { key: MasterBodrSub; label: string; perm?: string }[] = [
+  { key: "users", label: "Users", perm: "perm_manage_users" },
+  { key: "departemen", label: "Department", perm: "perm_manage_config" },
+  { key: "roles", label: "Roles", perm: "perm_manage_config" },
+  { key: "permissions", label: "Permissions", perm: "perm_manage_config" },
+  { key: "type_approval", label: "Approval Types", perm: "perm_manage_config" },
+  { key: "cost_centers", label: "Cost Centers", perm: "perm_manage_config" },
+];
+
+const masterPriceItems: { key: MasterPriceSub; label: string; perm?: string }[] = [
+  { key: "vendor", label: "Vendor", perm: "perm_manage_master_price" },
+  { key: "part_number", label: "Part Number", perm: "perm_manage_master_price" },
+  { key: "jenis_otorisasi", label: "Source Types", perm: "perm_manage_master_price" },
+  { key: "jenis_barang", label: "Item Types", perm: "perm_manage_master_price" },
 ];
 
 const settingsItems: { key: SettingsSub; label: string }[] = [
@@ -25,27 +36,64 @@ const settingsItems: { key: SettingsSub; label: string }[] = [
 ];
 
 export default function SidebarAdmin() {
+  const { currentUser, hasPermission } = useCapex();
   const searchParams = useSearchParams();
-  const tab = (searchParams.get("tab") || "dashboard") as AdminSection;
+
+  const userRole = (currentUser?.role || "").toLowerCase();
+  const userName = (currentUser?.username || "").toLowerCase();
+  const isAdmin = userRole === "admin" || userName === "admin";
+  const canManageMasterData = hasPermission("perm_manage_config") || isAdmin || currentUser?.can_admin === true;
+  const canManageConfig = hasPermission("perm_manage_config") || isAdmin || currentUser?.can_admin === true;
+  const canManageUsers = hasPermission("perm_manage_users") || canManageMasterData || isAdmin || currentUser?.can_admin === true;
+
+  const defaultTab = isAdmin ? "dashboard" : (canManageMasterData ? "masterdata" : "settings");
+  const rawTab = searchParams.get("tab");
+  const tab = ((!isAdmin && (!rawTab || rawTab === "dashboard")) ? defaultTab : (rawTab || defaultTab)) as AdminSection;
   const sub = searchParams.get("sub") || "";
 
-  // State accordion: default terbuka jika sedang di tab bersangkutan
+  const isBodrActive = tab === "masterdata" && (masterBodrItems.some((i) => i.key === sub) || (!sub && !masterPriceItems.some((i) => i.key === sub)));
+  const isPriceActive = tab === "masterdata" && masterPriceItems.some((i) => i.key === sub);
+
+  // Filter master items
+  const visibleMasterBodrItems = masterBodrItems.filter((item) => {
+    if (isAdmin || canManageMasterData) return true;
+    if (item.key === "users") {
+      return canManageUsers;
+    }
+    return canManageConfig;
+  });
+
+  const visibleMasterPriceItems = masterPriceItems.filter(() => {
+    return (
+      isAdmin ||
+      canManageMasterData ||
+      canManageConfig ||
+      hasPermission("perm_manage_master_price")
+    );
+  });
+
+  // State accordion
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    masterdata: tab === "masterdata",
-    settings: tab === "settings",
+    master_bodr: isBodrActive || (!isAdmin && canManageMasterData),
+    master_price: isPriceActive || (!isAdmin && canManageMasterData),
+    settings: tab === "settings" || (!isAdmin && canManageConfig && !canManageMasterData),
   });
 
   // Sinkronkan state buka saat URL tab berubah
   useEffect(() => {
     if (tab === "masterdata") {
-      setOpenSections((prev) => ({ ...prev, masterdata: true }));
+      if (masterPriceItems.some((i) => i.key === sub)) {
+        setOpenSections((prev) => ({ ...prev, master_price: true }));
+      } else {
+        setOpenSections((prev) => ({ ...prev, master_bodr: true }));
+      }
     } else if (tab === "settings") {
       setOpenSections((prev) => ({ ...prev, settings: true }));
     }
-  }, [tab]);
+  }, [tab, sub]);
 
-  // Toggle buka/tutup murni tanpa auto-redirect halaman
-  const toggleSection = (sectionKey: "masterdata" | "settings") => {
+  // Toggle buka/tutup
+  const toggleSection = (sectionKey: "master_bodr" | "master_price" | "settings") => {
     setOpenSections((prev) => ({
       ...prev,
       [sectionKey]: !prev[sectionKey],
@@ -73,39 +121,41 @@ export default function SidebarAdmin() {
         </p>
 
         {/* 1. Dashboard Link */}
-        <Link
-          href="/admin?tab=dashboard"
-          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-            tab === "dashboard"
-              ? "bg-blue-600 text-white shadow-xs"
-              : "text-slate-700 hover:text-blue-600 hover:bg-blue-50"
-          }`}
-        >
-          <span className={tab === "dashboard" ? "text-white" : "text-slate-400"}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2zm10-5a1 1 0 011-1h4a1 1 0 011 1v8a1 1 0 01-1 1h-4a1 1 0 01-1-1v-8z"
-              />
-            </svg>
-          </span>
-          <span>Dashboard</span>
-        </Link>
+        {isAdmin && (
+          <Link
+            href="/admin?tab=dashboard"
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+              tab === "dashboard"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-slate-700 hover:text-blue-600 hover:bg-blue-50"
+            }`}
+          >
+            <span className={tab === "dashboard" ? "text-white" : "text-slate-400"}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2zm10-5a1 1 0 011-1h4a1 1 0 011 1v8a1 1 0 01-1 1h-4a1 1 0 01-1-1v-8z"
+                />
+              </svg>
+            </span>
+            <span>Dashboard</span>
+          </Link>
+        )}
 
-        {/* 2. Master Data (Accordion Toggle) */}
+        {/* 2. Master Data BODR & Core (Accordion Toggle) */}
         <div>
           <button
             type="button"
-            onClick={() => toggleSection("masterdata")}
+            onClick={() => toggleSection("master_bodr")}
             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
-              tab === "masterdata"
+              isBodrActive
                 ? "bg-blue-50 text-blue-600"
                 : "text-slate-700 hover:text-blue-600 hover:bg-slate-50"
             }`}
           >
             <span className="flex items-center gap-2.5">
-              <span className={tab === "masterdata" ? "text-blue-600" : "text-slate-400"}>
+              <span className={isBodrActive ? "text-blue-600" : "text-slate-400"}>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path
                     strokeLinecap="round"
@@ -118,7 +168,7 @@ export default function SidebarAdmin() {
             </span>
             <svg
               className={`w-4 h-4 transition-transform duration-300 ease-in-out ${
-                openSections.masterdata ? "rotate-180 text-blue-600" : "rotate-0 text-slate-400"
+                openSections.master_bodr ? "rotate-180 text-blue-600" : "rotate-0 text-slate-400"
               }`}
               fill="none"
               viewBox="0 0 24 24"
@@ -129,15 +179,78 @@ export default function SidebarAdmin() {
             </svg>
           </button>
 
-          {/* Submenu Master Data */}
+          {/* Submenu Master Data BODR */}
           <div
             className={`grid transition-all duration-300 ease-in-out overflow-hidden ${
-              openSections.masterdata ? "grid-rows-[1fr] opacity-100 mt-1" : "grid-rows-[0fr] opacity-0"
+              openSections.master_bodr ? "grid-rows-[1fr] opacity-100 mt-1" : "grid-rows-[0fr] opacity-0"
             }`}
           >
             <div className="overflow-hidden ml-4 pl-3 border-l-2 border-slate-100 space-y-0.5">
-              {masterItems.map((item) => {
-                const isActive = tab === "masterdata" && (sub === item.key || (!sub && item.key === "users"));
+              {visibleMasterBodrItems.map((item) => {
+                const isActive = tab === "masterdata" && (sub === item.key || (!sub && item.key === visibleMasterBodrItems[0]?.key));
+                return (
+                  <Link
+                    key={item.key}
+                    href={`/admin?tab=masterdata&sub=${item.key}`}
+                    className={`flex items-center px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 ${
+                      isActive
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-slate-600 hover:text-blue-600 hover:bg-blue-50"
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Master Data Otorisasi Harga (Accordion Toggle) */}
+        <div>
+          <button
+            type="button"
+            onClick={() => toggleSection("master_price")}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+              isPriceActive
+                ? "bg-blue-50 text-blue-600"
+                : "text-slate-700 hover:text-blue-600 hover:bg-slate-50"
+            }`}
+          >
+            <span className="flex items-center gap-2.5">
+              <span className={isPriceActive ? "text-blue-600" : "text-slate-400"}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </span>
+              <span>Master Data Otorisasi</span>
+            </span>
+            <svg
+              className={`w-4 h-4 transition-transform duration-300 ease-in-out ${
+                openSections.master_price ? "rotate-180 text-blue-600" : "rotate-0 text-slate-400"
+              }`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* Submenu Master Data Otorisasi Harga */}
+          <div
+            className={`grid transition-all duration-300 ease-in-out overflow-hidden ${
+              openSections.master_price ? "grid-rows-[1fr] opacity-100 mt-1" : "grid-rows-[0fr] opacity-0"
+            }`}
+          >
+            <div className="overflow-hidden ml-4 pl-3 border-l-2 border-slate-100 space-y-0.5">
+              {visibleMasterPriceItems.map((item) => {
+                const isActive = tab === "masterdata" && sub === item.key;
                 return (
                   <Link
                     key={item.key}
@@ -157,89 +270,93 @@ export default function SidebarAdmin() {
         </div>
 
         {/* 3. Settings (Accordion Toggle) */}
-        <div>
-          <button
-            type="button"
-            onClick={() => toggleSection("settings")}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
-              tab === "settings"
-                ? "bg-blue-50 text-blue-600"
-                : "text-slate-700 hover:text-blue-600 hover:bg-slate-50"
-            }`}
-          >
-            <span className="flex items-center gap-2.5">
-              <span className={tab === "settings" ? "text-blue-600" : "text-slate-400"}>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                  />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </span>
-              <span>Settings</span>
-            </span>
-            <svg
-              className={`w-4 h-4 transition-transform duration-300 ease-in-out ${
-                openSections.settings ? "rotate-180 text-blue-600" : "rotate-0 text-slate-400"
+        {canManageConfig && (
+          <div>
+            <button
+              type="button"
+              onClick={() => toggleSection("settings")}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                tab === "settings"
+                  ? "bg-blue-50 text-blue-600"
+                  : "text-slate-700 hover:text-blue-600 hover:bg-slate-50"
               }`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+              <span className="flex items-center gap-2.5">
+                <span className={tab === "settings" ? "text-blue-600" : "text-slate-400"}>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </span>
+                <span>Settings</span>
+              </span>
+              <svg
+                className={`w-4 h-4 transition-transform duration-300 ease-in-out ${
+                  openSections.settings ? "rotate-180 text-blue-600" : "rotate-0 text-slate-400"
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
 
-          {/* Submenu Settings */}
-          <div
-            className={`grid transition-all duration-300 ease-in-out overflow-hidden ${
-              openSections.settings ? "grid-rows-[1fr] opacity-100 mt-1" : "grid-rows-[0fr] opacity-0"
-            }`}
-          >
-            <div className="overflow-hidden ml-4 pl-3 border-l-2 border-slate-100 space-y-0.5">
-              {settingsItems.map((item) => {
-                const isActive = tab === "settings" && (sub === item.key || (!sub && item.key === "role_permission"));
-                return (
-                  <Link
-                    key={item.key}
-                    href={`/admin?tab=settings&sub=${item.key}`}
-                    className={`flex items-center px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 ${
-                      isActive
-                        ? "bg-blue-600 text-white shadow-xs"
-                        : "text-slate-600 hover:text-blue-600 hover:bg-blue-50"
-                    }`}
-                  >
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+            {/* Submenu Settings */}
+            <div
+              className={`grid transition-all duration-300 ease-in-out overflow-hidden ${
+                openSections.settings ? "grid-rows-[1fr] opacity-100 mt-1" : "grid-rows-[0fr] opacity-0"
+              }`}
+            >
+              <div className="overflow-hidden ml-4 pl-3 border-l-2 border-slate-100 space-y-0.5">
+                {settingsItems.map((item) => {
+                  const isActive = tab === "settings" && (sub === item.key || (!sub && item.key === "role_permission"));
+                  return (
+                    <Link
+                      key={item.key}
+                      href={`/admin?tab=settings&sub=${item.key}`}
+                      className={`flex items-center px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 ${
+                        isActive
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "text-slate-600 hover:text-blue-600 hover:bg-blue-50"
+                      }`}
+                    >
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* 4. History Logs Link */}
-        <Link
-          href="/admin?tab=history"
-          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-            tab === "history"
-              ? "bg-blue-600 text-white shadow-xs"
-              : "text-slate-700 hover:text-blue-600 hover:bg-blue-50"
-          }`}
-        >
-          <span className={tab === "history" ? "text-white" : "text-slate-400"}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </span>
-          <span>History Logs</span>
-        </Link>
+        {isAdmin && (
+          <Link
+            href="/admin?tab=history"
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+              tab === "history"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-slate-700 hover:text-blue-600 hover:bg-blue-50"
+            }`}
+          >
+            <span className={tab === "history" ? "text-white" : "text-slate-400"}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </span>
+            <span>History Logs</span>
+          </Link>
+        )}
       </nav>
 
       {/* Back to Portal */}

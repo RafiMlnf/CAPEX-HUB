@@ -10,7 +10,6 @@ export default function HistoryLogsPanel() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [archiveFilter, setArchiveFilter] = useState<"active" | "archived" | "ALL">("active");
-  const [currentTime, setCurrentTime] = useState<number>(0);
   const [stats, setStats] = useState({
     total: 0,
     totalActive: 0,
@@ -49,7 +48,6 @@ export default function HistoryLogsPanel() {
       } else {
         setLogs([]);
       }
-      setCurrentTime(Date.now());
     } catch (err) {
       console.error("Gagal memuat history logs:", err);
       if (!isSilent) {
@@ -78,7 +76,7 @@ export default function HistoryLogsPanel() {
 
   // Filter & Pagination calculation
   const filteredLogs = useMemo(() => {
-    const now = currentTime || 0;
+    const now = Date.now();
     const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
 
     return logs.filter((log) => {
@@ -96,18 +94,15 @@ export default function HistoryLogsPanel() {
 
       // Hitung selisih waktu 24 jam secara realtime
       const logTimestamp = new Date(log.login_time).getTime();
-      const isPast24h = log.is_archived || (now > 0 && now - logTimestamp > TWENTY_FOUR_HOURS);
+      const isPast24h = log.is_archived || (now - logTimestamp > TWENTY_FOUR_HOURS);
 
-      let matchArchive = true;
-      if (archiveFilter === "active") {
-        matchArchive = !isPast24h;
-      } else if (archiveFilter === "archived") {
-        matchArchive = isPast24h;
-      }
+      const matchArchive =
+        archiveFilter === "ALL" ||
+        (archiveFilter === "archived" ? isPast24h : !isPast24h);
 
       return matchSearch && matchStatus && matchArchive;
     });
-  }, [logs, search, statusFilter, archiveFilter, currentTime]);
+  }, [logs, search, statusFilter, archiveFilter]);
 
   const totalPages = Math.ceil(filteredLogs.length / itemsPerPage) || 1;
   const paginatedLogs = useMemo(() => {
@@ -305,7 +300,7 @@ export default function HistoryLogsPanel() {
                           >
                             {log.status || "SUCCESS"}
                           </span>
-                          {(log.is_archived || (currentTime > 0 && currentTime - new Date(log.login_time).getTime() > 24 * 60 * 60 * 1000)) && (
+                          {(log.is_archived || Date.now() - new Date(log.login_time).getTime() > 24 * 60 * 60 * 1000) && (
                             <span
                               className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
                               title="Otomatis terarsip (> 24 jam)"

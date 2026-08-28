@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Swal from "sweetalert2";
 import { api, getUsers, ApiPortalAccess } from "../../lib/api";
 import Modal from "../../components/shared/Modal";
 
@@ -12,10 +13,11 @@ export default function PortalAccessSettingsPanel() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Form states
+  // Form states for 4 portals
   const [fCapex, setFCapex] = useState(true);
   const [fBodr, setFBodr] = useState(true);
   const [fPrice, setFPrice] = useState(true);
+  const [fAdmin, setFAdmin] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const refresh = async () => {
@@ -28,18 +30,24 @@ export default function PortalAccessSettingsPanel() {
       console.warn("Gagal memuat portal access, mencoba fallback user list:", err);
       try {
         const fallbackUsers = await getUsers();
-        const mapped: ApiPortalAccess[] = (fallbackUsers || []).map((u) => ({
-          user_id: Number(u.id) || 0,
-          npk: u.npk || "",
-          name: u.name || "",
-          username: u.username || "",
-          department: u.department || "",
-          role: typeof u.role === "string" ? u.role : "",
-          can_capex: true,
-          can_bodr: true,
-          can_price: true,
-          allowed_portals: ["capex", "bodr", "price"],
-        }));
+        const mapped: ApiPortalAccess[] = (fallbackUsers || []).map((u) => {
+          const r = (typeof u.role === "string" ? u.role : "").toLowerCase();
+          const un = (u.username || "").toLowerCase();
+          const isAdm = r === "admin" || un === "admin";
+          return {
+            user_id: Number(u.id) || 0,
+            npk: u.npk || "",
+            name: u.name || "",
+            username: u.username || "",
+            department: u.department || "",
+            role: typeof u.role === "string" ? u.role : "",
+            can_capex: true,
+            can_bodr: true,
+            can_price: true,
+            can_admin: isAdm,
+            allowed_portals: ["capex", "bodr", "price", ...(isAdm ? ["admin"] : [])],
+          };
+        });
         setItems(mapped);
       } catch (e: any) {
         setErrorMsg("Gagal memuat data akses portal. Pastikan backend aktif.");
@@ -58,6 +66,7 @@ export default function PortalAccessSettingsPanel() {
     setFCapex(item.can_capex !== false);
     setFBodr(item.can_bodr !== false);
     setFPrice(item.can_price !== false);
+    setFAdmin(item.can_admin === true);
     setOpen(true);
   };
 
@@ -71,11 +80,46 @@ export default function PortalAccessSettingsPanel() {
         can_capex: fCapex,
         can_bodr: fBodr,
         can_price: fPrice,
+        can_admin: fAdmin,
       });
-      refresh();
+
+      // Update current state and local session cache
+      setItems((prev) =>
+        prev.map((i) =>
+          i.user_id === editing.user_id
+            ? {
+                ...i,
+                can_capex: fCapex,
+                can_bodr: fBodr,
+                can_price: fPrice,
+                can_admin: fAdmin,
+                allowed_portals: [
+                  ...(fCapex ? ["capex"] : []),
+                  ...(fBodr ? ["bodr"] : []),
+                  ...(fPrice ? ["price"] : []),
+                  ...(fAdmin ? ["admin"] : []),
+                ],
+              }
+            : i
+        )
+      );
+
       setOpen(false);
-    } catch (err) {
+      Swal.fire({
+        title: "Berhasil",
+        text: "Hak akses portal berhasil diperbarui.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (err: any) {
       console.error("Gagal menyimpan akses portal:", err);
+      Swal.fire({
+        title: "Gagal Menyimpan",
+        text: err?.message || "Gagal memperbarui hak akses portal. Silakan coba lagi.",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
     } finally {
       setSaving(false);
     }
@@ -109,7 +153,7 @@ export default function PortalAccessSettingsPanel() {
             Pengaturan Akses Portal
           </h2>
           <p className="text-xs text-slate-500 mt-0.5 font-normal">
-            Konfigurasi hak akses modul portal (CAPEX, BODR, Otorisasi Harga) per pengguna
+            Konfigurasi hak akses modul portal (CAPEX, BODR, Otorisasi Harga, dan Portal Admin) per pengguna
           </p>
         </div>
 
@@ -163,6 +207,9 @@ export default function PortalAccessSettingsPanel() {
                 Otorisasi Harga
               </th>
               <th className="px-4 py-3.5 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                Portal Admin
+              </th>
+              <th className="px-4 py-3.5 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                 Aksi
               </th>
             </tr>
@@ -182,12 +229,7 @@ export default function PortalAccessSettingsPanel() {
 
                 {/* User Info */}
                 <td className="px-4 py-3 whitespace-nowrap">
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-slate-800 text-xs">{item.name}</span>
-                    <span className="text-[11px] text-slate-400 font-normal">
-                      @{item.username}
-                    </span>
-                  </div>
+                  <span className="font-semibold text-slate-800 text-xs">{item.name}</span>
                 </td>
 
                 {/* Departemen */}
@@ -239,6 +281,19 @@ export default function PortalAccessSettingsPanel() {
                   )}
                 </td>
 
+                {/* Portal Admin */}
+                <td className="px-4 py-3 text-center whitespace-nowrap">
+                  {item.can_admin === true ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                      Aktif
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-400 border border-slate-200">
+                      Nonaktif
+                    </span>
+                  )}
+                </td>
+
                 {/* Action */}
                 <td className="px-4 py-3 text-center whitespace-nowrap">
                   <button
@@ -252,7 +307,7 @@ export default function PortalAccessSettingsPanel() {
             ))}
             {loading && (
               <tr>
-                <td colSpan={9} className="text-center text-slate-500 py-8 text-xs font-normal">
+                <td colSpan={10} className="text-center text-slate-500 py-8 text-xs font-normal">
                   <div className="flex items-center justify-center gap-2">
                     <svg className="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -265,7 +320,7 @@ export default function PortalAccessSettingsPanel() {
             )}
             {!loading && errorMsg && (
               <tr>
-                <td colSpan={9} className="text-center py-6 text-xs text-amber-600 bg-amber-50/50">
+                <td colSpan={10} className="text-center py-6 text-xs text-amber-600 bg-amber-50/50">
                   <div className="flex flex-col items-center gap-2">
                     <span>{errorMsg}</span>
                     <button
@@ -280,7 +335,7 @@ export default function PortalAccessSettingsPanel() {
             )}
             {!loading && !errorMsg && filteredItems.length === 0 && (
               <tr>
-                <td colSpan={9} className="text-center text-slate-400 italic py-8 text-xs font-normal">
+                <td colSpan={10} className="text-center text-slate-400 italic py-8 text-xs font-normal">
                   {searchQuery ? `Tidak ada data yang cocok dengan pencarian "${searchQuery}"` : "Belum ada data user"}
                 </td>
               </tr>
@@ -293,10 +348,10 @@ export default function PortalAccessSettingsPanel() {
       <Modal open={open} onClose={() => setOpen(false)} title="Edit Hak Akses Portal">
         <form onSubmit={handleSave} className="space-y-4">
           {editing && (
-            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-              <p className="text-xs font-semibold text-slate-800">{editing.name}</p>
-              <p className="text-[11px] text-slate-500 font-normal">
-                NPK: {editing.npk || "-"} • @{editing.username} • {editing.role} — {editing.department || "Semua Dept"}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+              <p className="text-sm font-semibold text-slate-800">{editing.name}</p>
+              <p className="text-xs text-slate-500 font-normal mt-0.5">
+                NPK: {editing.npk || "-"}, {editing.department || "Semua Dept"} ({editing.role})
               </p>
             </div>
           )}
@@ -356,6 +411,24 @@ export default function PortalAccessSettingsPanel() {
                 </span>
                 <span className="text-[11px] text-slate-500 font-normal">
                   Akses ke modul otorisasi harga produk & non-produk purchasing
+                </span>
+              </div>
+            </label>
+
+            {/* Checkbox Portal Admin */}
+            <label className="flex items-start gap-3 p-3 bg-blue-50/60 hover:bg-blue-100/80 border border-blue-200 rounded-xl cursor-pointer transition-colors">
+              <input
+                type="checkbox"
+                checked={fAdmin}
+                onChange={(e) => setFAdmin(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded text-blue-600 border-blue-300 focus:ring-blue-500 cursor-pointer"
+              />
+              <div className="flex flex-col">
+                <span className="text-xs font-semibold text-blue-900">
+                  Portal Admin (Master Data & Pengaturan Sistem)
+                </span>
+                <span className="text-[11px] text-blue-700 font-normal">
+                  Akses ke Portal Admin untuk mengelola Master Data BODR & Otorisasi Harga serta Pengaturan Sistem
                 </span>
               </div>
             </label>

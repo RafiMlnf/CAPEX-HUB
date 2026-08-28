@@ -61,17 +61,9 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const roleName = (user.role || "").toLowerCase().trim();
-    const uname = (user.username || "").toLowerCase().trim();
-    if (
-      roleName === "admin" ||
-      uname === "admin" ||
-      roleName === "administrator" ||
-      roleName === "superadmin" ||
-      (user as any).is_admin === true
-    ) {
+    if (roleName === "admin" || (user.username || "").toLowerCase() === "admin") {
       setUserPermissions([
         "ALL_ACCESS",
-        "perm_view_dashboard",
         "perm_create_capex",
         "perm_review_capex",
         "perm_committee_review",
@@ -139,17 +131,8 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
   const hasPermission = useCallback(
     (permCode: string): boolean => {
       if (!currentUser) return false;
-      const role = (currentUser.role || "").toLowerCase().trim();
-      const uname = (currentUser.username || "").toLowerCase().trim();
-      if (
-        role === "admin" ||
-        uname === "admin" ||
-        role === "administrator" ||
-        role === "superadmin" ||
-        (currentUser as any).is_admin === true
-      ) {
-        return true;
-      }
+      const role = (currentUser.role || "").toLowerCase();
+      if (role === "admin" || (currentUser.username || "").toLowerCase() === "admin") return true;
       if (userPermissions.includes("ALL_ACCESS")) return true;
       return userPermissions.includes(permCode);
     },
@@ -160,16 +143,7 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
     (...roleCodes: string[]): boolean => {
       if (!currentUser) return false;
       const role = (currentUser.role || "").toLowerCase().trim();
-      const uname = (currentUser.username || "").toLowerCase().trim();
-      if (
-        role === "admin" ||
-        uname === "admin" ||
-        role === "administrator" ||
-        role === "superadmin" ||
-        (currentUser as any).is_admin === true
-      ) {
-        return true;
-      }
+      if (role === "admin" || (currentUser.username || "").toLowerCase() === "admin") return true;
       return roleCodes.some((rc) => role === rc.toLowerCase().trim() || role.includes(rc.toLowerCase().trim()));
     },
     [currentUser]
@@ -218,12 +192,8 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
     attachmentName?: string;
     gateStatus?: string;
   }) => {
-    const created = await apiAddProposal(proposal);
-    setProposals((prev) => {
-      const filtered = prev.filter((p) => p.id !== created.id);
-      return [created, ...filtered];
-    });
-    await refreshProposals().catch(() => {});
+    await apiAddProposal(proposal);
+    await refreshProposals();
   };
 
   const editProposal = async (id: string, data: Partial<CapexProposal>) => {
@@ -232,14 +202,13 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
       prev.map((p) => (p.id === id ? { ...p, ...data } : p))
     );
     try {
-      const updated = await apiUpdateProposal(id, data);
-      setProposals((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...updated } : p))
-      );
+      await apiUpdateProposal(id, data);
+      await refreshProposals();
     } catch (err) {
-      console.warn("Update proposal via API failed, keeping local update:", err);
+      console.error("Gagal memperbarui proposal di server:", err);
+      await refreshProposals(); // Rollback
+      throw err;
     }
-    await refreshProposals().catch(() => {});
   };
 
   return (

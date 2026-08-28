@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "../../../components/sidebars/SidebarOtorisasi";
 import Header from "../../../components/Header";
 import { User, ApiOtorisasiHargaNonProduct, ApiOtorisasiHarga, ApprovalHistoryOH, api, getCurrentUser } from "../../../lib/api";
@@ -96,7 +96,13 @@ export default function OtorisasiHargaApprovalPage() {
   const [filterBuyer, setFilterBuyer] = useState("");
   const [filterDate, setFilterDate] = useState("");
 
-  const refreshData = useCallback(() => {
+  // Load data
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+    refreshData();
+  }, []);
+
+  const refreshData = () => {
     api.getOtorisasiHargaNPList()
       .then(data => setNpItems(data || []))
       .catch(err => {
@@ -110,13 +116,7 @@ export default function OtorisasiHargaApprovalPage() {
         console.error("Failed to load Product list:", err);
         setPItems([]);
       });
-  }, []);
-
-  // Load data
-  useEffect(() => {
-    setCurrentUser(getCurrentUser());
-    refreshData();
-  }, [refreshData]);
+  };
 
   // Filter Logic for Non-Product
   const filteredNP = npItems.filter(i => {
@@ -360,22 +360,22 @@ export default function OtorisasiHargaApprovalPage() {
           {/* Stats KPI Cards */}
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-              <p className="text-2xl font-black text-blue-600">
+              <p className="text-2xl font-semibold text-blue-600 font-mono">
                 {activeTab === "non-product" ? totalPendingNP : totalPendingP}
               </p>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Menunggu Review</p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">Menunggu Review</p>
             </div>
             <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-              <p className="text-2xl font-black text-emerald-600">
+              <p className="text-2xl font-semibold text-emerald-600 font-mono">
                 {activeTab === "non-product" ? approvedNPCount : approvedPCount}
               </p>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Approved</p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">Approved</p>
             </div>
             <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-              <p className="text-2xl font-black text-red-600">
+              <p className="text-2xl font-semibold text-red-600 font-mono">
                 {activeTab === "non-product" ? rejectedNPCount : rejectedPCount}
               </p>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Rejected / Ditolak</p>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">Rejected / Ditolak</p>
             </div>
           </div>
 
@@ -384,7 +384,7 @@ export default function OtorisasiHargaApprovalPage() {
             
             {/* PILIH ROLE select filter dropdown */}
             <div className="relative flex items-center w-full lg:w-64">
-              <span className="absolute left-3.5 text-[9px] font-black text-slate-450 uppercase tracking-widest pointer-events-none">
+              <span className="absolute left-3.5 text-[9px] font-semibold text-slate-500 uppercase tracking-widest pointer-events-none">
                 Pilih Role:
               </span>
               <select
@@ -393,7 +393,7 @@ export default function OtorisasiHargaApprovalPage() {
                   setActiveRoleTab(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full appearance-none pl-20 pr-9 py-2 rounded-xl border outline-none bg-slate-50 border-slate-200 text-slate-900 font-extrabold focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-600/10 transition-all text-xs cursor-pointer shadow-xs"
+                className="w-full appearance-none pl-20 pr-9 py-2 rounded-xl border outline-none bg-slate-50 border-slate-200 text-slate-900 font-semibold focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-600/10 transition-all text-xs cursor-pointer shadow-xs"
               >
                 {ROLE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -408,62 +408,68 @@ export default function OtorisasiHargaApprovalPage() {
               </span>
             </div>
 
-            {/* Filter Toggle and Export Button Layout */}
-            <div className="flex items-center gap-3 w-full lg:w-auto justify-start lg:justify-end flex-shrink-0">
+            {/* Quick Actions and toggles */}
+            <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end">
+              {/* Simulation Mode Toggle Button */}
+              <button
+                onClick={() => setBypassCheck(!bypassCheck)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-xs ${
+                  bypassCheck
+                    ? "bg-amber-500 text-white border-amber-600 ring-2 ring-amber-400/30"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+                title="Aktifkan simulasi untuk menguji approval dari sudut pandang peran apa pun tanpa logout"
+              >
+                <span className={`w-2 h-2 rounded-full ${bypassCheck ? "bg-white animate-pulse" : "bg-slate-400"}`} />
+                {bypassCheck ? "Mode Simulasi: AKTIF" : "Mode Simulasi: Nonaktif"}
+              </button>
+
+              {/* Advanced Filter Drawer Trigger */}
               <button
                 onClick={() => setShowFiltersDrawer(!showFiltersDrawer)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-bold text-xs transition-all cursor-pointer shadow-xs ${
-                  showFiltersDrawer
-                    ? "bg-blue-50 text-blue-600 border-blue-300"
-                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-xs ${
+                  showFiltersDrawer || filterBuyer || filterDate
+                    ? "bg-blue-50 text-blue-700 border-blue-200"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                 }`}
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                <span>Filters</span>
+                Filter Lanjutan
+                {(filterBuyer || filterDate) && (
+                  <span className="w-2 h-2 rounded-full bg-blue-600" />
+                )}
               </button>
-              
-              {/* Simulation Mode Toggle directly on top right bar */}
-              <div className="flex items-center gap-2 bg-amber-50 border border-amber-250 px-4 py-2.5 rounded-xl text-[10px] font-extrabold text-amber-800 shadow-xs">
-                <input 
-                  type="checkbox" 
-                  id="bypass" 
-                  checked={bypassCheck} 
-                  onChange={e => setBypassCheck(e.target.checked)} 
-                  className="rounded text-amber-600 focus:ring-amber-500 cursor-pointer w-3.5 h-3.5"
-                />
-                <label htmlFor="bypass" className="cursor-pointer">Simulasi Bypass</label>
-              </div>
             </div>
           </div>
 
           {/* Advanced Drawer Filter */}
           {showFiltersDrawer && (
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4 animate-fadeIn">
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">
+              <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">
                 Pencarian Lanjutan
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Buyer (Nama Pengaju)</label>
+                  <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Buyer (Nama Pengaju)</label>
                   <input
                     type="text"
                     placeholder="Nama buyer..."
                     value={filterBuyer}
                     onChange={(e) => { setFilterBuyer(e.target.value); setCurrentPage(1); }}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none bg-white text-slate-800 placeholder-slate-400 focus:border-blue-600 font-semibold h-[40px] text-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none bg-white text-slate-800 placeholder-slate-400 focus:border-blue-600 font-medium h-[40px] text-xs"
                   />
                 </div>
                 {activeTab === "non-product" && (
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Tanggal Laporan</label>
+                    <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Tanggal Laporan</label>
                     <input
                       type="text"
                       placeholder="YYYY-MM-DD..."
                       value={filterDate}
                       onChange={(e) => { setFilterDate(e.target.value); setCurrentPage(1); }}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none bg-white text-slate-800 placeholder-slate-400 focus:border-blue-600 font-semibold h-[40px] text-xs"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none bg-white text-slate-800 placeholder-slate-400 focus:border-blue-600 font-medium h-[40px] text-xs"
                     />
                   </div>
                 )}
@@ -473,12 +479,12 @@ export default function OtorisasiHargaApprovalPage() {
 
           {/* Sub Bar search box */}
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-            <div className="text-slate-500 font-bold">
+            <div className="text-slate-500 font-semibold text-xs">
               Menampilkan {activeTab === "non-product" ? paginatedNP.length : paginatedP.length} dari {activeTab === "non-product" ? filteredNP.length : filteredP.length} item pending
             </div>
             
             <div className="relative w-full md:w-96">
-              <svg className="w-4 h-4 text-slate-450 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
@@ -486,7 +492,7 @@ export default function OtorisasiHargaApprovalPage() {
                 placeholder={activeTab === "non-product" ? "Cari nomor dokumen, buyer, PR..." : "Cari product, customer..."}
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 font-semibold focus:outline-none focus:border-blue-600 shadow-xs"
+                className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 font-medium focus:outline-none focus:border-blue-600 shadow-xs"
               />
             </div>
           </div>
@@ -496,7 +502,7 @@ export default function OtorisasiHargaApprovalPage() {
             <div className="overflow-hidden rounded-xl border border-slate-200">
               <table className="w-full border-collapse text-left">
                 <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-800 text-[11px] font-black uppercase tracking-wider">
+                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-800 text-[11px] font-semibold uppercase tracking-wider">
                     {activeTab === "non-product" ? (
                       <>
                         <th className="py-3.5 px-4 text-center border-r border-slate-200 w-32">NOMOR DOKUMEN</th>
@@ -522,30 +528,30 @@ export default function OtorisasiHargaApprovalPage() {
                   {activeTab === "non-product" ? (
                     paginatedNP.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-12 text-center text-slate-400 italic font-semibold">
+                        <td colSpan={6} className="py-12 text-center text-slate-400 italic font-normal">
                           Tidak ada item pengajuan Non-Product pending review.
                         </td>
                       </tr>
                     ) : (
                       paginatedNP.map(item => (
                         <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                          <td className="py-4 px-4 text-center font-bold text-blue-700 font-mono border-r border-slate-200">
+                          <td className="py-4 px-4 text-center font-semibold text-blue-700 font-mono border-r border-slate-200">
                             {item.no_doc}
                           </td>
-                          <td className="py-4 px-4 text-center font-semibold text-slate-700 font-mono border-r border-slate-200">
+                          <td className="py-4 px-4 text-center font-medium text-slate-700 font-mono border-r border-slate-200">
                             <div className="text-[10px] text-slate-400">PR: {item.no_pr || "—"}</div>
-                            <div className="text-[10px] text-slate-600 font-bold">BODR: {item.no_bodr || "—"}</div>
+                            <div className="text-[10px] text-slate-600 font-semibold">BODR: {item.no_bodr || "—"}</div>
                           </td>
-                          <td className="py-4 px-4 border-r border-slate-200 font-extrabold text-slate-850">
+                          <td className="py-4 px-4 border-r border-slate-200 font-semibold text-slate-800">
                             {item.buyer_nama}
                           </td>
-                          <td className="py-4 px-4 text-right font-black text-slate-900 font-mono border-r border-slate-200">
+                          <td className="py-4 px-4 text-right font-semibold text-slate-900 font-mono border-r border-slate-200">
                             {fmt(item.dana_bodr)}
                           </td>
                           <td className="py-4 px-4 text-center border-r border-slate-200">
                             <div className="flex items-center gap-2 justify-center">
                               <span className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0 animate-pulse" />
-                              <span className="font-extrabold text-blue-600 text-[10px] uppercase">
+                              <span className="font-semibold text-blue-600 text-[10px] uppercase">
                                 Menunggu {getFullStepName(item.step)}
                               </span>
                             </div>
@@ -553,7 +559,7 @@ export default function OtorisasiHargaApprovalPage() {
                           <td className="py-4 px-4 text-center">
                             <button
                               onClick={() => { setSelectedNP(item); setNote(""); setProcessing(false); }}
-                              className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer"
+                              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer"
                             >
                               Review
                             </button>
@@ -564,29 +570,29 @@ export default function OtorisasiHargaApprovalPage() {
                   ) : (
                     paginatedP.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-12 text-center text-slate-400 italic font-semibold">
+                        <td colSpan={6} className="py-12 text-center text-slate-400 italic font-normal">
                           Tidak ada item pengajuan Product pending review.
                         </td>
                       </tr>
                     ) : (
                       paginatedP.map(item => (
                         <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                          <td className="py-4 px-4 text-center font-bold text-blue-700 font-mono border-r border-slate-200">
+                          <td className="py-4 px-4 text-center font-semibold text-blue-700 font-mono border-r border-slate-200">
                             {item.id}
                           </td>
-                          <td className="py-4 px-4 border-r border-slate-200 font-extrabold text-slate-850">
+                          <td className="py-4 px-4 border-r border-slate-200 font-semibold text-slate-800">
                             {item.product || item.no_doc || "Product"}
                           </td>
-                          <td className="py-4 px-4 border-r border-slate-200 font-bold text-slate-700">
+                          <td className="py-4 px-4 border-r border-slate-200 font-medium text-slate-700">
                             {item.customer || item.buyer || "-"}
                           </td>
-                          <td className="py-4 px-4 text-right font-black text-slate-900 font-mono border-r border-slate-200">
+                          <td className="py-4 px-4 text-right font-semibold text-slate-900 font-mono border-r border-slate-200">
                             {fmt((item.normal_price || item.final_price || 0) * (1 - (item.discount_pct || 0)/100))}
                           </td>
                           <td className="py-4 px-4 text-center border-r border-slate-200">
                             <div className="flex items-center gap-2 justify-center">
                               <span className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0 animate-pulse" />
-                              <span className="font-extrabold text-blue-600 text-[10px] uppercase">
+                              <span className="font-semibold text-blue-600 text-[10px] uppercase">
                                 Menunggu {getFullStepName(item.step || "SH PURH")}
                               </span>
                             </div>
@@ -594,7 +600,7 @@ export default function OtorisasiHargaApprovalPage() {
                           <td className="py-4 px-4 text-center">
                             <button
                               onClick={() => { setSelectedP(item); setNote(""); setProcessing(false); }}
-                              className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer"
+                              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer"
                             >
                               Review
                             </button>
@@ -650,24 +656,24 @@ export default function OtorisasiHargaApprovalPage() {
 
             <div>
               <div className="flex items-center gap-3.5">
-                <h3 className="font-black text-slate-900 tracking-wide text-sm">{selectedNP.no_doc}</h3>
-                <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded border ${statusBadge(selectedNP.status)}`}>{selectedNP.status}</span>
+                <h3 className="font-semibold text-slate-900 tracking-wide text-sm">{selectedNP.no_doc}</h3>
+                <span className={`text-[10px] font-semibold uppercase px-2.5 py-0.5 rounded border ${statusBadge(selectedNP.status)}`}>{selectedNP.status}</span>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1 font-bold">Detail Otorisasi Harga Non-Product</p>
+              <p className="text-[10px] text-slate-400 mt-1 font-medium">Detail Otorisasi Harga Non-Product</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
-              <div><p className="text-slate-400 font-bold uppercase text-[9px]">No. PR</p><p className="font-bold text-slate-700 font-mono">{selectedNP.no_pr || "—"}</p></div>
-              <div><p className="text-slate-400 font-bold uppercase text-[9px]">No. BODR</p><p className="font-bold text-slate-700 font-mono">{selectedNP.no_bodr || "—"}</p></div>
-              <div><p className="text-slate-400 font-bold uppercase text-[9px]">Buyer</p><p className="font-bold text-slate-700">{selectedNP.buyer_nama}</p></div>
-              <div><p className="text-slate-400 font-bold uppercase text-[9px]">Dana BODR</p><p className="font-black text-emerald-700 font-mono">{fmt(selectedNP.dana_bodr)}</p></div>
-              <div><p className="text-slate-400 font-bold uppercase text-[9px]">Tahap Approval</p><p className="font-bold text-blue-700">{getFullStepName(selectedNP.step)}</p></div>
-              <div><p className="text-slate-400 font-bold uppercase text-[9px]">Tanggal</p><p className="font-bold text-slate-700">{selectedNP.tanggal}</p></div>
+              <div><p className="text-slate-400 font-medium uppercase text-[9px]">No. PR</p><p className="font-semibold text-slate-700 font-mono">{selectedNP.no_pr || "—"}</p></div>
+              <div><p className="text-slate-400 font-medium uppercase text-[9px]">No. BODR</p><p className="font-semibold text-slate-700 font-mono">{selectedNP.no_bodr || "—"}</p></div>
+              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Buyer</p><p className="font-semibold text-slate-700">{selectedNP.buyer_nama}</p></div>
+              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Dana BODR</p><p className="font-semibold text-emerald-700 font-mono">{fmt(selectedNP.dana_bodr)}</p></div>
+              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Tahap Approval</p><p className="font-semibold text-blue-700">{getFullStepName(selectedNP.step)}</p></div>
+              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Tanggal</p><p className="font-semibold text-slate-700">{selectedNP.tanggal}</p></div>
             </div>
 
             {/* Stepper progress */}
             <div>
-              <p className="text-[10px] font-black text-slate-450 uppercase tracking-widest mb-3">Progress Persetujuan</p>
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3">Progress Persetujuan</p>
               <div className="grid grid-cols-7 gap-1 bg-slate-50/50 p-3 rounded-xl border border-slate-150">
                 {STEPS_NP.map((st, sIdx) => {
                   const currentIdx = STEPS_NP.indexOf(selectedNP.step);
@@ -676,7 +682,7 @@ export default function OtorisasiHargaApprovalPage() {
                   return (
                     <div key={st} className="text-center space-y-1">
                       <div className={`h-1.5 rounded-full ${isCompleted ? 'bg-emerald-500' : isCurrent ? 'bg-blue-600 animate-pulse' : 'bg-slate-200'}`} />
-                      <p className={`text-[8.5px] font-black truncate px-0.5 ${isCurrent ? 'text-blue-700 font-black' : isCompleted ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      <p className={`text-[8.5px] font-semibold truncate px-0.5 ${isCurrent ? 'text-blue-700 font-semibold' : isCompleted ? 'text-emerald-600' : 'text-slate-400'}`}>
                         {getFullStepName(st)}
                       </p>
                     </div>
@@ -688,21 +694,21 @@ export default function OtorisasiHargaApprovalPage() {
             {/* Supplier comparison list */}
             {selectedNP.suppliers && selectedNP.suppliers.length > 0 && (
               <div>
-                <p className="text-[10px] font-black text-slate-450 uppercase tracking-widest mb-2">Perbandingan Supplier</p>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Perbandingan Supplier</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {selectedNP.suppliers.map((s, i) => {
                     const isCheapest = i === getCheapestNPIndex(selectedNP);
                     return (
                       <div key={i} className={`p-4 rounded-xl border flex flex-col justify-between ${isCheapest ? 'border-emerald-500 bg-emerald-50/30 font-medium' : 'border-slate-200 bg-slate-50/50'}`}>
                         <div>
-                          <p className="font-extrabold text-slate-900 leading-snug">
+                          <p className="font-semibold text-slate-900 leading-snug">
                             {s.vendor_nama}
-                            {isCheapest && <span className="text-emerald-600 font-black ml-1.5 block md:inline text-[9px] uppercase tracking-wider">Termurah</span>}
+                            {isCheapest && <span className="text-emerald-600 font-semibold ml-1.5 block md:inline text-[9px] uppercase tracking-wider">Termurah</span>}
                           </p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">{s.jenis_otorisasi_nama || "-"}</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5 font-normal">{s.jenis_otorisasi_nama || "-"}</p>
                         </div>
-                        <p className="font-black text-slate-900 text-xs font-mono mt-3 pt-2 border-t border-slate-100 flex justify-between">
-                          <span className="text-slate-400 font-bold uppercase text-[9px]">Total Penawaran:</span>
+                        <p className="font-semibold text-slate-900 text-xs font-mono mt-3 pt-2 border-t border-slate-100 flex justify-between">
+                          <span className="text-slate-400 font-semibold uppercase text-[9px]">Total Penawaran:</span>
                           {fmt(s.harga ?? s.total_final_price ?? 0)}
                         </p>
                       </div>
@@ -715,15 +721,15 @@ export default function OtorisasiHargaApprovalPage() {
             {/* Approval history log */}
             {selectedNP.approval_history && selectedNP.approval_history.length > 0 && (
               <div>
-                <p className="text-[10px] font-black text-slate-450 uppercase tracking-widest mb-2">Catatan Persetujuan Sebelumnya</p>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Catatan Persetujuan Sebelumnya</p>
                 <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-150 max-h-40 overflow-y-auto">
                   {selectedNP.approval_history.map((h, i) => (
                     <div key={i} className="flex items-start gap-2 text-xs">
                       <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${h.status === "Approved" ? "bg-emerald-500" : "bg-red-500"}`} />
                       <div className="flex-1">
-                        <p className="font-bold text-slate-700 text-[11px]">{getFullStepName(h.role)} — <span className={h.status === "Approved" ? "text-emerald-600" : "text-red-600"}>{h.status}</span></p>
-                        <p className="text-[10px] text-slate-500 font-medium">Oleh: {h.name} · {h.timestamp}</p>
-                        <p className="text-[10px] text-slate-400 italic mt-0.5">Note: "{h.note || "—"}"</p>
+                        <p className="font-semibold text-slate-700 text-[11px]">{getFullStepName(h.role)} — <span className={h.status === "Approved" ? "text-emerald-600 font-semibold" : "text-red-600 font-semibold"}>{h.status}</span></p>
+                        <p className="text-[10px] text-slate-500 font-normal">Oleh: {h.name} · {h.timestamp}</p>
+                        <p className="text-[10px] text-slate-400 italic mt-0.5 font-normal">Note: "{h.note || "—"}"</p>
                       </div>
                     </div>
                   ))}
@@ -763,28 +769,28 @@ export default function OtorisasiHargaApprovalPage() {
 
             <div>
               <div className="flex items-center gap-3.5">
-                <h3 className="font-black text-slate-900 tracking-wide text-sm">{selectedP.id}</h3>
-                <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded border ${statusBadge(selectedP.status)}`}>{selectedP.status}</span>
+                <h3 className="font-semibold text-slate-900 tracking-wide text-sm">{selectedP.id}</h3>
+                <span className={`text-[10px] font-semibold uppercase px-2.5 py-0.5 rounded border ${statusBadge(selectedP.status)}`}>{selectedP.status}</span>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1 font-bold">Detail Otorisasi Harga Product</p>
+              <p className="text-[10px] text-slate-400 mt-1 font-medium">Detail Otorisasi Harga Product</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
               <div className="col-span-2">
-                <p className="text-slate-400 font-bold uppercase text-[9px]">Nama Product / Component</p>
-                <p className="font-black text-slate-800 text-sm">{selectedP.product || selectedP.no_doc || "Product"}</p>
+                <p className="text-slate-400 font-medium uppercase text-[9px]">Nama Product / Component</p>
+                <p className="font-semibold text-slate-800 text-sm">{selectedP.product || selectedP.no_doc || "Product"}</p>
               </div>
-              <div><p className="text-slate-400 font-bold uppercase text-[9px]">Customer</p><p className="font-bold text-slate-700">{selectedP.customer || selectedP.buyer || "-"}</p></div>
-              <div><p className="text-slate-400 font-bold uppercase text-[9px]">Prepared By</p><p className="font-bold text-slate-700">{selectedP.prepared_by || selectedP.buyer || "-"}</p></div>
-              <div><p className="text-slate-400 font-bold uppercase text-[9px]">Normal Price</p><p className="font-bold text-slate-500 line-through font-mono">{fmt(selectedP.normal_price || selectedP.final_price || 0)}</p></div>
-              <div><p className="text-slate-400 font-bold uppercase text-[9px]">Discount (%)</p><p className="font-bold text-red-600 font-mono">{selectedP.discount_pct || 0}%</p></div>
-              <div className="col-span-2"><p className="text-slate-400 font-bold uppercase text-[9px]">Final Price Proposal</p><p className="font-black text-emerald-700 text-sm font-mono">{fmt((selectedP.normal_price || selectedP.final_price || 0) * (1 - (selectedP.discount_pct || 0)/100))}</p></div>
-              <div><p className="text-slate-400 font-bold uppercase text-[9px]">Tahap Approval</p><p className="font-bold text-blue-700">{getFullStepName(selectedP.step || "SH PURH")}</p></div>
+              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Customer</p><p className="font-semibold text-slate-700">{selectedP.customer || selectedP.buyer || "-"}</p></div>
+              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Prepared By</p><p className="font-semibold text-slate-700">{selectedP.prepared_by || selectedP.buyer || "-"}</p></div>
+              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Normal Price</p><p className="font-semibold text-slate-500 line-through font-mono">{fmt(selectedP.normal_price || selectedP.final_price || 0)}</p></div>
+              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Discount (%)</p><p className="font-semibold text-red-600 font-mono">{selectedP.discount_pct || 0}%</p></div>
+              <div className="col-span-2"><p className="text-slate-400 font-medium uppercase text-[9px]">Final Price Proposal</p><p className="font-semibold text-emerald-700 text-sm font-mono">{fmt((selectedP.normal_price || selectedP.final_price || 0) * (1 - (selectedP.discount_pct || 0)/100))}</p></div>
+              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Tahap Approval</p><p className="font-semibold text-blue-700">{getFullStepName(selectedP.step || "SH PURH")}</p></div>
             </div>
 
             {/* Stepper progress */}
             <div>
-              <p className="text-[10px] font-black text-slate-450 uppercase tracking-widest mb-3">Progress Persetujuan</p>
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3">Progress Persetujuan</p>
               <div className="grid grid-cols-5 gap-1.5 bg-slate-50/50 p-3 rounded-xl border border-slate-150">
                 {STEPS_P.map((st, sIdx) => {
                   const currentIdx = STEPS_P.indexOf(selectedP.step || "SH PURH");
@@ -793,7 +799,7 @@ export default function OtorisasiHargaApprovalPage() {
                   return (
                     <div key={st} className="text-center space-y-1">
                       <div className={`h-1.5 rounded-full ${isCompleted ? 'bg-emerald-500' : isCurrent ? 'bg-blue-600 animate-pulse' : 'bg-slate-200'}`} />
-                      <p className={`text-[8.5px] font-black truncate px-0.5 ${isCurrent ? 'text-blue-700 font-black' : isCompleted ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      <p className={`text-[8.5px] font-semibold truncate px-0.5 ${isCurrent ? 'text-blue-700 font-semibold' : isCompleted ? 'text-emerald-600' : 'text-slate-400'}`}>
                         {getFullStepName(st)}
                       </p>
                     </div>
@@ -805,23 +811,23 @@ export default function OtorisasiHargaApprovalPage() {
             {/* Notes */}
             {selectedP.notes && (
               <div className="bg-blue-50/50 border border-blue-100 p-3.5 rounded-xl text-xs">
-                <p className="font-bold text-blue-800 text-[10px] uppercase tracking-wider mb-0.5">Catatan Pengaju</p>
-                <p className="text-slate-650 italic">"{selectedP.notes}"</p>
+                <p className="font-semibold text-blue-800 text-[10px] uppercase tracking-wider mb-0.5">Catatan Pengaju</p>
+                <p className="text-slate-650 italic font-normal">"{selectedP.notes}"</p>
               </div>
             )}
 
             {/* Approval history log */}
             {selectedP.approval_history && selectedP.approval_history.length > 0 && (
               <div>
-                <p className="text-[10px] font-black text-slate-450 uppercase tracking-widest mb-2">Catatan Persetujuan Sebelumnya</p>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Catatan Persetujuan Sebelumnya</p>
                 <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-150 max-h-40 overflow-y-auto">
                   {selectedP.approval_history.map((h, i) => (
                     <div key={i} className="flex items-start gap-2 text-xs">
                       <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${h.status === "Approved" ? "bg-emerald-500" : "bg-red-500"}`} />
                       <div className="flex-1">
-                        <p className="font-bold text-slate-700 text-[11px]">{getFullStepName(h.role)} — <span className={h.status === "Approved" ? "text-emerald-600" : "text-red-600"}>{h.status}</span></p>
-                        <p className="text-[10px] text-slate-500 font-medium">Oleh: {h.name} · {h.timestamp}</p>
-                        <p className="text-[10px] text-slate-400 italic mt-0.5">Note: "{h.note || "—"}"</p>
+                        <p className="font-semibold text-slate-700 text-[11px]">{getFullStepName(h.role)} — <span className={h.status === "Approved" ? "text-emerald-600 font-semibold" : "text-red-600 font-semibold"}>{h.status}</span></p>
+                        <p className="text-[10px] text-slate-500 font-normal">Oleh: {h.name} · {h.timestamp}</p>
+                        <p className="text-[10px] text-slate-400 italic mt-0.5 font-normal">Note: "{h.note || "—"}"</p>
                       </div>
                     </div>
                   ))}
@@ -850,16 +856,16 @@ export default function OtorisasiHargaApprovalPage() {
       {alertMessage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 backdrop-blur-xs transition-opacity duration-300">
           <div className="bg-white border border-slate-200 rounded-3xl p-7 w-96 max-w-[90%] shadow-2xl text-center space-y-4 animate-scaleUp transform transition-all duration-300">
-            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner text-2xl font-black">
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner text-2xl font-semibold">
               ✓
             </div>
             <div className="space-y-1">
-              <h4 className="font-black text-slate-800 text-sm tracking-wide uppercase">Notifikasi</h4>
-              <p className="text-[11px] text-slate-500 font-bold leading-relaxed">{alertMessage}</p>
+              <h4 className="font-semibold text-slate-800 text-sm tracking-wide uppercase">Notifikasi</h4>
+              <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{alertMessage}</p>
             </div>
             <button
               onClick={() => setAlertMessage(null)}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer w-full shadow-md"
+              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer w-full shadow-md"
             >
               Selesai (OK)
             </button>
@@ -900,9 +906,9 @@ function ApprovalActionBox({
   return (
     <div className="border-t border-slate-100 pt-4 space-y-3">
       {!isAuthorized && (
-        <div className="bg-amber-50 border border-amber-250 rounded-xl p-3 text-xs text-amber-800 font-bold leading-relaxed">
+        <div className="bg-amber-50 border border-amber-250 rounded-xl p-3 text-xs text-amber-800 font-semibold leading-relaxed">
           Peran login Anda ({currentUser?.role || "Tidak Ada"}) tidak diatur untuk menyetujui langkah <strong>"{step}"</strong> saat ini.
-          <p className="text-[10px] text-amber-600 mt-1 font-medium">Gunakan 'Mode Simulasi' di atas untuk menyetujui secara langsung.</p>
+          <p className="text-[10px] text-amber-600 mt-1 font-normal">Gunakan 'Mode Simulasi' di atas untuk menyetujui secara langsung.</p>
         </div>
       )}
 
@@ -910,18 +916,18 @@ function ApprovalActionBox({
         <button 
           onClick={() => setProcessing(true)} 
           disabled={!isAuthorized}
-          className={`w-full py-3 font-bold rounded-xl text-xs transition-all shadow-sm ${isAuthorized ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer' : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'}`}
+          className={`w-full py-3 font-semibold rounded-xl text-xs transition-all shadow-sm ${isAuthorized ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer' : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'}`}
         >
           Proses Approval / Keputusan →
         </button>
       ) : (
         <div className="space-y-3 animate-fadeIn">
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-450 uppercase tracking-wider">Catatan Keputusan</label>
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Catatan Keputusan</label>
             <textarea 
               value={note} 
               onChange={e => setNote(e.target.value)} 
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 text-xs focus:outline-none focus:border-blue-500" 
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 text-xs focus:outline-none focus:border-blue-500 font-medium" 
               rows={2} 
               placeholder="Berikan catatan keputusan..."
             />
@@ -929,13 +935,13 @@ function ApprovalActionBox({
           <div className="flex gap-3">
             <button 
               onClick={handleReject} 
-              className="flex-1 py-2.5 bg-red-500 text-white font-bold rounded-xl hover:bg-red-655 text-xs transition-all shadow-xs"
+              className="flex-1 py-2.5 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 text-xs transition-all shadow-xs cursor-pointer"
             >
               Tolak (Reject)
             </button>
             <button 
               onClick={handleApprove} 
-              className="flex-1 py-2.5 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-655 text-xs transition-all shadow-xs"
+              className="flex-1 py-2.5 bg-emerald-500 text-white font-semibold rounded-xl hover:bg-emerald-600 text-xs transition-all shadow-xs cursor-pointer"
             >
               Setujui (Approve)
             </button>

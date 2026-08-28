@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Sidebar from "../../components/sidebars/SidebarBODR";
 import Header from "../../components/Header";
 import { User, api, getCurrentUser, BodrProposal, BodrCategory } from "../../lib/api";
+import { useCapex } from "../../context/CapexContext";
 import BodrTable from "./components/BodrTable";
 import BodrCreateModal from "./components/BodrCreateModal";
 import BodrDetailModal from "./components/BodrDetailModal";
@@ -11,6 +12,7 @@ import BodrOtorisasiModal from "./components/BodrOtorisasiModal";
 import { exportBodrToExcel } from "./components/bodrExport";
 
 export default function BodrPage() {
+  const { currentUser: authUser, hasPermission } = useCapex();
   const [proposals, setProposals] = useState<BodrProposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<BodrProposal | null>(null);
@@ -19,6 +21,10 @@ export default function BodrPage() {
   const [showOtorisasiModal, setShowOtorisasiModal] = useState(false);
   const [exportToast, setExportToast] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  const canCreateBodr = hasPermission("perm_create_bodr");
+  const canExport = hasPermission("perm_view_reports") || hasPermission("perm_export_data");
+  const isAdmin = (authUser?.role || "").toLowerCase() === "admin" || (currentUser?.role || "").toLowerCase() === "admin";
 
   // Dynamic master data states
   const [costCenters, setCostCenters] = useState<any[]>([]);
@@ -79,13 +85,15 @@ export default function BodrPage() {
   }, []);
 
   const approvedCapexProposals = capexProposals.filter((p) => {
+    const s = (p.gateStatus || p.status || p.gate_status || "").toLowerCase();
     return (
-      p.gateStatus === "Gate 3 - Procurement" ||
-      p.gateStatus === "Gate 4 - Commissioning" ||
-      p.gateStatus === "Gate 5 - Benefit Realization" ||
-      p.gateStatus === "Gate 6 - Project Closing" ||
-      p.gateStatus === "Closed" ||
-      p.gate_status?.includes("Gate")
+      s.includes("approved") ||
+      s.includes("procurement") ||
+      s.includes("commissioning") ||
+      s.includes("benefit") ||
+      s.includes("closing") ||
+      s.includes("closed") ||
+      Boolean(p.capexId && p.capexId !== "-")
     );
   });
 
@@ -150,15 +158,17 @@ export default function BodrPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-all cursor-pointer uppercase tracking-wider text-[10px] shadow-2xs"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Buat BODR Baru
-              </button>
+              {(canCreateBodr || isAdmin) && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-all cursor-pointer uppercase tracking-wider text-[10px] shadow-2xs"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Buat BODR Baru
+                </button>
+              )}
               <button
                 onClick={handleExport}
                 className="flex items-center gap-2 border border-slate-200 bg-white text-slate-700 hover:text-blue-600 hover:bg-blue-50 font-semibold px-4 py-2.5 rounded-xl transition-all cursor-pointer uppercase tracking-wider text-[10px] shadow-2xs"

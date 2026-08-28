@@ -20,7 +20,7 @@ export function downloadBodrPdf(proposal: BodrProposal) {
       <body onload="window.print(); window.close();">
         <div class="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-center">
           <div>
-            <h1 class="text-xl font-extrabold tracking-tight text-slate-900 uppercase">PT MENARA TERUS MAKMUR</h1>
+            <h1 class="text-xl font-semibold tracking-tight text-slate-900 uppercase">PT MENARA TERUS MAKMUR</h1>
             <p class="text-[9px] text-slate-500 uppercase tracking-widest font-bold mt-0.5">BOD REVIEW AUTHORIZATION FORM (BODR)</p>
           </div>
           <div class="text-right">
@@ -46,7 +46,7 @@ export function downloadBodrPdf(proposal: BodrProposal) {
               <tr class="border-b border-slate-100"><td class="py-1.5 text-slate-500">Start Date:</td><td class="py-1.5 font-bold text-slate-800">${proposal.startDate}</td></tr>
               <tr class="border-b border-slate-100"><td class="py-1.5 text-slate-500">End Date:</td><td class="py-1.5 font-bold text-slate-800">${proposal.endDate}</td></tr>
               <tr class="border-b border-slate-100"><td class="py-1.5 text-slate-500">Kriteria Budget:</td><td class="py-1.5 font-bold text-slate-800 uppercase">${proposal.budgetType}</td></tr>
-              <tr class="border-b border-slate-100"><td class="py-1.5 text-slate-500">Nilai Investasi:</td><td class="py-1.5 font-black text-blue-600 text-sm">Rp ${proposal.amount.toLocaleString("id-ID")}</td></tr>
+              <tr class="border-b border-slate-100"><td class="py-1.5 text-slate-500">Nilai Investasi:</td><td class="py-1.5 font-semibold text-blue-600 text-sm">Rp ${proposal.amount.toLocaleString("id-ID")}</td></tr>
             </table>
           </div>
         </div>
@@ -90,7 +90,7 @@ export function downloadBodrPdf(proposal: BodrProposal) {
               ${proposal.approvalHistory.map(ap => `
                 <tr>
                   <td class="px-4 py-3 font-bold">${ap.role}<br><span class="text-[8px] font-normal text-slate-450">${ap.name}</span></td>
-                  <td class="px-4 py-3"><span class="text-[8px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded">${ap.status}</span></td>
+                  <td class="px-4 py-3"><span class="text-[8px] font-semibold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded">${ap.status}</span></td>
                   <td class="px-4 py-3 text-slate-500 font-mono text-[9px]">${ap.timestamp}</td>
                   <td class="px-4 py-3 italic leading-relaxed text-slate-600">${ap.note}</td>
                 </tr>
