@@ -58,8 +58,8 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
         .filter(Boolean) || []
     : [];
 
-  const [purpose, setPurpose] = useState(initialData?.purpose || "Capacity");
-  const [investmentType, setInvestmentType] = useState(initialData?.investmentType || "Capacity Up");
+  const [purpose, setPurpose] = useState(initialData?.purpose || "");
+  const [investmentType, setInvestmentType] = useState(initialData?.investmentType || "");
   const [name, setName] = useState(initialData?.name || "");
   const [description, setDescription] = useState(initialData?.description || "");
   const [department, setDepartment] = useState(initialData?.department || currentUser?.department || "Engineering");
@@ -82,8 +82,6 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
     setPurpose(val);
     if (val === "Supporting") {
       setInvestmentType("Supporting");
-    } else if (val === "Capacity") {
-      setInvestmentType("Capacity Up");
     } else {
       setInvestmentType("");
     }
@@ -161,8 +159,8 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
       department: department || currentUser?.department || "Engineering",
       pic: pic || currentUser?.name || currentUser?.username || "Budi Santoso",
       estimatedCost: numericCost,
-      purpose: purpose || "Capacity",
-      investmentType: investmentType || (purpose === "Supporting" ? "Supporting" : "Capacity Up"),
+      purpose: purpose || (isDraft ? "" : "Capacity"),
+      investmentType: investmentType || (isDraft ? "" : (purpose === "Supporting" ? "Supporting" : "Capacity Up")),
       startDate: startDate || "",
       endDate: endDate || "",
       attachmentName: finalAttachmentName,
@@ -172,8 +170,8 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
     });
 
     // Reset form fields
-    setPurpose("Capacity");
-    setInvestmentType("Capacity Up");
+    setPurpose("");
+    setInvestmentType("");
     setName("");
     setDescription("");
     setPic(currentUser?.name || currentUser?.username || "Budi Santoso");

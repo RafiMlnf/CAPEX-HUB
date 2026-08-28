@@ -576,9 +576,24 @@ function DraftsPageContent() {
                 </button>
                 <button
                   onClick={async () => {
+                    const now = new Date().toISOString();
+                    const uploaderName = currentUser?.name || uploadProposal.pic || "Pemohon";
+                    const fileListStr = supportingFiles.join(", ");
+
                     await editProposal(uploadProposal.id, {
-                      attachmentName: supportingFiles.join(", "),
+                      attachmentName: fileListStr,
+                      revisedAttachmentName: fileListStr,
                       gateStatus: "Gate 1 - Finance Review", // send back to finance review
+                      history: [
+                        ...(uploadProposal.history || []),
+                        {
+                          gate: 1,
+                          action: "Dokumen Diunggah Ulang / Pendukung",
+                          actor: uploaderName,
+                          timestamp: now,
+                          notes: `Dokumen pendukung diunggah: ${fileListStr}`,
+                        },
+                      ],
                     });
                     setUploadProposal(null);
                     triggerToast("Dokumen pendukung berhasil dikirim ke Finance Review!");
@@ -616,10 +631,21 @@ function DraftsPageContent() {
                 </p>
               </div>
             </div>
-            <div className="flex justify-end pt-2">
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  const id = selectedNotesProposal.id;
+                  setSelectedNotesProposal(null);
+                  router.push(`/planning?edit=${id}`);
+                }}
+                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs rounded-xl tracking-wider transition-all cursor-pointer shadow-2xs"
+              >
+                Lanjutkan / Edit Usulan
+              </button>
               <button
                 onClick={() => setSelectedNotesProposal(null)}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl uppercase tracking-wider transition-all cursor-pointer shadow-2xs"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-2xs"
               >
                 Tutup
               </button>

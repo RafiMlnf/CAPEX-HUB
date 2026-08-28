@@ -12,6 +12,7 @@ import ProgressStatusLegend from "../../components/progress/ProgressStatusLegend
 import ProgressStageTabs from "../../components/progress/ProgressStageTabs";
 import ProgressStepper from "../../components/progress/ProgressStepper";
 import ProgressMatrixTable, { ProgressRowData } from "../../components/progress/ProgressMatrixTable";
+import ProgressLeadTimeModal from "../../components/progress/ProgressLeadTimeModal";
 
 export default function CapexProgressPage() {
   const { proposals, refreshProposals } = useCapex();
@@ -23,6 +24,7 @@ export default function CapexProgressPage() {
   const [exportToast, setExportToast] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedLeadTimeProject, setSelectedLeadTimeProject] = useState<ProgressRowData | null>(null);
 
   // Sync real-time database data on component mount
   useEffect(() => {
@@ -49,7 +51,8 @@ export default function CapexProgressPage() {
     }
     if (dbCapexItems && dbCapexItems.length > 0) {
       return dbCapexItems.map((c: any, idx: number) => ({
-        id: c.code || c.kode_capex || c.id || `CPX-2026-${String(idx + 1).padStart(3, "0")}`,
+        id: c.id || `CPX-2026-${String(idx + 1).padStart(3, "0")}`,
+        capexId: c.capexId || c.code || c.kode_capex || "-",
         name: c.name || c.nama_capex || c.item_name || c.capex_name || "Investasi Belanja Modal",
         description: c.description || "-",
         department: c.department || c.departemen || "Production",
@@ -58,6 +61,7 @@ export default function CapexProgressPage() {
         pic: c.pic || "Budi Santoso",
         estimatedCost: Number(c.total_amount || c.estimatedCost || c.budget || c.amount || 0),
         gateStatus: c.gateStatus || c.status || "Gate 0 - Idea",
+        createdAt: c.createdAt || new Date().toISOString(),
         history: c.history || [],
       }));
     }
@@ -135,11 +139,17 @@ function calculateDays(startDateStr?: string, endDateStr?: string): string {
 
       return {
         id: p.id,
+        capexId: p.capexId && p.capexId !== "-" ? p.capexId : "-",
         name: p.name,
         department: p.department,
         purpose: p.purpose,
         investmentType: p.investmentType,
         estimatedCost: p.estimatedCost,
+        pic: p.pic,
+        createdAt: p.createdAt,
+        gateStatus: p.gateStatus,
+        attachmentName: p.attachmentName,
+        rawProposal: p,
         g0Days,
         g0Status,
         g1Days,
@@ -165,6 +175,7 @@ function calculateDays(startDateStr?: string, endDateStr?: string): string {
     return tabFiltered.filter((r) => {
       const matchSearch =
         r.id.toLowerCase().includes(search.toLowerCase()) ||
+        (r.capexId && r.capexId.toLowerCase().includes(search.toLowerCase())) ||
         r.name.toLowerCase().includes(search.toLowerCase()) ||
         r.department.toLowerCase().includes(search.toLowerCase()) ||
         (r.purpose && r.purpose.toLowerCase().includes(search.toLowerCase()));
@@ -260,10 +271,18 @@ function calculateDays(startDateStr?: string, endDateStr?: string): string {
                 setItemsPerPage(num);
                 setCurrentPage(1);
               }}
+              onSelectProject={(row) => setSelectedLeadTimeProject(row)}
             />
           </div>
         </main>
       </div>
+
+      {/* Details of Lead Time & Stage Activities Modal */}
+      <ProgressLeadTimeModal
+        isOpen={!!selectedLeadTimeProject}
+        onClose={() => setSelectedLeadTimeProject(null)}
+        proposal={selectedLeadTimeProject}
+      />
     </div>
   );
 }

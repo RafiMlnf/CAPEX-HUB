@@ -47,16 +47,6 @@ const navItems = [
     hasDotKey: "approvals",
   },
   {
-    href: "/drafts",
-    label: "CAPEX Drafts",
-    icon: (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-      </svg>
-    ),
-    hasDotKey: "drafts",
-  },
-  {
     href: "/fs-capex",
     label: "CAPEX Progress",
     icon: (
@@ -72,9 +62,9 @@ export default function SidebarFS() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const mode = searchParams.get("mode") || "";
-  const { proposals, hasPermission, hasRole, currentUser } = useCapex();
-
-  const isFinanceOrAdmin = hasPermission("perm_review_capex") || hasRole("Finance", "Accounting", "Admin");
+  const { proposals, hasPermission, currentUser } = useCapex();
+  const isAdmin = (currentUser?.role || "").toLowerCase() === "admin" || (currentUser?.username || "").toLowerCase() === "admin";
+  const isFinanceOrAdmin = hasPermission("perm_review_capex") || isAdmin;
   const isChildActive = pathname === "/finance-review" || (pathname === "/realization" && mode === "finance");
   const [isFinanceReviewOpen, setIsFinanceReviewOpen] = useState(false);
 
@@ -102,15 +92,10 @@ export default function SidebarFS() {
     canApprove &&
     proposals.some((p: { gateStatus: string }) => p.gateStatus === "Gate 2 - Committee Review");
 
-  const hasDraftsUpdate =
-    canPlan &&
-    proposals.some((p: { gateStatus: string }) => p.gateStatus === "Gate 0 - Idea" || p.gateStatus === "Gate 1 - Pending User Feedback");
-
   const showDotFor = (key: string) => {
     if (key === "planning") return hasPlanningUpdate;
     if (key === "financeReview") return hasFinanceReviewUpdate;
     if (key === "approvals") return hasApprovalUpdate;
-    if (key === "drafts") return hasDraftsUpdate;
     return false;
   };
 
@@ -119,7 +104,6 @@ export default function SidebarFS() {
     if (item.href === "/planning") return canPlan;
     if (item.href === "/finance-review") return canReview;
     if (item.href === "/approvals") return canApprove;
-    if (item.href === "/drafts") return canPlan;
     if (item.href === "/fs-capex") return canProgress;
     return false;
   });

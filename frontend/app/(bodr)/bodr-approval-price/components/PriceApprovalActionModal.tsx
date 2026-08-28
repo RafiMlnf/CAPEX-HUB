@@ -108,8 +108,8 @@ export default function PriceApprovalActionModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-slate-800">
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-          <h3 className="text-sm font-black uppercase tracking-wider text-slate-800">Review Otorisasi Harga</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-red-500 font-bold transition-colors">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-800">Review Otorisasi Harga</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-red-500 font-semibold transition-colors cursor-pointer">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -124,16 +124,16 @@ export default function PriceApprovalActionModal({
             ) : (
               <p><strong>Produk:</strong> {item.product}</p>
             )}
-            <p><strong>Tahap:</strong> <span className="font-bold text-blue-600">{item.step}</span></p>
+            <p><strong>Tahap:</strong> <span className="font-semibold text-blue-600">{item.step}</span></p>
           </div>
 
           <div>
-            <label className="text-[9px] font-black text-slate-600 uppercase tracking-wider block mb-1.5">Tindakan *</label>
+            <label className="text-[9px] font-semibold text-slate-600 uppercase tracking-wider block mb-1.5">Tindakan *</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setAction("Approved")}
-                className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all ${
+                className={`py-2 px-3 rounded-xl text-xs font-semibold uppercase tracking-wider border transition-all cursor-pointer ${
                   action === "Approved"
                     ? "bg-emerald-600 border-emerald-600 text-white"
                     : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
@@ -144,7 +144,7 @@ export default function PriceApprovalActionModal({
               <button
                 type="button"
                 onClick={() => setAction("Rejected")}
-                className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all ${
+                className={`py-2 px-3 rounded-xl text-xs font-semibold uppercase tracking-wider border transition-all cursor-pointer ${
                   action === "Rejected"
                     ? "bg-red-600 border-red-600 text-white"
                     : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
@@ -156,14 +156,14 @@ export default function PriceApprovalActionModal({
           </div>
 
           <div>
-            <label className="text-[9px] font-black text-slate-600 uppercase tracking-wider block mb-1">Catatan Justifikasi *</label>
+            <label className="text-[9px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Catatan Justifikasi *</label>
             <textarea
               required={action === "Rejected"}
               rows={3}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={action === "Approved" ? "Catatan opsional..." : "Alasan penolakan..."}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:border-blue-500 focus:outline-none"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:border-blue-500 focus:outline-none font-medium"
             />
           </div>
 
@@ -171,7 +171,7 @@ export default function PriceApprovalActionModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200"
+              className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 cursor-pointer"
             >
               Batal
             </button>

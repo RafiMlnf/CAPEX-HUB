@@ -160,16 +160,34 @@ export default function UsersPanel() {
       });
     } catch (err: any) {
       let errorMsg = err.message || "Gagal menyimpan user.";
-      if (errorMsg.includes("duplicate key") || errorMsg.includes("23505")) {
-        errorMsg = `NPK "${formNpk}" atau Username "${formUsername}" sudah terdaftar dalam sistem. Silakan gunakan yang unik.`;
+      const isDuplicate =
+        errorMsg.toLowerCase().includes("duplicate") ||
+        errorMsg.toLowerCase().includes("duplikat") ||
+        errorMsg.toLowerCase().includes("sudah terdaftar") ||
+        errorMsg.toLowerCase().includes("unique constraint") ||
+        errorMsg.toLowerCase().includes("23505") ||
+        errorMsg.toLowerCase().includes("p2002") ||
+        errorMsg.toLowerCase().includes("npk");
+
+      if (isDuplicate) {
+        errorMsg = `NPK "${formNpk}" atau Username "${formUsername}" sudah terdaftar dalam sistem. Silakan gunakan NPK/Username yang berbeda.`;
+        Swal.fire({
+          title: "NPK / Username Duplikat!",
+          text: errorMsg,
+          icon: "warning",
+          confirmButtonColor: "#3b82f6",
+          confirmButtonText: "Tutup",
+        });
+      } else {
+        Swal.fire({
+          title: "Gagal Menyimpan",
+          text: errorMsg,
+          icon: "error",
+          confirmButtonColor: "#ef4444",
+          confirmButtonText: "Tutup",
+        });
       }
       setFormError(errorMsg);
-      Swal.fire({
-        title: "Gagal Menyimpan",
-        text: errorMsg,
-        icon: "error",
-        confirmButtonColor: "#ef4444",
-      });
     } finally {
       setIsSaving(false);
     }

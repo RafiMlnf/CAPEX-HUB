@@ -181,7 +181,7 @@ export default function CapexPage() {
       <div className="flex min-h-screen bg-slate-100 font-sans text-xs">
         <Sidebar />
         <div className="flex-1 flex flex-col min-h-screen ml-64 items-center justify-center">
-          <p className="text-sm font-black text-slate-500 italic">Memuat data CAPEX...</p>
+          <p className="text-sm font-semibold text-slate-500 italic">Memuat data CAPEX...</p>
         </div>
       </div>
     );
@@ -195,38 +195,38 @@ export default function CapexPage() {
         <Header title="CAPEX" subtitle="Daftar rencana & realisasi investasi per tahun anggaran" />
 
         {/* Sync Toast */}
-        <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border border-emerald-500/20 bg-white/80 backdrop-blur-md text-emerald-800 text-xs font-extrabold shadow-lg transition-all duration-500 transform ${
+        <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border border-emerald-500/20 bg-white/80 backdrop-blur-md text-emerald-800 text-xs font-semibold shadow-lg transition-all duration-500 transform ${
           syncToast.show ? "translate-x-0 opacity-100 scale-100" : "translate-x-20 opacity-0 scale-95 pointer-events-none"
         }`}>
-          <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm animate-pulse">
+          <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm animate-pulse">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
           <div>
-            <p className="font-extrabold text-[11px] text-slate-800">Sinkronisasi Berhasil</p>
-            <p className="text-[9px] text-slate-500 font-bold mt-0.5">{syncToast.msg}</p>
+            <p className="font-semibold text-[11px] text-slate-800">Sinkronisasi Berhasil</p>
+            <p className="text-[9px] text-slate-500 font-normal mt-0.5">{syncToast.msg}</p>
           </div>
         </div>
 
         <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
           {/* Export Toast */}
-          <div className={`fixed top-20 right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border border-emerald-500/20 bg-white/80 backdrop-blur-md text-emerald-800 text-xs font-extrabold shadow-lg transition-all duration-500 transform ${
+          <div className={`fixed top-20 right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border border-emerald-500/20 bg-white/80 backdrop-blur-md text-emerald-800 text-xs font-semibold shadow-lg transition-all duration-500 transform ${
             exportToast ? "translate-x-0 opacity-100 scale-100" : "translate-x-20 opacity-0 scale-95 pointer-events-none"
           }`}>
-            <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+            <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
             <div>
-              <p className="font-extrabold text-[11px] text-slate-800">Ekspor Berhasil</p>
-              <p className="text-[9px] text-slate-500 font-bold mt-0.5">Data CAPEX berhasil diekspor ke Excel!</p>
+              <p className="font-semibold text-[11px] text-slate-800">Ekspor Berhasil</p>
+              <p className="text-[9px] text-slate-500 font-normal mt-0.5">Data CAPEX berhasil diekspor ke Excel!</p>
             </div>
           </div>
           {/* KPI Summary Cards */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">
+            <h3 className="text-xs font-semibold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">
               Ringkasan Anggaran CAPEX 2026
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -237,8 +237,8 @@ export default function CapexPage() {
                 { label: "Available Budget", value: `Rp ${totalAvailable.toLocaleString("id-ID")}`, color: "text-emerald-700", border: "border-l-4 border-l-emerald-500 bg-emerald-50/20" },
               ].map((k) => (
                 <div key={k.label} className={`flex flex-col justify-between p-4 rounded-xl border border-slate-200 shadow-xs ${k.border}`}>
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">{k.label}</p>
-                  <h3 className={`text-base font-extrabold tracking-tight ${k.color}`}>{k.value}</h3>
+                  <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest leading-none mb-2">{k.label}</p>
+                  <h3 className={`text-base font-semibold font-mono tracking-tight ${k.color}`}>{k.value}</h3>
                 </div>
               ))}
             </div>
@@ -259,12 +259,12 @@ export default function CapexPage() {
                   placeholder="Cari ID, Nama, Type, Reference..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-xl border outline-none bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-600/10 transition-all text-xs font-bold"
+                  className="w-full pl-10 pr-4 py-2 rounded-xl border outline-none bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-600/10 transition-all text-xs font-medium"
                 />
               </div>
 
               {/* Capex Type Filter */}
-              <div className="flex bg-slate-100 border border-slate-200 p-0.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider">
+              <div className="flex bg-slate-100 border border-slate-200 p-0.5 rounded-xl text-[10px] font-semibold uppercase tracking-wider">
                 {(["All", "New", "Carry Over"] as const).map((t) => (
                   <button
                     key={t}
@@ -276,7 +276,7 @@ export default function CapexPage() {
                           : t === "Carry Over"
                           ? "bg-amber-500 text-white shadow-xs"
                           : "bg-blue-600 text-white shadow-xs"
-                        : "text-slate-600 hover:text-slate-955"
+                        : "text-slate-600 hover:text-slate-900 font-medium"
                     }`}
                   >
                     {t}
@@ -288,7 +288,7 @@ export default function CapexPage() {
             <div className="flex gap-2">
               <button
                 onClick={handleSync}
-                className={`flex items-center gap-1.5 border px-3.5 py-2.5 rounded-xl font-black uppercase tracking-wider text-[9px] shadow-xs transition-all duration-300 cursor-pointer ${
+                className={`flex items-center gap-1.5 border px-3.5 py-2.5 rounded-xl font-semibold uppercase tracking-wider text-[9px] shadow-xs transition-all duration-300 cursor-pointer ${
                   syncing
                     ? "bg-blue-50/80 border-blue-300 text-blue-600 animate-pulse"
                     : "border-slate-250 bg-white text-slate-700 hover:text-blue-600 hover:border-blue-500 hover:bg-slate-50"
@@ -303,7 +303,7 @@ export default function CapexPage() {
               
               <button
                 onClick={handleExport}
-                className="flex items-center gap-1.5 border border-slate-250 bg-white text-slate-700 hover:text-blue-600 hover:border-blue-500 hover:bg-slate-50 font-black px-3.5 py-2.5 rounded-xl transition-all cursor-pointer uppercase tracking-wider text-[9px] shadow-xs"
+                className="flex items-center gap-1.5 border border-slate-250 bg-white text-slate-700 hover:text-blue-600 hover:border-blue-500 hover:bg-slate-50 font-semibold px-3.5 py-2.5 rounded-xl transition-all cursor-pointer uppercase tracking-wider text-[9px] shadow-xs"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -318,7 +318,7 @@ export default function CapexPage() {
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[8px] font-black uppercase tracking-wider select-none">
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[8px] font-semibold uppercase tracking-wider select-none">
                     <th className="py-2.5 px-3 text-center w-8">No</th>
                     <th className="py-2.5 px-3 w-28">ID Capex</th>
                     <th className="py-2.5 px-3">Nama Capex</th>
@@ -336,7 +336,7 @@ export default function CapexPage() {
                 <tbody className="divide-y divide-slate-100 text-slate-800 text-[11px]">
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="py-12 text-center text-slate-450 italic font-bold">
+                      <td colSpan={12} className="py-12 text-center text-slate-450 italic font-normal">
                         Tidak ada item CAPEX yang cocok dengan pencarian Anda.
                       </td>
                     </tr>
@@ -346,26 +346,26 @@ export default function CapexPage() {
                         key={r.id}
                         className={`hover:bg-slate-50/50 transition-colors border-l-2 ${statusBorder(r.status)} ${idx % 2 === 1 ? "bg-slate-50/30" : "bg-white"}`}
                       >
-                        <td className="py-2.5 px-3 text-center font-bold text-slate-450 font-mono">{idx + 1}</td>
-                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900 text-[10px]">{r.id}</td>
-                        <td className="py-2.5 px-3 font-bold text-slate-900 max-w-[200px] break-words whitespace-normal leading-snug" title={r.name}>{r.name}</td>
-                        <td className="py-2.5 px-3 text-center text-slate-500 font-bold">{r.tahun}</td>
-                        <td className="py-2.5 px-3 font-black text-slate-900 whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-center font-semibold text-slate-450 font-mono">{idx + 1}</td>
+                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-900 text-[10px]">{r.id}</td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-900 max-w-[200px] break-words whitespace-normal leading-snug" title={r.name}>{r.name}</td>
+                        <td className="py-2.5 px-3 text-center text-slate-500 font-medium">{r.tahun}</td>
+                        <td className="py-2.5 px-3 font-semibold font-mono text-slate-900 whitespace-nowrap">
                           Rp {r.budget.toLocaleString("id-ID")}
                         </td>
-                        <td className="py-2.5 px-3 font-black text-blue-600 whitespace-nowrap">
+                        <td className="py-2.5 px-3 font-semibold font-mono text-blue-600 whitespace-nowrap">
                           Rp {r.amountBodr.toLocaleString("id-ID")}
                         </td>
-                        <td className="py-2.5 px-3 font-black text-emerald-600 whitespace-nowrap">
+                        <td className="py-2.5 px-3 font-semibold font-mono text-emerald-600 whitespace-nowrap">
                           Rp {r.available.toLocaleString("id-ID")}
                         </td>
-                        <td className="py-2.5 px-3 text-center font-bold text-slate-700">
+                        <td className="py-2.5 px-3 text-center font-medium text-slate-700">
                           {r.capexType}
                         </td>
-                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-550 text-[10px]">{r.reference}</td>
-                        <td className="py-2.5 px-3 text-slate-655 max-w-[150px] break-words whitespace-normal">{r.remark}</td>
+                        <td className="py-2.5 px-3 font-mono font-medium text-slate-550 text-[10px]">{r.reference}</td>
+                        <td className="py-2.5 px-3 text-slate-655 max-w-[150px] break-words whitespace-normal font-normal">{r.remark}</td>
                         <td className="py-2.5 px-3 text-center">
-                          <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-lg text-[9px] font-black border shadow-xs ${
+                          <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-lg text-[9px] font-semibold border shadow-xs ${
                             r.status === "Completed" ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                               : r.status === "On Track" ? "bg-blue-50 text-blue-800 border-blue-200"
                               : r.status === "Open" ? "bg-slate-50 text-slate-700 border-slate-200"
@@ -378,7 +378,7 @@ export default function CapexPage() {
                         <td className="py-2.5 px-3 text-center">
                           <button
                             onClick={() => setSelectedCapex(r)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 font-black hover:bg-slate-50 hover:border-blue-500 hover:text-blue-600 text-[10px] cursor-pointer transition-all shadow-xs"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 font-semibold hover:bg-slate-50 hover:border-blue-500 hover:text-blue-600 text-[10px] cursor-pointer transition-all shadow-xs"
                           >
                             Detail
                           </button>
@@ -389,17 +389,17 @@ export default function CapexPage() {
                 </tbody>
                 {/* Summary Footer Row */}
                 <tfoot>
-                  <tr className="bg-slate-50 border-t border-slate-200 text-[10px] font-black text-slate-900">
+                  <tr className="bg-slate-50 border-t border-slate-200 text-[10px] font-semibold text-slate-900">
                     <td colSpan={4} className="py-2.5 px-3 text-slate-700 uppercase tracking-wider">
                       Total ({filtered.length} item)
                     </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap text-slate-900">
+                    <td className="py-2.5 px-3 whitespace-nowrap text-slate-900 font-mono">
                       Rp {filtered.reduce((s, r) => s + r.budget, 0).toLocaleString("id-ID")}
                     </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap text-blue-600">
+                    <td className="py-2.5 px-3 whitespace-nowrap text-blue-600 font-mono">
                       Rp {filtered.reduce((s, r) => s + r.amountBodr, 0).toLocaleString("id-ID")}
                     </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap text-emerald-600">
+                    <td className="py-2.5 px-3 whitespace-nowrap text-emerald-600 font-mono">
                       Rp {filtered.reduce((s, r) => s + r.available, 0).toLocaleString("id-ID")}
                     </td>
                     <td colSpan={5} />
@@ -424,14 +424,14 @@ export default function CapexPage() {
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
                   <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-sm font-black text-slate-900 uppercase tracking-tight">Detail Capex</h2>
-                  <p className="text-[10px] text-slate-500 font-bold">{selectedCapex.id}</p>
+                  <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-tight">Detail Capex</h2>
+                  <p className="text-[10px] text-slate-500 font-medium">{selectedCapex.id}</p>
                 </div>
               </div>
               <button
@@ -456,8 +456,8 @@ export default function CapexPage() {
                     { label: "Department", value: selectedCapex.department },
                   ].map((f) => (
                     <div key={f.label}>
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1">{f.label}</p>
-                      <div className="bg-slate-50 border border-slate-250 rounded-xl px-3 py-2 text-[11px] font-extrabold text-slate-800">
+                      <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider mb-1">{f.label}</p>
+                      <div className="bg-slate-50 border border-slate-250 rounded-xl px-3 py-2 text-[11px] font-semibold text-slate-800">
                         {f.value}
                       </div>
                     </div>
@@ -470,29 +470,29 @@ export default function CapexPage() {
                     {
                       label: "Amount Budget",
                       value: `Rp ${selectedCapex.budget.toLocaleString("id-ID")}`,
-                      color: "text-slate-900 font-extrabold",
+                      color: "text-slate-900 font-semibold font-mono",
                     },
                     {
                       label: "Amount BODR",
                       value: `Rp ${selectedCapex.amountBodr.toLocaleString("id-ID")}`,
-                      color: "text-blue-600 font-extrabold",
+                      color: "text-blue-600 font-semibold font-mono",
                     },
                     {
                       label: "Amount Available",
                       value: `Rp ${selectedCapex.available.toLocaleString("id-ID")}`,
-                      color: "text-emerald-600 font-extrabold",
+                      color: "text-emerald-600 font-semibold font-mono",
                     },
                     { label: "Status", value: selectedCapex.status },
                     { label: "Remark", value: selectedCapex.remark },
                   ].map((f) => (
                     <div key={f.label}>
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1">{f.label}</p>
+                      <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider mb-1">{f.label}</p>
                       {f.label === "Status" ? (
-                        <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg inline-block shadow-xs border ${statusColor(selectedCapex.status)}`}>
+                        <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg inline-block shadow-xs border ${statusColor(selectedCapex.status)}`}>
                           {f.value}
                         </span>
                       ) : (
-                        <div className={`bg-slate-50 border border-slate-250 rounded-xl px-3 py-2 text-[11px] ${f.color ?? "text-slate-800 font-bold"}`}>
+                        <div className={`bg-slate-50 border border-slate-250 rounded-xl px-3 py-2 text-[11px] ${f.color ?? "text-slate-800 font-medium"}`}>
                           {f.value}
                         </div>
                       )}
@@ -504,12 +504,12 @@ export default function CapexPage() {
               {/* Related BODR Table */}
               <div>
                 <div className="pb-2 mb-3 border-b border-slate-200 flex items-center justify-between">
-                  <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <h3 className="text-[10px] font-semibold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                     <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     Daftar BODR Terkait
-                    <span className="text-[9px] font-black text-slate-600 bg-slate-100 border border-slate-250 px-2 py-0.5 rounded-full">
+                    <span className="text-[9px] font-semibold text-slate-600 bg-slate-100 border border-slate-250 px-2 py-0.5 rounded-full">
                       {relatedBodr.length} item
                     </span>
                   </h3>
@@ -535,7 +535,7 @@ export default function CapexPage() {
                         a.click();
                         URL.revokeObjectURL(url);
                       }}
-                      className="flex items-center gap-1.5 text-[9px] font-black px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-250 hover:bg-emerald-100 transition-all cursor-pointer uppercase tracking-wider shadow-xs"
+                      className="flex items-center gap-1.5 text-[9px] font-semibold px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-250 hover:bg-emerald-100 transition-all cursor-pointer uppercase tracking-wider shadow-xs"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -547,7 +547,7 @@ export default function CapexPage() {
                 <div className="border border-slate-200 rounded-2xl overflow-hidden">
                   <table className="w-full border-collapse text-left">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[8px] font-black uppercase tracking-wider">
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[8px] font-semibold uppercase tracking-wider">
                         <th className="py-2 px-3 border-r border-slate-200">Title</th>
                         <th className="py-2 px-3 border-r border-slate-200">Requester</th>
                         <th className="py-2 px-3 border-r border-slate-200 text-right">Amount</th>
@@ -559,7 +559,7 @@ export default function CapexPage() {
                     <tbody className="divide-y divide-slate-100 text-[10px]">
                       {relatedBodr.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-6 text-center text-slate-450 italic font-bold">
+                          <td colSpan={6} className="py-6 text-center text-slate-450 italic font-normal">
                             No data available in table
                           </td>
                         </tr>
@@ -569,15 +569,15 @@ export default function CapexPage() {
                             key={idx}
                             className={`${idx % 2 === 1 ? "bg-slate-50/30" : "bg-white"} hover:bg-blue-50/50 transition-colors`}
                           >
-                            <td className="py-2 px-3 font-bold text-slate-800 border-r border-slate-200 max-w-[160px] break-words">{b.title}</td>
-                            <td className="py-2 px-3 text-slate-500 font-bold border-r border-slate-200">{b.requester}</td>
-                            <td className="py-2 px-3 font-extrabold text-blue-600 whitespace-nowrap border-r border-slate-200 text-right">
+                            <td className="py-2 px-3 font-semibold text-slate-800 border-r border-slate-200 max-w-[160px] break-words">{b.title}</td>
+                            <td className="py-2 px-3 text-slate-500 font-medium border-r border-slate-200">{b.requester}</td>
+                            <td className="py-2 px-3 font-semibold font-mono text-blue-600 whitespace-nowrap border-r border-slate-200 text-right">
                               Rp {b.amount.toLocaleString("id-ID")}
                             </td>
-                            <td className="py-2 px-3 font-mono text-slate-500 font-bold border-r border-slate-200 text-[9px]">{b.noBodr}</td>
-                            <td className="py-2 px-3 font-mono text-slate-500 font-bold border-r border-slate-200 text-[9px]">{b.capexReference}</td>
+                            <td className="py-2 px-3 font-mono text-slate-500 font-medium border-r border-slate-200 text-[9px]">{b.noBodr}</td>
+                            <td className="py-2 px-3 font-mono text-slate-500 font-medium border-r border-slate-200 text-[9px]">{b.capexReference}</td>
                             <td className="py-2 px-3 text-center">
-                              <span className={`text-[9px] font-black px-2 py-0.5 rounded-md inline-block border shadow-xs ${bodrStatusColor(b.status)}`}>
+                              <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-md inline-block border shadow-xs ${bodrStatusColor(b.status)}`}>
                                 {b.status}
                               </span>
                             </td>
@@ -591,7 +591,7 @@ export default function CapexPage() {
 
               {/* Action Section */}
               <div className="border-t border-slate-200 pt-4 flex items-center justify-between gap-3">
-                <p className="text-[10px] text-slate-500 font-extrabold">
+                <p className="text-[10px] text-slate-500 font-medium">
                   Kelola pengajuan BODR atau revisi terkait CAPEX ini
                 </p>
                 <div className="flex items-center gap-2">
@@ -604,7 +604,7 @@ export default function CapexPage() {
                         confirmButtonColor: "#3b82f6",
                       })
                     }
-                    className="flex items-center gap-2 text-[10px] font-black px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white hover:shadow-xs transition-all cursor-pointer uppercase tracking-wider"
+                    className="flex items-center gap-2 text-[10px] font-semibold px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white hover:shadow-xs transition-all cursor-pointer uppercase tracking-wider"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -613,7 +613,7 @@ export default function CapexPage() {
                   </button>
                   <button
                     onClick={() => setSelectedCapex(null)}
-                    className="flex items-center gap-2 text-[10px] font-black px-4 py-2 rounded-2xl bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 border border-slate-250 hover:border-slate-450 hover:shadow-xs transition-all cursor-pointer uppercase tracking-wider"
+                    className="flex items-center gap-2 text-[10px] font-semibold px-4 py-2 rounded-2xl bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 border border-slate-250 hover:border-slate-450 hover:shadow-xs transition-all cursor-pointer uppercase tracking-wider"
                   >
                     Tutup
                   </button>

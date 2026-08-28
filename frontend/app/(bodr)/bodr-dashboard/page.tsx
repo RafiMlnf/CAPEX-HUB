@@ -70,38 +70,12 @@ export default function BodrDashboardPage() {
     }
   }, [canViewDashboard]);
 
-  if (!canViewDashboard) {
-    return (
-      <div className="flex min-h-screen bg-slate-100 font-sans text-slate-800 flex-col">
-        <Header
-          title="BODR Portal"
-          subtitle="Budget Over Design Review System - PT Menara Terus Makmur"
-        />
-        <main className="flex-1 flex items-center justify-center p-8">
-          <div className="bg-white border border-slate-200 rounded-3xl p-10 max-w-md w-full shadow-lg text-center space-y-6">
-            <div className="w-16 h-16 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-center mx-auto">
-              <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-slate-800 uppercase tracking-wide">Akses Ditolak (403)</h2>
-              <p className="text-xs text-slate-500 font-normal leading-relaxed">
-                Maaf, Anda tidak memiliki izin untuk mengakses Dashboard BODR.
-                Silakan hubungi Administrator untuk meminta konfigurasi hak akses akun Anda.
-              </p>
-            </div>
-            <a
-              href="/"
-              className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-2xs cursor-pointer w-full text-center"
-            >
-              Kembali ke Portal Utama
-            </a>
-          </div>
-        </main>
-      </div>
-    );
-  }
+  const userRole = (currentUser?.role || "").toLowerCase();
+  const userName = (currentUser?.username || "").toLowerCase();
+  const isAdmin = userRole === "admin" || userName === "admin";
+  const isAccounting = isAdmin || hasPermission("perm_approve_bodr");
+  const isApprover = isAdmin || hasPermission("perm_approve_bodr");
+  const isProposer = hasPermission("perm_create_bodr") && !isAccounting && !isApprover && !isAdmin;
 
   // Filtered List based on dropdown filters
   const filteredList = useMemo(() => {
@@ -121,6 +95,32 @@ export default function BodrDashboardPage() {
   const pendingRequests = bodrList.filter((b) => b.status === "Pending Review").length;
   const completedTasks = bodrList.filter((b) => b.status === "Approved").length;
   const overdueTasks = bodrList.filter((b) => b.status === "Rejected" || b.status === "Revision Required").length;
+
+  // Additional Role-based Metrics
+  const totalAmount = useMemo(() => {
+    return bodrList.reduce((acc, b) => acc + (b.amount || 0), 0);
+  }, [bodrList]);
+
+  const uniqueDepartments = useMemo(() => {
+    return Array.from(new Set(bodrList.map((b) => b.department).filter(Boolean)));
+  }, [bodrList]);
+
+  const userDeptList = useMemo(() => {
+    if (!currentUser?.department) return bodrList;
+    return bodrList.filter((b) => (b.department || "").toLowerCase() === currentUser.department.toLowerCase());
+  }, [bodrList, currentUser]);
+
+  const userDeptAmount = useMemo(() => {
+    return userDeptList.reduce((acc, b) => acc + (b.amount || 0), 0);
+  }, [userDeptList]);
+
+  const userDeptPending = useMemo(() => {
+    return userDeptList.filter((b) => b.status === "Pending Review").length;
+  }, [userDeptList]);
+
+  const userDeptApproved = useMemo(() => {
+    return userDeptList.filter((b) => b.status === "Approved").length;
+  }, [userDeptList]);
 
   // Donut Chart Status Distribution Calculations
   const donutData = useMemo(() => {
@@ -175,6 +175,39 @@ export default function BodrDashboardPage() {
     return { items, maxVal };
   }, [filteredList]);
 
+  if (!canViewDashboard) {
+    return (
+      <div className="flex min-h-screen bg-slate-100 font-sans text-slate-800 flex-col">
+        <Header
+          title="BODR Portal"
+          subtitle="Budget Over Design Review System - PT Menara Terus Makmur"
+        />
+        <main className="flex-1 flex items-center justify-center p-8">
+          <div className="bg-white border border-slate-200 rounded-3xl p-10 max-w-md w-full shadow-lg text-center space-y-6">
+            <div className="w-16 h-16 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-center mx-auto">
+              <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-slate-800 uppercase tracking-wide">Akses Ditolak (403)</h2>
+              <p className="text-xs text-slate-500 font-normal leading-relaxed">
+                Maaf, Anda tidak memiliki izin untuk mengakses Dashboard BODR.
+                Silakan hubungi Administrator untuk meminta konfigurasi hak akses akun Anda.
+              </p>
+            </div>
+            <a
+              href="/"
+              className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-2xs cursor-pointer w-full text-center"
+            >
+              Kembali ke Portal Utama
+            </a>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-slate-100 font-sans text-xs text-slate-800">
       <Sidebar />
@@ -192,11 +225,27 @@ export default function BodrDashboardPage() {
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                BODR Workspace
+                {isAccounting
+                  ? "Accounting & Finance Workspace"
+                  : isApprover
+                  ? "Executive BODR Workspace"
+                  : `${currentUser?.department || "Department"} BODR Workspace`}
               </span>
-              <h1 className="text-xl font-black tracking-tight text-white">BODR Portal & Monitoring</h1>
+              <h1 className="text-xl font-semibold tracking-tight text-white">
+                {isAccounting
+                  ? "Dashboard Verifikasi & Pengendalian Anggaran BODR"
+                  : isApprover
+                  ? "Executive BODR Dashboard & Approval Monitoring"
+                  : currentUser?.department
+                  ? `Dashboard Pengajuan BODR ${currentUser.department}`
+                  : "Dashboard Pengajuan BODR"}
+              </h1>
               <p className="text-blue-100 text-[11px] max-w-2xl font-normal leading-normal">
-                Monitor and manage Capex, FOH, and GOP investment proposals, approvals, and budget allocation in an integrated workspace.
+                {isAccounting
+                  ? "Ringkasan realisasi pencairan anggaran BODR seluruh departemen, verifikasi pos akun/cost center, dan antrean review persetujuan Finance."
+                  : isApprover
+                  ? "Ringkasan eksekutif alokasi pengeluaran dana BODR, status persetujuan berjenjang, dan monitoring realisasi anggaran departemen."
+                  : `Ringkasan usulan pencairan anggaran BODR dan status verifikasi approval untuk ${currentUser?.department || "Departemen Anda"}.`}
               </p>
             </div>
             {/* Background geometric accents */}
@@ -205,73 +254,209 @@ export default function BodrDashboardPage() {
           </div>
 
           {loading ? (
-            <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-500 font-bold">
+            <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-500 font-semibold">
               Memuat data dashboard eksekutif...
             </div>
           ) : (
             <div className="space-y-3.5">
-              {/* 4 KPI Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* KPI 1: TOTAL REQUESTS */}
-                <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">TOTAL BODR REQUESTS</p>
-                    <p className="text-2xl font-black text-slate-900 font-mono">{totalBodr}</p>
-                    <p className="text-[10px] text-slate-400 font-medium">All requests</p>
+              {/* KPI CARDS - Role Specific Layout */}
+              {isAccounting ? (
+                /* ── ACCOUNTING KPI CARDS (5 Cards) ─────────────────────────────── */
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  {/* KPI 1: Total Dokumen BODR */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL DOKUMEN BODR</p>
+                      <p className="text-xl font-semibold text-slate-900 font-mono">{totalBodr}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
                   </div>
-                  <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                  </div>
-                </div>
 
-                {/* KPI 2: PENDING REQUESTS */}
-                <div
-                  onClick={() => router.push("/bodr")}
-                  className="bg-white border border-slate-200 hover:border-blue-300 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between cursor-pointer transition-all hover:bg-slate-50/50 group"
-                  title="Klik untuk membuka List BODR"
-                >
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">PENDING REQUESTS</p>
-                    <p className="text-2xl font-black text-slate-900 font-mono">{pendingRequests}</p>
-                    <p className="text-[10px] text-slate-400 font-medium">Awaiting approval</p>
+                  {/* KPI 2: Departemen Pengaju */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">DEPARTEMEN PENGAJU</p>
+                      <p className="text-xl font-semibold text-indigo-700 font-mono">{uniqueDepartments.length}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
                   </div>
-                  <div className="w-10 h-10 rounded-full bg-sky-500 flex items-center justify-center text-white shadow-sm shadow-sky-500/20 group-hover:scale-105 transition-transform">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
 
-                {/* KPI 3: COMPLETED TASKS */}
-                <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">COMPLETED TASKS</p>
-                    <p className="text-2xl font-black text-slate-900 font-mono">{completedTasks}</p>
-                    <p className="text-[10px] text-slate-400 font-medium">Approved proposals</p>
+                  {/* KPI 3: Total Nilai Realisasi Biaya */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL REALISASI BIAYA</p>
+                      <p className="text-lg font-semibold text-slate-900 font-mono truncate" title={`Rp ${totalAmount.toLocaleString("id-ID")}`}>
+                        Rp {totalAmount.toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
                   </div>
-                  <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm shadow-emerald-500/20">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
 
-                {/* KPI 4: URGENT / OVERDUE TASKS */}
-                <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">REJECTED / REVISION</p>
-                    <p className="text-2xl font-black text-slate-900 font-mono">{overdueTasks}</p>
-                    <p className="text-[10px] text-slate-400 font-medium">Need attention</p>
+                  {/* KPI 4: Menunggu Review & Approval */}
+                  <div
+                    onClick={() => router.push("/bodr-approval")}
+                    className="bg-white border border-slate-200 hover:border-amber-400 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between cursor-pointer transition-all hover:bg-amber-50/40 group"
+                    title="Buka Antrean Approval BODR"
+                  >
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">REVIEW & APPROVAL</p>
+                      <p className="text-xl font-semibold text-amber-700 font-mono">{pendingRequests}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
                   </div>
-                  <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-white shadow-sm shadow-red-500/20">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
+
+                  {/* KPI 5: Disetujui (Approved) */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">DISETUJUI (APPROVED)</p>
+                      <p className="text-xl font-semibold text-emerald-600 font-mono">{completedTasks}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : isProposer ? (
+                /* ── PROPOSER / DEPT USER KPI CARDS (4 Cards) ─────────────────────── */
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* KPI 1: Dokumen Usulan Dept */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">DOKUMEN USULAN</p>
+                      <p className="text-xl font-semibold text-slate-900 font-mono">{userDeptList.length}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* KPI 2: Total Nominal Diajukan */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL USULAN DEPT</p>
+                      <p className="text-lg font-semibold text-blue-600 font-mono truncate" title={`Rp ${userDeptAmount.toLocaleString("id-ID")}`}>
+                        Rp {userDeptAmount.toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* KPI 3: Dalam Proses Approval */}
+                  <div
+                    onClick={() => router.push("/bodr")}
+                    className="bg-white border border-slate-200 hover:border-amber-400 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between cursor-pointer transition-all hover:bg-amber-50/40 group"
+                    title="Buka Daftar BODR"
+                  >
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">DALAM PROSES APPROVAL</p>
+                      <p className="text-xl font-semibold text-amber-700 font-mono">{userDeptPending}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* KPI 4: Disetujui (Approved) */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">DISETUJUI (APPROVED)</p>
+                      <p className="text-xl font-semibold text-emerald-600 font-mono">{userDeptApproved}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* ── APPROVER / EXECUTIVE / ADMIN KPI CARDS (4 Cards) ─────────────── */
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* KPI 1: TOTAL BODR REQUESTS */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL PENGAJUAN BODR</p>
+                      <p className="text-xl font-semibold text-slate-900 font-mono">{totalBodr}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* KPI 2: TOTAL NILAI ANGGARAN */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL NILAI ANGGARAN</p>
+                      <p className="text-lg font-semibold text-slate-900 font-mono truncate" title={`Rp ${totalAmount.toLocaleString("id-ID")}`}>
+                        Rp {totalAmount.toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* KPI 3: MENUNGGU APPROVAL */}
+                  <div
+                    onClick={() => router.push("/bodr-approval")}
+                    className="bg-white border border-slate-200 hover:border-amber-400 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between cursor-pointer transition-all hover:bg-amber-50/40 group"
+                    title="Buka Antrean Approval BODR"
+                  >
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">MENUNGGU APPROVAL</p>
+                      <p className="text-xl font-semibold text-amber-700 font-mono">{pendingRequests}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* KPI 4: DISETUJUI (APPROVED) */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">DISETUJUI (APPROVED)</p>
+                      <p className="text-xl font-semibold text-emerald-600 font-mono">{completedTasks}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Chart Filters Bar */}
               <div className="bg-white border border-slate-200 rounded-xl p-3 px-4 shadow-2xs flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
@@ -282,7 +467,7 @@ export default function BodrDashboardPage() {
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">CHART FILTERS</h3>
+                    <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">CHART FILTERS</h3>
                     <p className="text-[10px] text-slate-500">Filter chart statistics by criteria and status</p>
                   </div>
                 </div>
@@ -293,7 +478,7 @@ export default function BodrDashboardPage() {
                     <select
                       value={kriteriaFilter}
                       onChange={(e) => setKriteriaFilter(e.target.value)}
-                      className="bg-transparent text-slate-800 font-bold text-xs outline-none cursor-pointer"
+                      className="bg-transparent text-slate-800 font-semibold text-xs outline-none cursor-pointer"
                     >
                       <option value="ALL">Semua Kriteria</option>
                       <option value="CAP">CAPEX</option>
@@ -307,7 +492,7 @@ export default function BodrDashboardPage() {
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="bg-transparent text-slate-800 font-bold text-xs outline-none cursor-pointer"
+                      className="bg-transparent text-slate-800 font-semibold text-xs outline-none cursor-pointer"
                     >
                       <option value="ALL">Semua Status</option>
                       <option value="Pending Review">Pending Review</option>
@@ -329,7 +514,7 @@ export default function BodrDashboardPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </span>
-                      <h3 className="text-xs font-bold text-slate-800">BODR Work Status Distribution</h3>
+                      <h3 className="text-xs font-semibold text-slate-800">BODR Work Status Distribution</h3>
                     </div>
                     <p className="text-[10px] text-slate-500">Current proportion of BODR approval task statuses</p>
                   </div>
@@ -386,8 +571,8 @@ export default function BodrDashboardPage() {
                       </svg>
                       {/* Center total count */}
                       <div className="absolute flex flex-col items-center justify-center pointer-events-none">
-                        <span className="text-xl font-black text-slate-800 font-mono">{donutData.total}</span>
-                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Total Doc</span>
+                        <span className="text-xl font-semibold text-slate-800 font-mono">{donutData.total}</span>
+                        <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider">Total Doc</span>
                       </div>
                     </div>
 
@@ -419,13 +604,13 @@ export default function BodrDashboardPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                           </svg>
                         </span>
-                        <h3 className="text-xs font-bold text-slate-800">Criteria Quotation & Estimation Trends</h3>
+                        <h3 className="text-xs font-semibold text-slate-800">Criteria Quotation & Estimation Trends</h3>
                       </div>
                       <p className="text-[10px] text-slate-500">Volume of BODR proposals processed by criteria</p>
                     </div>
 
                     {/* Legend Top-Right */}
-                    <div className="flex items-center gap-3 text-[10px] font-bold">
+                    <div className="flex items-center gap-3 text-[10px] font-semibold">
                       <div className="flex items-center gap-1">
                         <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 inline-block" />
                         <span className="text-slate-600">Completed</span>
@@ -481,7 +666,7 @@ export default function BodrDashboardPage() {
                                     title={`Approved: ${item.approvedCount}`}
                                   />
                                 </div>
-                                <span className="text-[10px] font-bold text-slate-700 mt-1.5 block select-none">
+                                <span className="text-[10px] font-semibold text-slate-700 mt-1.5 block select-none">
                                   {item.category}
                                 </span>
                               </div>
@@ -498,22 +683,26 @@ export default function BodrDashboardPage() {
               <div className="bg-white border border-slate-200 rounded-xl p-4.5 space-y-3 shadow-2xs">
                 <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                   <div>
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">BODR List (Daftar Pengajuan)</h3>
+                    <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+                      {isProposer
+                        ? "BODR List (Daftar Pengajuan Departemen)"
+                        : "BODR List (Daftar Pengajuan Aktif)"}
+                    </h3>
                     <p className="text-[10px] text-slate-500">Proposal yang sedang aktif dalam proses approval</p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => router.push("/bodr")}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
+                    onClick={() => router.push(isProposer ? "/bodr" : "/bodr-approval")}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer"
                   >
-                    Buka Seluruh List BODR →
+                    {isProposer ? "Buka Seluruh List BODR →" : "Buka Antrean Approval BODR →"}
                   </button>
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200">
+                      <tr className="bg-slate-100 text-slate-700 text-[10px] font-semibold uppercase tracking-wider border-b border-slate-200">
                         <th className="py-2.5 px-3 border-r border-slate-200">BODR NO</th>
                         <th className="py-2.5 px-3 border-r border-slate-200">Created BODR</th>
                         <th className="py-2.5 px-3 border-r border-slate-200">Title BODR</th>
@@ -532,10 +721,10 @@ export default function BodrDashboardPage() {
                       ) : (
                         filteredList.slice(0, 8).map((b) => (
                           <tr key={b.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="py-2.5 px-3 font-mono font-bold text-blue-600 border-r border-slate-100">{b.bodrNo}</td>
+                            <td className="py-2.5 px-3 font-mono font-semibold text-blue-600 border-r border-slate-100">{b.bodrNo}</td>
                             <td className="py-2.5 px-3 text-slate-600 border-r border-slate-100">{b.date}</td>
                             <td className="py-2.5 px-3 font-medium text-slate-800 border-r border-slate-100 max-w-64 truncate" title={b.title}>{b.title}</td>
-                            <td className="py-2.5 px-3 font-mono font-bold text-slate-800 border-r border-slate-100 whitespace-nowrap">
+                            <td className="py-2.5 px-3 font-mono font-semibold text-slate-800 border-r border-slate-100 whitespace-nowrap">
                               Rp {b.amount.toLocaleString("id-ID")}
                             </td>
                             <td className="py-2.5 px-3 text-center border-r border-slate-100">
@@ -544,7 +733,7 @@ export default function BodrDashboardPage() {
                               </span>
                             </td>
                             <td className="py-2.5 px-3 text-center">
-                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
                                 b.status === "Approved"
                                   ? "bg-emerald-50 text-emerald-700 border border-emerald-300"
                                   : b.status === "Rejected"

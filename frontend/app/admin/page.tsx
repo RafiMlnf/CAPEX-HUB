@@ -11,6 +11,8 @@ import DepartemenPanel from "./components/DepartemenPanel";
 import RolesPanel from "./components/RolesPanel";
 import PermissionsPanel from "./components/PermissionsPanel";
 import TypeApprovalPanel from "./components/TypeApprovalPanel";
+import CostCenterPanel from "./components/CostCenterPanel";
+import { VendorPanel, PartNumberPanel, JenisOtorisasiPanel, JenisBarangPanel } from "./components/PriceMasterPanels";
 import RolePermissionPanel from "./components/RolePermissionPanel";
 import ApprovalWorkflowPanel from "./components/ApprovalWorkflowPanel";
 import DeptSettingsPanel from "./components/DeptSettingsPanel";
@@ -18,16 +20,41 @@ import PortalAccessSettingsPanel from "./components/PortalAccessSettingsPanel";
 import HistoryLogsPanel from "./components/HistoryLogsPanel";
 
 function AdminPageInner() {
-  const { currentUser } = useCapex();
+  const { currentUser, hasPermission, userPermissions, mounted } = useCapex();
   const searchParams = useSearchParams();
-  const tab = searchParams.get("tab") || "dashboard";
-  const sub = searchParams.get("sub") || "";
 
   const userRole = (currentUser?.role || "").toLowerCase();
   const userName = (currentUser?.username || "").toLowerCase();
   const isAdmin = userRole === "admin" || userName === "admin";
+  const canManageMasterData = hasPermission("perm_manage_config") || isAdmin || currentUser?.can_admin === true;
+  const canManageConfig = hasPermission("perm_manage_config") || isAdmin || currentUser?.can_admin === true;
+  const canManageUsers = hasPermission("perm_manage_users") || canManageMasterData || isAdmin || currentUser?.can_admin === true;
+  const canAccessAdmin = isAdmin || currentUser?.can_admin === true || canManageMasterData || canManageConfig || canManageUsers;
 
-  if (!isAdmin) {
+  // Fallback default tab for authorized non-admin users
+  const defaultTab = isAdmin ? "dashboard" : (canManageMasterData ? "masterdata" : "settings");
+  const defaultSub = defaultTab === "masterdata" ? "users" : "role_permission";
+
+  const rawTab = searchParams.get("tab");
+  const tab = (!isAdmin && (!rawTab || rawTab === "dashboard")) ? defaultTab : (rawTab || defaultTab);
+  const sub = searchParams.get("sub") || (tab === "masterdata" ? "users" : (tab === "settings" ? "role_permission" : ""));
+
+  // Show loading spinner while context is mounting and resolving user permissions
+  if (!mounted || (currentUser && !isAdmin && !currentUser?.can_admin && userPermissions.length === 0)) {
+    return (
+      <div className="flex min-h-screen bg-slate-100 font-sans text-slate-800 flex-col">
+        <Header title="Portal Admin" subtitle="Dashboard, Master Data & Konfigurasi Sistem" />
+        <main className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center space-y-3 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full">
+            <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-xs text-slate-600 font-medium">Memverifikasi hak akses Portal Admin...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!canAccessAdmin) {
     return (
       <div className="flex min-h-screen bg-slate-100 font-sans text-slate-800 flex-col">
         <Header title="Portal Admin" subtitle="Dashboard, Master Data & Konfigurasi Sistem" />
@@ -41,8 +68,8 @@ function AdminPageInner() {
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-slate-800 uppercase tracking-wide">Akses Ditolak (403)</h2>
               <p className="text-xs text-slate-500 font-normal leading-relaxed">
-                Maaf, Anda tidak memiliki izin untuk mengakses halaman Portal Admin.
-                Halaman ini khusus dibatasi untuk peran Administrator.
+                Maaf, Anda tidak memiliki izin untuk mengakses halaman ini.
+                Silakan hubungi Administrator untuk meminta konfigurasi hak akses akun Anda.
               </p>
             </div>
             <a
@@ -58,17 +85,28 @@ function AdminPageInner() {
   }
 
   const renderContent = () => {
-    if (tab === "dashboard") return <DashboardPanel />;
+    if (tab === "dashboard") {
+      return <DashboardPanel />;
+    }
 
     if (tab === "masterdata") {
-      const activeSub = sub || "users";
+      const activeSub = sub || defaultSub;
+      const allowAllMaster = canManageMasterData || canManageConfig || isAdmin;
       return (
         <div className="w-full min-w-0">
-          {activeSub === "users" && <UsersPanel />}
-          {activeSub === "departemen" && <DepartemenPanel />}
-          {activeSub === "roles" && <RolesPanel />}
-          {activeSub === "permissions" && <PermissionsPanel />}
-          {activeSub === "type_approval" && <TypeApprovalPanel />}
+          {/* Master Data BODR & Core */}
+          {activeSub === "users" && (allowAllMaster || canManageUsers ? <UsersPanel /> : <DashboardPanel />)}
+          {activeSub === "departemen" && (allowAllMaster ? <DepartemenPanel /> : <DashboardPanel />)}
+          {activeSub === "roles" && (allowAllMaster ? <RolesPanel /> : <DashboardPanel />)}
+          {activeSub === "permissions" && (allowAllMaster ? <PermissionsPanel /> : <DashboardPanel />)}
+          {activeSub === "type_approval" && (allowAllMaster ? <TypeApprovalPanel /> : <DashboardPanel />)}
+          {activeSub === "cost_centers" && <CostCenterPanel />}
+
+          {/* Master Data Otorisasi Harga */}
+          {activeSub === "vendor" && <VendorPanel />}
+          {activeSub === "part_number" && <PartNumberPanel />}
+          {activeSub === "jenis_otorisasi" && <JenisOtorisasiPanel />}
+          {activeSub === "jenis_barang" && <JenisBarangPanel />}
         </div>
       );
     }

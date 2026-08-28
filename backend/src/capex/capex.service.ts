@@ -1,6 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+// Helper: append batch file list ke JSON history revisi dokumen
+function appendToRevisionHistory(existing: string | null, newEntry: string): string {
+  try {
+    const arr: string[][] = existing ? JSON.parse(existing) : [];
+    const newFiles = newEntry.split(', ').map(s => s.trim()).filter(Boolean);
+    if (newFiles.length > 0) arr.push(newFiles);
+    return JSON.stringify(arr);
+  } catch {
+    const newFiles = newEntry.split(', ').map(s => s.trim()).filter(Boolean);
+    return JSON.stringify(newFiles.length > 0 ? [newFiles] : []);
+  }
+}
+
 @Injectable()
 export class CapexService {
   constructor(private readonly prisma: PrismaService) {}
@@ -53,9 +66,16 @@ export class CapexService {
       attachmentName: c.attachment_name,
       initialAttachmentName: c.initial_attachment_name || c.attachment_name,
       revisedAttachmentName: c.revised_attachment_name,
+      revisedAttachmentHistory: c.revised_attachment_history ?? null,
       committeeReviewSchedule: c.committee_review_schedule,
       revisionSource: c.revision_source,
-      history: [],
+      history: (c.capexHistory ?? []).map((h: any) => ({
+        gate: h.gate,
+        action: h.action,
+        actor: h.actor,
+        timestamp: h.timestamp instanceof Date ? h.timestamp.toISOString() : (h.timestamp ?? ''),
+        notes: h.notes ?? undefined,
+      })),
     };
   }
 
@@ -81,7 +101,7 @@ export class CapexService {
 
   async getProposals() {
     const records = await this.prisma.capex.findMany({
-      include: { departemen: true, capexType: true, capexReference: true },
+      include: { departemen: true, capexType: true, capexReference: true, capexHistory: { orderBy: { timestamp: 'asc' } } },
       orderBy: { created_at: 'desc' },
     });
     return records.map((c) => this.formatProposal(c));
@@ -122,7 +142,7 @@ export class CapexService {
         initial_attachment_name: data.initialAttachmentName ?? data.attachmentName ?? null,
         revised_attachment_name: data.revisedAttachmentName ?? null,
       },
-      include: { departemen: true, capexType: true, capexReference: true },
+      include: { departemen: true, capexType: true, capexReference: true, capexHistory: { orderBy: { timestamp: 'asc' } } },
     });
     return this.formatProposal(record);
   }
@@ -182,6 +202,10 @@ export class CapexService {
         attachment_name: data.attachmentName !== undefined ? data.attachmentName : undefined,
         initial_attachment_name: data.initialAttachmentName !== undefined ? data.initialAttachmentName : (existing.initial_attachment_name || existing.attachment_name),
         revised_attachment_name: data.revisedAttachmentName !== undefined ? data.revisedAttachmentName : undefined,
+        // Append ke history revisi jika ada dokumen revisi baru — tidak pernah ditimpa
+        revised_attachment_history: data.revisedAttachmentName !== undefined
+          ? appendToRevisionHistory(existing.revised_attachment_history as string | null, data.revisedAttachmentName)
+          : undefined,
         status: newStatus,
         is_fs_required: data.isFsRequired,
         fs_category: data.fsCategory,
@@ -201,10 +225,31 @@ export class CapexService {
         pir_notes: data.pirNotes,
         pir_closed_at: data.pirClosedAt ? new Date(data.pirClosedAt) : undefined,
       },
-      include: { departemen: true, capexType: true, capexReference: true },
     });
-    return this.formatProposal(record);
+
+    // Simpan entry history baru jika dikirim dari frontend
+    if (Array.isArray(data.history) && data.history.length > 0) {
+      const latestEntry = data.history[data.history.length - 1];
+      await this.prisma.capexHistory.create({
+        data: {
+          capex_id: existing.id,
+          gate: latestEntry.gate ?? 0,
+          action: latestEntry.action ?? '',
+          actor: latestEntry.actor ?? '',
+          timestamp: latestEntry.timestamp ? new Date(latestEntry.timestamp) : new Date(),
+          notes: latestEntry.notes ?? null,
+        },
+      });
+    }
+
+    // Ambil ulang data lengkap SETELAH history tersimpan agar response termasuk history terbaru
+    const updatedRecord = await this.prisma.capex.findFirst({
+      where: { id: existing.id },
+      include: { departemen: true, capexType: true, capexReference: true, capexHistory: { orderBy: { timestamp: 'asc' } } },
+    });
+    return this.formatProposal(updatedRecord);
   }
+
 
   async deleteProposal(id: string) {
     const match = id.match(/(\d+)$/);

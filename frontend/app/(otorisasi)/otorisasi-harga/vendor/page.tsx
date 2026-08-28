@@ -145,7 +145,7 @@ export default function VendorPage() {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   {["No", "Kode Vendor", "Vendor Name", "Email Vendor", "Street", "Status", "Aksi"].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                    <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
                       {h}
                     </th>
                   ))}
@@ -155,16 +155,16 @@ export default function VendorPage() {
                 {filtered.map((item, idx) => (
                   <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 text-slate-400 text-xs">{idx + 1}</td>
-                    <td className="px-4 py-3 font-mono font-bold text-blue-600">
+                    <td className="px-4 py-3 font-mono font-semibold text-blue-600">
                       {item.kode_vendor || item.kode}
                     </td>
-                    <td className="px-4 py-3 font-bold text-slate-800">
+                    <td className="px-4 py-3 font-semibold text-slate-800">
                       {item.vendor_name || item.nama}
                     </td>
-                    <td className="px-4 py-3 text-slate-600 text-xs">
+                    <td className="px-4 py-3 text-slate-600 text-xs font-normal">
                       {item.email_vendor || item.email || "—"}
                     </td>
-                    <td className="px-4 py-3 text-slate-500 text-xs max-w-xs truncate">
+                    <td className="px-4 py-3 text-slate-500 text-xs max-w-xs truncate font-normal">
                       {item.street || "—"}
                     </td>
                     <td className="px-4 py-3">
@@ -176,13 +176,13 @@ export default function VendorPage() {
                       <div className="flex gap-3">
                         <button
                           onClick={() => openEdit(item)}
-                          className="text-blue-600 hover:text-blue-800 text-xs font-bold cursor-pointer"
+                          className="text-blue-600 hover:text-blue-800 text-xs font-semibold cursor-pointer"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(item.id, item.vendor_name || item.nama)}
-                          className="text-red-500 hover:text-red-700 text-xs font-bold cursor-pointer"
+                          className="text-red-500 hover:text-red-700 text-xs font-semibold cursor-pointer"
                         >
                           Hapus
                         </button>
@@ -192,7 +192,7 @@ export default function VendorPage() {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center text-slate-400 py-12 text-sm">
+                    <td colSpan={7} className="text-center text-slate-400 py-12 text-sm font-normal">
                       Belum ada data vendor
                     </td>
                   </tr>
@@ -209,7 +209,7 @@ export default function VendorPage() {
           <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden text-slate-800 animate-scaleUp">
             <div className="flex items-center justify-between px-6 py-4.5 border-b border-slate-100 bg-slate-50/80">
               <div>
-                <h3 className="font-bold text-slate-900 uppercase tracking-wide text-sm">
+                <h3 className="font-semibold text-slate-900 uppercase tracking-wide text-sm">
                   {editing ? "Edit Master Vendor" : "Tambah Master Vendor"}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">

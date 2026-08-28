@@ -33,6 +33,6 @@ export const settingsApi = {
     request<ApiDeptSettings>("/settings/dept-settings", { method: "POST", body: JSON.stringify(data) }),
 
   getPortalAccess: () => request<ApiPortalAccess[]>("/settings/portal-access"),
-  upsertPortalAccess: (data: { user_id: number; can_capex: boolean; can_bodr: boolean; can_price: boolean }) =>
+  upsertPortalAccess: (data: { user_id: number; can_capex: boolean; can_bodr: boolean; can_price: boolean; can_admin?: boolean }) =>
     request<{ success: boolean; message: string }>("/settings/portal-access", { method: "POST", body: JSON.stringify(data) }),
 };

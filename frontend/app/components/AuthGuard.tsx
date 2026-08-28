@@ -100,6 +100,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         const userRole = (currentUser.role || "").toLowerCase();
         const userName = (currentUser.username || "").toLowerCase();
         const isAdmin = userRole === "admin" || userName === "admin";
+        const hasAdminAccess =
+          isAdmin ||
+          currentUser.can_admin === true ||
+          (currentUser.allowed_portals && currentUser.allowed_portals.includes("admin"));
 
         if (pathname === "/login") {
           router.push(isAdmin ? "/admin" : "/");
@@ -127,7 +131,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             pathname.startsWith("/audit");
           const isAdminRoute = pathname.startsWith("/admin");
 
-          if (isAdminRoute && !isAdmin) {
+          if (isAdminRoute && !hasAdminAccess) {
             router.push("/");
           } else if (isBodrRoute && !hasBodr) {
             router.push("/");

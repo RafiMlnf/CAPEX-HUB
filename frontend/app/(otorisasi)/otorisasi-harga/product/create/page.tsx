@@ -118,19 +118,19 @@ export default function CreateProductPage() {
         <main className="flex-1 overflow-y-auto px-8 py-6">
           <form onSubmit={handleSubmit} className="w-full space-y-6">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3.5 rounded-xl font-bold">
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3.5 rounded-xl font-semibold">
                 {error}
               </div>
             )}
 
             {/* Informasi Dokumen */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
-              <h3 className="font-black text-slate-800 uppercase tracking-wide text-sm border-b border-slate-100 pb-3">
+              <h3 className="font-semibold text-slate-800 uppercase tracking-wide text-sm border-b border-slate-100 pb-3">
                 Informasi Dokumen & BODR Terkait
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">BODR Terkait *</label>
+                  <label className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">BODR Terkait *</label>
                   <select
                     className={selectCls}
                     value={selectedBodr?.id || ""}
@@ -150,7 +150,7 @@ export default function CreateProductPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">No. PR *</label>
+                  <label className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">No. PR *</label>
                   <input
                     className={inputCls}
                     value={noPr}
@@ -163,7 +163,7 @@ export default function CreateProductPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Tanggal Pengajuan *</label>
+                  <label className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Tanggal Pengajuan *</label>
                   <input
                     type="date"
                     className={inputCls}
@@ -174,7 +174,7 @@ export default function CreateProductPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Jenis Source *</label>
+                  <label className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Jenis Source *</label>
                   <select
                     className={selectCls}
                     value={selectedJenisOto}
@@ -191,12 +191,12 @@ export default function CreateProductPage() {
 
             {/* Informasi Produk & Harga */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
-              <h3 className="font-black text-slate-800 uppercase tracking-wide text-sm border-b border-slate-100 pb-3">
+              <h3 className="font-semibold text-slate-800 uppercase tracking-wide text-sm border-b border-slate-100 pb-3">
                 Detail Part Number & Harga Supplier
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Part Number *</label>
+                  <label className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Part Number *</label>
                   {parts.length > 0 ? (
                     <select
                       className={selectCls}
@@ -222,7 +222,7 @@ export default function CreateProductPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Nama Produk / Material *</label>
+                  <label className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Nama Produk / Material *</label>
                   <input
                     className={inputCls}
                     value={productName}
@@ -235,7 +235,7 @@ export default function CreateProductPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Vendor / Supplier *</label>
+                  <label className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Vendor / Supplier *</label>
                   <select
                     className={selectCls}
                     value={selectedVendor}
@@ -249,7 +249,7 @@ export default function CreateProductPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Final Price (Rp) *</label>
+                  <label className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Final Price (Rp) *</label>
                   <input
                     className={inputCls}
                     value={finalPrice}
@@ -269,14 +269,14 @@ export default function CreateProductPage() {
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 text-sm cursor-pointer shadow-xs"
+                className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 text-sm cursor-pointer shadow-xs"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold rounded-xl text-sm transition-colors cursor-pointer shadow-xs flex items-center gap-2"
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold rounded-xl text-sm transition-colors cursor-pointer shadow-xs flex items-center gap-2"
               >
                 {submitting ? "Menyimpan ke Database..." : "Simpan & Ajukan Otorisasi"}
               </button>

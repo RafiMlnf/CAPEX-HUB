@@ -126,6 +126,10 @@ function PlanningPageContent() {
       const targetStatus = proposalData.isDraft ? "Gate 0 - Idea" : "Gate 1 - Finance Review";
 
       if (proposalData.id) {
+        const existingP = proposals.find((p) => p.id === proposalData.id);
+        const now = new Date().toISOString();
+        const actorName = currentUser?.name || proposalData.pic || "Pemohon";
+
         await editProposal(proposalData.id, {
           name: proposalData.name,
           description: proposalData.description,
@@ -138,6 +142,16 @@ function PlanningPageContent() {
           endDate: proposalData.endDate,
           attachmentName: proposalData.attachmentName,
           gateStatus: targetStatus,
+          history: [
+            ...(existingP?.history || []),
+            {
+              gate: 0,
+              action: proposalData.isDraft ? "Draft Diperbarui" : "Diajukan Ulang (Resubmitted)",
+              actor: actorName,
+              timestamp: now,
+              notes: proposalData.description || "Usulan diperbarui oleh pemohon.",
+            },
+          ],
         });
         setShowModal(false);
         setEditingProposal(null);
@@ -199,12 +213,23 @@ function PlanningPageContent() {
         (p.purpose && p.purpose.toLowerCase().includes(q)) ||
         (p.investmentType && p.investmentType.toLowerCase().includes(q));
 
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "gate0" && (p.gateStatus === "Gate 0 - Idea" || p.gateStatus === "Gate 0 - Draft")) ||
-        (statusFilter === "gate1" && (p.gateStatus.includes("Gate 1") || p.gateStatus.includes("Finance"))) ||
-        (statusFilter === "gate2" && (p.gateStatus.includes("Gate 2") || p.gateStatus.includes("Committee"))) ||
-        (statusFilter === "approved" && (p.gateStatus.includes("Gate 3") || p.gateStatus.includes("Procurement") || p.gateStatus.includes("Closed")));
+      const status = (p.gateStatus || (p as any).status || "").toLowerCase();
+      let matchesStatus = true;
+      if (statusFilter === "review") {
+        matchesStatus = status.includes("review") || status.includes("pending");
+      } else if (statusFilter === "draft") {
+        matchesStatus = status.includes("draft") || status.includes("idea");
+      } else if (statusFilter === "reject") {
+        matchesStatus = status.includes("reject");
+      } else if (statusFilter === "revisi") {
+        matchesStatus = status.includes("revis") || status.includes("feedback");
+      } else if (statusFilter === "close") {
+        matchesStatus =
+          status.includes("close") ||
+          status.includes("approved") ||
+          status.includes("archived") ||
+          status.includes("complet");
+      }
 
       return matchesSearch && matchesStatus;
     });
@@ -223,7 +248,7 @@ function PlanningPageContent() {
       <div className="flex-1 flex flex-col min-h-screen ml-64 bg-slate-100 min-w-0 overflow-x-hidden">
         <Header
           title="Perencanaan Capex"
-          subtitle="Daftar usulan perencanaan anggaran belanja modal dan manajemen inisiasi proyek (Gate 0 & Gate 1)"
+          subtitle="Daftar usulan perencanaan anggaran belanja modal dan manajemen inisiasi proyek"
         />
 
         <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4 w-full min-w-0 overflow-x-hidden">
@@ -275,10 +300,11 @@ function PlanningPageContent() {
                   className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs shrink-0"
                 >
                   <option value="all">Semua Status</option>
-                  <option value="gate0">Gate 0 - Idea / Draft</option>
-                  <option value="gate1">Gate 1 - Finance Review</option>
-                  <option value="gate2">Gate 2 - Komite Review</option>
-                  <option value="approved">Gate 3+ - Disetujui</option>
+                  <option value="review">Review</option>
+                  <option value="draft">Draft</option>
+                  <option value="reject">Reject</option>
+                  <option value="revisi">Revisi</option>
+                  <option value="close">Close</option>
                 </select>
 
                 {/* Add Planning Button */}
@@ -332,7 +358,7 @@ function PlanningPageContent() {
                       End Date
                     </th>
                     <th className="py-3.5 px-4 text-center w-44 border-r border-slate-100 whitespace-nowrap">
-                      Status Gate
+                      Status
                     </th>
                     <th className="py-3.5 px-4 text-right w-28 whitespace-nowrap">
                       Aksi
@@ -348,8 +374,9 @@ function PlanningPageContent() {
                     </tr>
                   ) : paginatedProposals.map((p, idx) => {
                     const rowNumber = (currentPage - 1) * itemsPerPage + idx + 1;
-                    const canEditRow = canCreate && (p.gateStatus === "Gate 0 - Idea" || p.gateStatus === "Gate 0 - Draft" || p.gateStatus === "Gate 2 - Revised");
-                    const isPendingFeedback = p.gateStatus === "Gate 1 - Pending User Feedback";
+                    const rowStatus = (p.gateStatus || "").toLowerCase();
+                    const canEditRow = canCreate && (rowStatus.includes("idea") || rowStatus.includes("draft") || rowStatus.includes("revis"));
+                    const isPendingFeedback = rowStatus.includes("pending");
 
                     return (
                       <tr key={p.id} className="hover:bg-blue-50/30 transition-colors duration-150">
@@ -392,8 +419,8 @@ function PlanningPageContent() {
                             <button
                               type="button"
                               onClick={() => setViewingProposal(p)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-700 hover:text-white bg-slate-100 hover:bg-blue-600 border border-slate-300 hover:border-blue-600 rounded-lg text-xs font-medium transition-all cursor-pointer shadow-2xs"
-                              title="Lihat Detail (View Only)"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-slate-700 hover:text-white bg-slate-100 hover:bg-blue-600 border border-slate-300 hover:border-blue-600 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+                              title="Lihat Detail Usulan Perencanaan"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -401,35 +428,6 @@ function PlanningPageContent() {
                               </svg>
                               Lihat
                             </button>
-
-                            {canEditRow && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingProposal(p);
-                                  setShowModal(true);
-                                }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-amber-700 hover:text-white bg-amber-50 hover:bg-amber-600 border border-amber-200 rounded-lg text-xs font-medium transition-all cursor-pointer shadow-2xs"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                Edit
-                              </button>
-                            )}
-
-                            {isPendingFeedback && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setUploadProposal(p);
-                                  setSupportingFiles(p.attachmentName ? p.attachmentName.split(", ") : []);
-                                }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-blue-700 hover:text-white bg-blue-50 hover:bg-blue-600 border border-blue-200 rounded-lg text-xs font-medium transition-all cursor-pointer shadow-2xs"
-                              >
-                                Upload File
-                              </button>
-                            )}
                           </div>
                         </td>
                       </tr>
@@ -619,9 +617,30 @@ function PlanningPageContent() {
               <button
                 type="button"
                 onClick={async () => {
+                  const now = new Date().toISOString();
+                  const uploaderName = currentUser?.name || uploadProposal.pic || "Pemohon";
+                  const fileListStr = supportingFiles.join(", ");
+
+                  // Akumulasi dengan dokumen yang sudah ada — tidak ditimpa
+                  const existingRevised = uploadProposal.revisedAttachmentName
+                    ? uploadProposal.revisedAttachmentName.split(", ").map(s => s.trim()).filter(Boolean)
+                    : [];
+                  const combinedRevised = Array.from(new Set([...existingRevised, ...supportingFiles])).join(", ");
+
                   await editProposal(uploadProposal.id, {
-                    attachmentName: supportingFiles.join(", "),
+                    attachmentName: combinedRevised,
+                    revisedAttachmentName: combinedRevised,
                     gateStatus: "Gate 1 - Finance Review",
+                    history: [
+                      ...(uploadProposal.history || []),
+                      {
+                        gate: 1,
+                        action: "Dokumen Diunggah Ulang / Pendukung",
+                        actor: uploaderName,
+                        timestamp: now,
+                        notes: `Dokumen pendukung diunggah: ${fileListStr}`,
+                      },
+                    ],
                   });
                   setUploadProposal(null);
                   Swal.fire({
@@ -650,19 +669,19 @@ function PlanningPageContent() {
             ? `Detail Usulan Perencanaan: ${viewingProposal.capexId}`
             : `Detail Usulan Perencanaan: ${viewingProposal?.name || ""}`
         }
-        maxWidth="max-w-4xl"
+        maxWidth="max-w-6xl"
       >
         {viewingProposal && (
-          <div className="space-y-4 text-xs text-slate-800">
+          <div className="space-y-3.5 text-xs text-slate-800">
             {/* Top Summary Banner */}
             <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-blue-50/60 border border-blue-200/80 rounded-xl">
               <div>
-                <span className="text-[10px] uppercase font-bold text-blue-700 tracking-wider">Nama Proyek</span>
-                <h3 className="text-sm font-bold text-slate-900 mt-0.5">{viewingProposal.name}</h3>
+                <span className="text-[9px] uppercase font-semibold text-blue-700 tracking-wider">Nama Proyek</span>
+                <h3 className="text-sm font-semibold text-slate-900 mt-0.5">{viewingProposal.name}</h3>
               </div>
               <div className="flex items-center gap-3">
                 {viewingProposal.capexId && viewingProposal.capexId !== "-" && (
-                  <span className="font-mono text-xs font-bold text-blue-700 bg-blue-100/70 border border-blue-200 px-2 py-0.5 rounded-lg">
+                  <span className="font-mono text-xs font-semibold text-blue-700 bg-blue-100/70 border border-blue-200 px-2.5 py-0.5 rounded-lg">
                     {viewingProposal.capexId}
                   </span>
                 )}
@@ -673,37 +692,37 @@ function PlanningPageContent() {
               </div>
             </div>
 
-            {/* Grid Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/70 border border-slate-200 rounded-xl p-4">
+            {/* 4-Column Grid Details */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50/70 border border-slate-200 rounded-xl p-3.5">
               <div>
-                <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">ID Capex Resmi</span>
-                <p className="font-mono font-bold text-blue-600 mt-0.5">
+                <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">ID Capex Resmi</span>
+                <p className="font-mono font-semibold text-blue-600 mt-0.5 truncate" title={viewingProposal.capexId || ""}>
                   {viewingProposal.capexId && viewingProposal.capexId !== "-" ? viewingProposal.capexId : "- (Belum Disetujui Komite)"}
                 </p>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Departemen</span>
-                <p className="font-semibold text-slate-800 mt-0.5">{viewingProposal.department || "-"}</p>
+                <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">Departemen</span>
+                <p className="font-semibold text-slate-800 mt-0.5 truncate">{viewingProposal.department || "-"}</p>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">PIC Pengaju</span>
-                <p className="font-semibold text-slate-800 mt-0.5">{viewingProposal.pic || "-"}</p>
+                <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">PIC Pengaju</span>
+                <p className="font-semibold text-slate-800 mt-0.5 truncate">{viewingProposal.pic || "-"}</p>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Purpose / Investment Type</span>
-                <p className="font-medium text-slate-700 mt-0.5">
+                <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">Purpose / Investment Type</span>
+                <p className="font-medium text-slate-700 mt-0.5 truncate">
                   {viewingProposal.purpose || "-"} / {viewingProposal.investmentType || "-"}
                 </p>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Estimasi Biaya</span>
-                <p className="font-bold text-blue-600 font-mono mt-0.5">
+                <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">Estimasi Biaya</span>
+                <p className="font-semibold text-blue-600 font-mono mt-0.5 truncate">
                   Rp {viewingProposal.estimatedCost ? Number(viewingProposal.estimatedCost).toLocaleString("id-ID") : "0"}
                 </p>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Durasi Pelaksanaan</span>
-                <p className="font-medium text-slate-700 mt-0.5">
+                <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">Durasi Pelaksanaan</span>
+                <p className="font-medium text-slate-700 mt-0.5 truncate">
                   {viewingProposal.startDate && viewingProposal.endDate && viewingProposal.startDate !== "-" && viewingProposal.endDate !== "-"
                     ? `${formatDateDisplay(viewingProposal.startDate)} s/d ${formatDateDisplay(viewingProposal.endDate)}`
                     : viewingProposal.startDate && viewingProposal.startDate !== "-"
@@ -712,211 +731,300 @@ function PlanningPageContent() {
                 </p>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Kebutuhan Studi Kelayakan</span>
-                <p className="font-medium text-slate-700 mt-0.5">
+                <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">Kebutuhan FS</span>
+                <p className="font-medium text-slate-700 mt-0.5 truncate">
                   {viewingProposal.isFsRequired ? `Ya (FS: ${viewingProposal.fsCategory || "-"})` : "Tidak (Non-FS)"}
                 </p>
               </div>
-
-              {/* Jadwal Sidang Komite (Otomatis tampil pada usulan tahap Komite Review / yang telah dijadwalkan) */}
-              {viewingProposal.committeeReviewSchedule ? (
-                <div className="md:col-span-2 pt-2.5 border-t border-slate-200/80">
-                  <span className="text-[10px] uppercase font-bold text-purple-700 tracking-wider flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                    Jadwal Sidang Komite Investasi
-                  </span>
-                  <p className="font-bold text-xs text-purple-900 font-mono mt-1 bg-purple-50 border border-purple-200 px-3 py-1.5 rounded-lg w-fit">
-                    📅 {formatDateDisplay(viewingProposal.committeeReviewSchedule)}
-                  </p>
-                </div>
-              ) : (viewingProposal.gateStatus?.toLowerCase().includes("committee") || viewingProposal.gateStatus?.toLowerCase().includes("gate 2")) ? (
-                <div className="md:col-span-2 pt-2.5 border-t border-slate-200/80">
-                  <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">
-                    Jadwal Sidang Komite Investasi
-                  </span>
-                  <p className="font-medium text-xs text-slate-500 italic mt-0.5">
-                    Sedang dikoordinasikan oleh Finance
-                  </p>
-                </div>
-              ) : null}
+              <div>
+                <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">Jadwal Sidang Komite</span>
+                <p className="font-semibold text-purple-900 mt-0.5 truncate">
+                  {viewingProposal.committeeReviewSchedule
+                    ? `📅 ${formatDateDisplay(viewingProposal.committeeReviewSchedule)}`
+                    : (viewingProposal.gateStatus?.toLowerCase().includes("committee") || viewingProposal.gateStatus?.toLowerCase().includes("komite") || viewingProposal.gateStatus?.toLowerCase().includes("sidang"))
+                    ? "Dikoordinasikan Finance"
+                    : "-"}
+                </p>
+              </div>
             </div>
 
-            {/* Attachments Section with Initial vs Revised Audit Support */}
-            <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-4 space-y-3">
-              <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider block">
-                Lampiran Dokumen Usulan
-              </span>
+            {/* 2-Column Side-by-Side: Attachments & Project Notes */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 items-start">
+              {/* Left Column: Lampiran Dokumen Usulan */}
+              <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-3.5 space-y-2.5 h-full">
+                <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider block">
+                  Lampiran Dokumen Usulan
+                </span>
 
-              {(() => {
-                const initialDocs = (viewingProposal.initialAttachmentName || "")
-                  .split(", ")
-                  .map((s) => s.trim())
-                  .filter(Boolean);
-                const revisedDocs = (viewingProposal.revisedAttachmentName || "")
-                  .split(", ")
-                  .map((s) => s.trim())
-                  .filter(Boolean);
-                const allDocs = (viewingProposal.attachmentName || "")
-                  .split(", ")
-                  .map((s) => s.trim())
-                  .filter(Boolean);
+                {(() => {
+                  const initialDocs = (viewingProposal.initialAttachmentName || "")
+                    .split(", ")
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                  const revisedDocs = (viewingProposal.revisedAttachmentName || "")
+                    .split(", ")
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                  const allDocs = (viewingProposal.attachmentName || "")
+                    .split(", ")
+                    .map((s) => s.trim())
+                    .filter(Boolean);
 
-                const hasSeparateRevisions =
-                  initialDocs.length > 0 &&
-                  (revisedDocs.length > 0 ||
-                    (allDocs.length > 0 &&
-                      JSON.stringify(initialDocs) !== JSON.stringify(allDocs)));
+                  // Baca semua batch revisi dari history (JSON array of arrays)
+                  let revisionBatches: string[][] = [];
+                  if (viewingProposal.revisedAttachmentHistory) {
+                    try {
+                      revisionBatches = JSON.parse(viewingProposal.revisedAttachmentHistory);
+                    } catch { revisionBatches = []; }
+                  }
+                  // Fallback: jika history belum ada tapi revisedDocs ada, tampilkan sebagai batch tunggal
+                  if (revisionBatches.length === 0 && revisedDocs.length > 0) {
+                    revisionBatches = [revisedDocs];
+                  }
 
-                const effectiveRevised =
-                  revisedDocs.length > 0
-                    ? revisedDocs
-                    : hasSeparateRevisions
-                    ? allDocs.filter((d) => !initialDocs.includes(d))
-                    : [];
+                  const hasSeparateRevisions =
+                    initialDocs.length > 0 &&
+                    (revisionBatches.length > 0 ||
+                      (allDocs.length > 0 &&
+                        JSON.stringify(initialDocs) !== JSON.stringify(allDocs)));
 
-                if (hasSeparateRevisions && (initialDocs.length > 0 || effectiveRevised.length > 0)) {
+                  if (hasSeparateRevisions && initialDocs.length > 0) {
+                    return (
+                      <div className="space-y-2">
+                        {/* Dokumen Awal */}
+                        <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] uppercase font-semibold text-slate-600 tracking-wider flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                              Dokumen Awal
+                            </span>
+                            <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                              {initialDocs.length} File
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1 max-h-28 overflow-y-auto">
+                            {initialDocs.map((filename, i) => (
+                              <a
+                                key={i}
+                                href={api.getUploadFileUrl(filename)}
+                                download={filename}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-between text-slate-700 hover:text-blue-600 font-mono font-medium text-[11px] bg-slate-50 hover:bg-blue-50/60 border border-slate-200 rounded px-2 py-1 transition-all shadow-2xs group"
+                                title={`Unduh Dokumen Awal: ${filename}`}
+                              >
+                                <span className="truncate underline max-w-[180px]">{filename}</span>
+                                <svg className="w-3 h-3 text-slate-400 group-hover:text-blue-500 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Semua batch Dokumen Revisi */}
+                        {revisionBatches.map((batch, batchIdx) => (
+                          <div key={batchIdx} className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] uppercase font-semibold text-emerald-700 tracking-wider flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Dokumen Revisi {revisionBatches.length > 1 ? `#${batchIdx + 1}` : ""}
+                              </span>
+                              <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-mono font-semibold">
+                                {batch.length} File
+                              </span>
+                            </div>
+                            <div className="flex flex-col gap-1 max-h-28 overflow-y-auto">
+                              {batch.map((filename, i) => (
+                                <a
+                                  key={i}
+                                  href={api.getUploadFileUrl(filename)}
+                                  download={filename}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-between text-emerald-800 hover:text-emerald-900 font-mono font-medium text-[11px] bg-emerald-50/50 hover:bg-emerald-100/70 border border-emerald-200 rounded px-2 py-1 transition-all shadow-2xs group"
+                                  title={`Unduh Dokumen Revisi #${batchIdx + 1}: ${filename}`}
+                                >
+                                  <span className="truncate underline max-w-[180px]">{filename}</span>
+                                  <svg className="w-3 h-3 text-emerald-600 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
+
                   return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Dokumen Awal */}
-                      <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] uppercase font-bold text-slate-600 tracking-wider flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                            Dokumen Awal (Versi Pengajuan)
-                          </span>
-                          <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">
-                            {initialDocs.length} File
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          {initialDocs.map((filename, i) => (
+                    <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto">
+                      {allDocs.length > 0 ? (
+                        allDocs.map((filename, i) => {
+                          const cleanName = filename.trim();
+                          const downloadUrl = api.getUploadFileUrl(cleanName);
+                          return (
                             <a
                               key={i}
-                              href={api.getUploadFileUrl(filename)}
-                              download={filename}
+                              href={downloadUrl}
+                              download={cleanName}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center justify-between text-slate-700 hover:text-blue-600 font-mono font-medium text-xs bg-slate-50 hover:bg-blue-50/60 border border-slate-200 rounded px-2.5 py-1.5 transition-all shadow-2xs group"
-                              title={`Unduh Dokumen Awal: ${filename}`}
+                              className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 font-mono font-medium text-[11px] bg-white border border-blue-200 rounded-lg px-2.5 py-1.5 transition-all shadow-2xs cursor-pointer"
+                              title={`Klik untuk mengunduh: ${cleanName}`}
                             >
-                              <span className="truncate underline">{filename}</span>
-                              <svg className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <svg className="w-3.5 h-3.5 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                               </svg>
+                              <span className="truncate max-w-[200px]">{cleanName}</span>
                             </a>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Dokumen Revisi */}
-                      <div className="bg-white border border-emerald-200 rounded-lg p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            Dokumen Revisi (Terbaru)
-                          </span>
-                          <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-mono font-semibold">
-                            {(effectiveRevised.length > 0 ? effectiveRevised : allDocs).length} File
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          {(effectiveRevised.length > 0 ? effectiveRevised : allDocs).map((filename, i) => (
-                            <a
-                              key={i}
-                              href={api.getUploadFileUrl(filename)}
-                              download={filename}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-between text-emerald-800 hover:text-emerald-900 font-mono font-medium text-xs bg-emerald-50/50 hover:bg-emerald-100/70 border border-emerald-200 rounded px-2.5 py-1.5 transition-all shadow-2xs group"
-                              title={`Unduh Dokumen Revisi: ${filename}`}
-                            >
-                              <span className="truncate underline">{filename}</span>
-                              <svg className="w-3.5 h-3.5 text-emerald-600 group-hover:translate-y-0.5 shrink-0 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                              </svg>
-                            </a>
-                          ))}
-                        </div>
-                      </div>
+                          );
+                        })
+                      ) : (
+                        <span className="text-slate-400 italic text-xs">Tidak ada lampiran dokumen.</span>
+                      )}
                     </div>
                   );
-                }
+                })()}
+              </div>
 
-                return (
-                  <div className="flex flex-wrap gap-2">
-                    {allDocs.length > 0 ? (
-                      allDocs.map((filename, i) => {
-                        const cleanName = filename.trim();
-                        const downloadUrl = api.getUploadFileUrl(cleanName);
-                        return (
-                          <a
-                            key={i}
-                            href={downloadUrl}
-                            download={cleanName}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 font-mono font-medium text-xs bg-white border border-blue-200 rounded-lg px-2.5 py-1.5 transition-all shadow-2xs cursor-pointer"
-                            title={`Klik untuk mengunduh: ${cleanName}`}
-                          >
-                            <svg className="w-3.5 h-3.5 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                            <span>{cleanName}</span>
-                          </a>
-                        );
-                      })
-                    ) : (
-                      <span className="text-slate-400 italic text-xs">Tidak ada lampiran dokumen.</span>
+              {/* Right Column: Deskripsi & Catatan Review */}
+              <div className="space-y-3">
+                {/* Description */}
+                <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-3.5 space-y-1">
+                  <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider block">
+                    Deskripsi Lengkap Proyek
+                  </span>
+                  <p className="text-slate-700 leading-relaxed font-normal bg-white p-2.5 rounded-lg border border-slate-200/70 whitespace-pre-line text-xs max-h-24 overflow-y-auto">
+                    {viewingProposal.description || "-"}
+                  </p>
+                </div>
+
+                {/* Finance Notes — baca dari history gate 1, tampilkan semua */}
+                {(() => {
+                  const financeEntries = (viewingProposal.history || [])
+                    .filter((h) => h.gate === 1 && h.notes && h.notes.trim())
+                    .map((h) => ({ notes: h.notes!, actor: h.actor, timestamp: h.timestamp }));
+
+                  // Fallback ke financeNotes jika history belum ada
+                  const fallbackNote = financeEntries.length === 0 && viewingProposal.financeNotes
+                    ? [{ notes: viewingProposal.financeNotes, actor: "Finance", timestamp: viewingProposal.financeApprovedAt || "" }]
+                    : [];
+                  const allFinanceNotes = [...financeEntries, ...fallbackNote];
+
+                  return allFinanceNotes.length > 0 ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                      <span className="text-[9px] uppercase font-semibold text-amber-800 tracking-wider block">
+                        Catatan Finance:
+                      </span>
+                      {allFinanceNotes.map((entry, i) => (
+                        <div key={i} className={`${i > 0 ? "border-t border-amber-200/70 pt-2" : ""}`}>
+                          <p className="text-amber-900 italic font-normal text-xs leading-relaxed">
+                            &quot;{entry.notes}&quot;
+                          </p>
+                          {allFinanceNotes.length > 1 && (
+                            <p className="text-[10px] text-amber-600 font-medium mt-0.5 not-italic">
+                              — {entry.actor}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Committee Notes — baca dari history gate 2, tampilkan semua */}
+                {(() => {
+                  const committeeEntries = (viewingProposal.history || [])
+                    .filter((h) => h.gate === 2 && h.notes && h.notes.trim())
+                    .map((h) => ({ notes: h.notes!, actor: h.actor, timestamp: h.timestamp }));
+
+                  // Fallback ke committeeNotes jika history belum ada
+                  const fallbackNote = committeeEntries.length === 0 && viewingProposal.committeeNotes
+                    ? [{ notes: viewingProposal.committeeNotes, actor: "Komite Investasi", timestamp: viewingProposal.committeeApprovedAt || "" }]
+                    : [];
+                  const allCommitteeNotes = [...committeeEntries, ...fallbackNote];
+
+                  return allCommitteeNotes.length > 0 ? (
+                    <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 space-y-2">
+                      <span className="text-[9px] uppercase font-semibold text-purple-800 tracking-wider block">
+                        Catatan Sidang Komite Investasi:
+                      </span>
+                      {allCommitteeNotes.map((entry, i) => (
+                        <div key={i} className={`${i > 0 ? "border-t border-purple-200/70 pt-2" : ""}`}>
+                          <p className="text-purple-900 italic font-normal text-xs leading-relaxed">
+                            &quot;{entry.notes}&quot;
+                          </p>
+                          {allCommitteeNotes.length > 1 && (
+                            <p className="text-[10px] text-purple-600 font-medium mt-0.5 not-italic">
+                              — {entry.actor}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            </div>
+
+            {/* Footer Buttons with Action Routing */}
+            {(() => {
+              const st = (viewingProposal.gateStatus || "").toLowerCase();
+              const canEditViewing = canCreate && (st.includes("idea") || st.includes("draft") || st.includes("revis"));
+              const isViewingPendingFeedback = st.includes("pending");
+
+              return (
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                  <div className="flex items-center gap-2">
+                    {canEditViewing && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target = viewingProposal;
+                          setViewingProposal(null);
+                          setEditingProposal(target);
+                          setShowModal(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-xs active:scale-95"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit Perencanaan
+                      </button>
+                    )}
+
+                    {isViewingPendingFeedback && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const target = viewingProposal;
+                          setViewingProposal(null);
+                          setUploadProposal(target);
+                          setSupportingFiles(target.attachmentName ? target.attachmentName.split(", ") : []);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-xs active:scale-95"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Upload Dokumen Pendukung
+                      </button>
                     )}
                   </div>
-                );
-              })()}
-            </div>
 
-            {/* Description */}
-            <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-4 space-y-1">
-              <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider block">
-                Deskripsi Lengkap Proyek
-              </span>
-              <p className="text-slate-700 leading-relaxed font-normal bg-white p-3 rounded-lg border border-slate-200/70 whitespace-pre-line">
-                {viewingProposal.description || "-"}
-              </p>
-            </div>
-
-            {/* Finance Notes if any */}
-            {viewingProposal.financeNotes && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
-                <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider block">
-                  Catatan Finance:
-                </span>
-                <p className="text-amber-900 italic font-normal leading-relaxed">
-                  &quot;{viewingProposal.financeNotes}&quot;
-                </p>
-              </div>
-            )}
-
-            {/* Committee Notes if any */}
-            {viewingProposal.committeeNotes && (
-              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-1">
-                <span className="text-[10px] uppercase font-bold text-purple-800 tracking-wider block">
-                  Catatan Sidang Komite Investasi:
-                </span>
-                <p className="text-purple-900 italic font-normal leading-relaxed">
-                  &quot;{viewingProposal.committeeNotes}&quot;
-                </p>
-              </div>
-            )}
-
-            {/* Footer Button */}
-            <div className="flex justify-end pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setViewingProposal(null)}
-                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs"
-              >
-                Tutup
-              </button>
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => setViewingProposal(null)}
+                    className="px-5 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         )}
       </Modal>

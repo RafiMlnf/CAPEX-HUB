@@ -85,17 +85,20 @@ export default function ApprovalsPage() {
       actionLabel = "Minta Revisi Komite (Kembali ke Draft)";
     }
 
+    const reviewerName = currentUser?.name || "Komite Investasi (Direksi)";
+
     const updated: Partial<CapexProposal> = {
       gateStatus: newStatus,
       committeeNotes: effectiveNotes,
-      committeeApprovedAt: decision === "Approve" ? now : undefined,
+      committeeApprovedBy: reviewerName,
+      committeeApprovedAt: now,
       revisionSource: decision === "Revise" ? "Committee" : undefined,
       history: [
         ...proposal.history,
         {
           gate: 2,
           action: actionLabel,
-          actor: "Investment Committee (Division Head+)",
+          actor: reviewerName,
           timestamp: now,
           notes: effectiveNotes,
         },

@@ -121,29 +121,48 @@ export default function DashboardPage() {
   }, [visibleProposals]);
 
   const draftCount = useMemo(() => {
-    return visibleProposals.filter(
-      (p) => p.gateStatus === "Gate 0 - Idea" || p.gateStatus === "Gate 0 - Draft"
-    ).length;
+    return visibleProposals.filter((p) => {
+      const s = (p.gateStatus || "").toLowerCase();
+      return s.includes("idea") || s.includes("draft");
+    }).length;
   }, [visibleProposals]);
 
   const inReviewCount = useMemo(() => {
-    return visibleProposals.filter(
-      (p) =>
-        p.gateStatus?.includes("Gate 1") ||
-        p.gateStatus?.includes("Gate 2")
-    ).length;
+    return visibleProposals.filter((p) => {
+      const s = (p.gateStatus || "").toLowerCase();
+      return s.includes("review") || s.includes("finance") || s.includes("committee") || s.includes("komite") || s.includes("pending");
+    }).length;
   }, [visibleProposals]);
 
   // Filtered items
   const filteredItems = useMemo(() => {
+    const q = searchTerm.toLowerCase().trim();
     return visibleProposals.filter((item: any) => {
       const matchesSearch =
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.pic.toLowerCase().includes(searchTerm.toLowerCase());
+        !q ||
+        (item.name || "").toLowerCase().includes(q) ||
+        (item.department || "").toLowerCase().includes(q) ||
+        (item.id || "").toLowerCase().includes(q) ||
+        (item.pic || "").toLowerCase().includes(q) ||
+        (item.description || "").toLowerCase().includes(q);
 
-      const matchesStatus = statusFilter === "all" || item.gateStatus === statusFilter;
+      const status = (item.gateStatus || item.status || "").toLowerCase();
+      let matchesStatus = true;
+      if (statusFilter === "review") {
+        matchesStatus = status.includes("review") || status.includes("pending");
+      } else if (statusFilter === "draft") {
+        matchesStatus = status.includes("draft") || status.includes("idea");
+      } else if (statusFilter === "reject") {
+        matchesStatus = status.includes("reject");
+      } else if (statusFilter === "revisi") {
+        matchesStatus = status.includes("revis") || status.includes("feedback");
+      } else if (statusFilter === "close") {
+        matchesStatus =
+          status.includes("close") ||
+          status.includes("approved") ||
+          status.includes("archived") ||
+          status.includes("complet");
+      }
       return matchesSearch && matchesStatus;
     });
   }, [visibleProposals, searchTerm, statusFilter]);
@@ -200,13 +219,13 @@ export default function DashboardPage() {
         badge: "bg-slate-50 text-slate-700 border-slate-200",
       },
       {
-        label: "Verifikasi Finance (Gate 1)",
+        label: "Verifikasi Finance",
         count: waitingFinanceCount,
         color: "bg-blue-500",
         badge: "bg-blue-50 text-blue-700 border-blue-200",
       },
       {
-        label: "Sidang Komite (Gate 2)",
+        label: "Sidang Komite",
         count: readyCommitteeCount,
         color: "bg-purple-500",
         badge: "bg-purple-50 text-purple-700 border-purple-200",
@@ -264,7 +283,9 @@ export default function DashboardPage() {
               ? "Dashboard Accounting & Finance CAPEX"
               : isCommittee
               ? "Dashboard Komite Investasi CAPEX"
-              : `Dashboard CAPEX — ${currentUser?.department || "Departemen"}`
+              : currentUser?.department
+              ? `Dashboard CAPEX ${currentUser.department}`
+              : "Dashboard CAPEX"
           }
           subtitle="Sistem monitoring perencanaan, verifikasi anggaran, dan alur persetujuan Capital Expenditure"
         />
@@ -283,12 +304,14 @@ export default function DashboardPage() {
                   ? "Investment Committee Workspace"
                   : `${currentUser?.department || "Department"} Capex Workspace`}
               </span>
-              <h1 className="text-xl font-black tracking-tight text-white">
+              <h1 className="text-xl font-semibold tracking-tight text-white">
                 {isAccounting
                   ? "Dashboard Verifikasi & Pengendalian Anggaran CAPEX"
                   : isCommittee
                   ? "Executive CAPEX Dashboard & Approval Monitoring"
-                  : `Dashboard Pengajuan Belanja Modal — ${currentUser?.department || "Departemen Anda"}`}
+                  : currentUser?.department
+                  ? `Dashboard Pengajuan Belanja Modal ${currentUser.department}`
+                  : "Dashboard Pengajuan Belanja Modal"}
               </h1>
               <p className="text-blue-100 text-[11px] max-w-2xl font-normal leading-normal">
                 {isAccounting
@@ -310,9 +333,8 @@ export default function DashboardPage() {
               {/* KPI 1: Total Dokumen CAPEX */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">TOTAL DOKUMEN CAPEX</p>
-                  <p className="text-xl font-black text-slate-900 font-mono">{visibleProposals.length}</p>
-                  <p className="text-[10px] text-blue-600 font-medium">Dokumen Usulan Masuk</p>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL DOKUMEN CAPEX</p>
+                  <p className="text-xl font-semibold text-slate-900 font-mono">{visibleProposals.length}</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -324,9 +346,8 @@ export default function DashboardPage() {
               {/* KPI 2: Total Departemen Pengajuan */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">DEPARTEMEN PENGAJU</p>
-                  <p className="text-xl font-black text-indigo-700 font-mono">{uniqueDepartments.length}</p>
-                  <p className="text-[10px] text-indigo-600 font-medium">Departemen Aktif</p>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">DEPARTEMEN PENGAJU</p>
+                  <p className="text-xl font-semibold text-indigo-700 font-mono">{uniqueDepartments.length}</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -338,11 +359,10 @@ export default function DashboardPage() {
               {/* KPI 3: Total Nilai Pengajuan */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">TOTAL NILAI PENGAJUAN</p>
-                  <p className="text-lg font-black text-slate-900 font-mono truncate" title={`Rp ${totalBudget.toLocaleString("id-ID")}`}>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL NILAI PENGAJUAN</p>
+                  <p className="text-lg font-semibold text-slate-900 font-mono truncate" title={`Rp ${totalBudget.toLocaleString("id-ID")}`}>
                     Rp {totalBudget.toLocaleString("id-ID")}
                   </p>
-                  <p className="text-[10px] text-slate-400 font-medium">Akumulasi Usulan</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -354,9 +374,8 @@ export default function DashboardPage() {
               {/* KPI 4: Menunggu Review Finance */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">REVIEW FINANCE</p>
-                  <p className="text-xl font-black text-amber-700 font-mono">{waitingFinanceCount}</p>
-                  <p className="text-[10px] text-amber-600 font-medium">Antrean Gate 1</p>
+                  <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">REVIEW FINANCE</p>
+                  <p className="text-xl font-semibold text-amber-700 font-mono">{waitingFinanceCount}</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -368,9 +387,8 @@ export default function DashboardPage() {
               {/* KPI 5: Siap Sidang Komite */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">SIDANG KOMITE</p>
-                  <p className="text-xl font-black text-purple-700 font-mono">{readyCommitteeCount}</p>
-                  <p className="text-[10px] text-purple-600 font-medium">Antrean Gate 2</p>
+                  <p className="text-[10px] font-semibold text-purple-700 uppercase tracking-wider">SIDANG KOMITE</p>
+                  <p className="text-xl font-semibold text-purple-700 font-mono">{readyCommitteeCount}</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -385,9 +403,8 @@ export default function DashboardPage() {
               {/* KPI 1: Total Usulan Departemen */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">USULAN DEPARTEMEN SAYA</p>
-                  <p className="text-xl font-black text-slate-900 font-mono">{visibleProposals.length}</p>
-                  <p className="text-[10px] text-blue-600 font-medium">Dokumen Usulan</p>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">DOKUMEN USULAN</p>
+                  <p className="text-xl font-semibold text-slate-900 font-mono">{visibleProposals.length}</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -399,11 +416,10 @@ export default function DashboardPage() {
               {/* KPI 2: Total Anggaran Departemen */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">TOTAL ANGGARAN DEPT</p>
-                  <p className="text-lg font-black text-blue-600 font-mono truncate" title={`Rp ${totalBudget.toLocaleString("id-ID")}`}>
-                    Rp {totalBudget.toLocaleString("id-ID")}
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL ANGGARAN DEPT</p>
+                  <p className="text-lg font-semibold text-blue-600 font-mono truncate" title={`Rp ${approvedBudget.toLocaleString("id-ID")}`}>
+                    Rp {approvedBudget.toLocaleString("id-ID")}
                   </p>
-                  <p className="text-[10px] text-slate-400 font-medium">Akumulasi Anggaran</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -415,9 +431,8 @@ export default function DashboardPage() {
               {/* KPI 3: Dalam Proses Review */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">DALAM PROSES REVIEW</p>
-                  <p className="text-xl font-black text-amber-700 font-mono">{inReviewCount}</p>
-                  <p className="text-[10px] text-amber-600 font-medium">Finance / Komite</p>
+                  <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">DALAM PROSES REVIEW</p>
+                  <p className="text-xl font-semibold text-amber-700 font-mono">{inReviewCount}</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -429,9 +444,8 @@ export default function DashboardPage() {
               {/* KPI 4: Usulan Disetujui Komite */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">DISETUJUI KOMITE</p>
-                  <p className="text-xl font-black text-emerald-600 font-mono">{approvedCount}</p>
-                  <p className="text-[10px] text-emerald-600 font-medium">Usulan Approved</p>
+                  <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">DISETUJUI KOMITE</p>
+                  <p className="text-xl font-semibold text-emerald-600 font-mono">{approvedCount}</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -446,11 +460,10 @@ export default function DashboardPage() {
               {/* KPI 1: Total Usulan Investasi */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">TOTAL USULAN INVESTASI</p>
-                  <p className="text-lg font-black text-slate-900 font-mono truncate" title={`Rp ${totalBudget.toLocaleString("id-ID")}`}>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL USULAN INVESTASI</p>
+                  <p className="text-lg font-semibold text-slate-900 font-mono truncate" title={`Rp ${totalBudget.toLocaleString("id-ID")}`}>
                     Rp {totalBudget.toLocaleString("id-ID")}
                   </p>
-                  <p className="text-[10px] text-blue-600 font-medium">{visibleProposals.length} Dokumen Masuk</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -462,9 +475,8 @@ export default function DashboardPage() {
               {/* KPI 2: Menunggu Sidang Komite */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">ANTREAN SIDANG KOMITE</p>
-                  <p className="text-xl font-black text-purple-700 font-mono">{readyCommitteeCount}</p>
-                  <p className="text-[10px] text-purple-600 font-medium">Usulan Gate 2</p>
+                  <p className="text-[10px] font-semibold text-purple-700 uppercase tracking-wider">ANTREAN SIDANG KOMITE</p>
+                  <p className="text-xl font-semibold text-purple-700 font-mono">{readyCommitteeCount}</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -476,11 +488,10 @@ export default function DashboardPage() {
               {/* KPI 3: Investasi Disetujui Komite */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">INVESTASI DISETUJUI</p>
-                  <p className="text-lg font-black text-emerald-600 font-mono truncate" title={`Rp ${approvedBudget.toLocaleString("id-ID")}`}>
+                  <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">INVESTASI DISETUJUI</p>
+                  <p className="text-lg font-semibold text-emerald-600 font-mono truncate" title={`Rp ${approvedBudget.toLocaleString("id-ID")}`}>
                     Rp {approvedBudget.toLocaleString("id-ID")}
                   </p>
-                  <p className="text-[10px] text-emerald-600 font-medium">{approvedCount} Usulan Approved</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -492,9 +503,8 @@ export default function DashboardPage() {
               {/* KPI 4: Total Departemen */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">DEPARTEMEN PENGAJU</p>
-                  <p className="text-xl font-black text-indigo-700 font-mono">{uniqueDepartments.length}</p>
-                  <p className="text-[10px] text-indigo-600 font-medium">Departemen Aktif</p>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">DEPARTEMEN PENGAJU</p>
+                  <p className="text-xl font-semibold text-indigo-700 font-mono">{uniqueDepartments.length}</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -604,7 +614,7 @@ export default function DashboardPage() {
                     </span>
                     <h3 className="text-xs font-bold text-slate-800">Pipeline Status Usulan CAPEX</h3>
                   </div>
-                  <p className="text-[10px] text-slate-500">Distribusi jumlah usulan berdasarkan tahapan alur verifikasi gerbang</p>
+                  <p className="text-[10px] text-slate-500">Distribusi jumlah usulan berdasarkan tahapan alur verifikasi</p>
                 </div>
               </div>
 
@@ -665,20 +675,18 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Status Filter Dropdown */}
-                <div className="relative w-48">
+                <div className="relative w-44">
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                     className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-xs font-medium rounded-lg pl-3 pr-8 py-1.5 cursor-pointer focus:outline-none focus:bg-white focus:border-blue-600 transition-all shadow-2xs"
                   >
-                    <option value="all">Semua Status Gate</option>
-                    <option value="Gate 0 - Idea">Gate 0 (Ide Awal / Draft)</option>
-                    <option value="Gate 1 - Finance Review">Gate 1 (Finance Review)</option>
-                    <option value="Gate 1 - Pending User Feedback">Gate 1 (Pending Feedback)</option>
-                    <option value="Gate 1 - Revise">Gate 1 (Revisi Finance)</option>
-                    <option value="Gate 2 - Committee Review">Gate 2 (Committee Review)</option>
-                    <option value="Approved / Archived">Approved / Archived</option>
-                    <option value="Closed">Closed</option>
+                    <option value="all">Semua Status</option>
+                    <option value="review">Review</option>
+                    <option value="draft">Draft</option>
+                    <option value="reject">Reject</option>
+                    <option value="revisi">Revisi</option>
+                    <option value="close">Close</option>
                   </select>
                   <span className="pointer-events-none absolute right-2.5 inset-y-0 flex items-center text-slate-400">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -687,69 +695,6 @@ export default function DashboardPage() {
                   </span>
                 </div>
               </div>
-            </div>
-
-            {/* Quick Filter Category Tabs */}
-            <div className="flex flex-wrap items-center gap-1.5 pb-1 text-xs">
-              <button
-                type="button"
-                onClick={() => setStatusFilter("all")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  statusFilter === "all"
-                    ? "bg-blue-600 text-white shadow-2xs"
-                    : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
-                }`}
-              >
-                <span>Semua Usulan</span>
-                <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${statusFilter === "all" ? "bg-white/20 text-white" : "bg-white text-slate-700"}`}>
-                  {visibleProposals.length}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setStatusFilter("Gate 1 - Finance Review")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  statusFilter === "Gate 1 - Finance Review"
-                    ? "bg-amber-600 text-white shadow-2xs"
-                    : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
-                }`}
-              >
-                <span>Finance Review</span>
-                <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${statusFilter === "Gate 1 - Finance Review" ? "bg-white/20 text-white" : "bg-white text-slate-700"}`}>
-                  {waitingFinanceCount}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setStatusFilter("Gate 2 - Committee Review")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  statusFilter === "Gate 2 - Committee Review"
-                    ? "bg-purple-600 text-white shadow-2xs"
-                    : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
-                }`}
-              >
-                <span>Sidang Komite</span>
-                <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${statusFilter === "Gate 2 - Committee Review" ? "bg-white/20 text-white" : "bg-white text-slate-700"}`}>
-                  {readyCommitteeCount}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setStatusFilter("Approved / Archived")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  statusFilter === "Approved / Archived"
-                    ? "bg-emerald-600 text-white shadow-2xs"
-                    : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
-                }`}
-              >
-                <span>Disetujui / Terarsip</span>
-                <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${statusFilter === "Approved / Archived" ? "bg-white/20 text-white" : "bg-white text-slate-700"}`}>
-                  {approvedCount}
-                </span>
-              </button>
             </div>
 
             {/* Separated Column Grid Table */}
@@ -764,7 +709,7 @@ export default function DashboardPage() {
                     <th className="py-3 px-3.5 w-32 border-r border-slate-100 whitespace-nowrap">Departemen</th>
                     <th className="py-3 px-3.5 w-28 border-r border-slate-100 whitespace-nowrap">PIC</th>
                     <th className="py-3 px-3.5 w-36 text-right border-r border-slate-100 whitespace-nowrap">Estimasi Anggaran</th>
-                    <th className="py-3 px-3.5 text-center w-40 whitespace-nowrap">Status Gate</th>
+                    <th className="py-3 px-3.5 text-center w-40 whitespace-nowrap">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-800 text-xs">

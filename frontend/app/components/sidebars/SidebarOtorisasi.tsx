@@ -80,6 +80,12 @@ export default function SidebarOtorisasi() {
   const username = (currentUser?.username || "").toLowerCase();
   const isAdmin = role === "admin" || username === "admin";
 
+  const canAccessMasterData =
+    isAdmin ||
+    hasPermission("perm_manage_master_price") ||
+    hasPermission("perm_manage_config") ||
+    hasPermission("perm_manage_settings");
+
   let portalCount = 0;
   if (currentUser?.allowed_portals && Array.isArray(currentUser.allowed_portals)) {
     portalCount = currentUser.allowed_portals.length;
@@ -188,7 +194,7 @@ export default function SidebarOtorisasi() {
         )}
 
         {/* Dropdown 2: Master Data */}
-        {(hasPermission("perm_manage_config") || hasPermission("perm_manage_settings")) && (
+        {canAccessMasterData && (
           <div>
             <button
               type="button"

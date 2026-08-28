@@ -76,6 +76,7 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
         "perm_access_portal",
         "perm_manage_users",
         "perm_manage_settings",
+        "perm_manage_config",
       ]);
       return;
     }

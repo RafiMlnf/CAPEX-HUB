@@ -110,8 +110,17 @@ export class MasterService {
   async create(entity: string, data: any) {
     const { model, format } = this.getConfig(entity);
     const dbData = this.mapInputToDb(entity, data);
-    const record = await (model as any).create({ data: dbData });
-    return format(record);
+    try {
+      const record = await (model as any).create({ data: dbData });
+      return format(record);
+    } catch (err: any) {
+      if (err?.code === 'P2002') {
+        throw new BadRequestException(
+          `Data gagal disimpan: Kode atau nilai unik sudah terdaftar (duplikat). Silakan gunakan kode lain.`,
+        );
+      }
+      throw err;
+    }
   }
 
   async update(entity: string, id: string, data: any) {
@@ -119,8 +128,17 @@ export class MasterService {
     const existing = await (model as any).findUnique({ where: { id: parseInt(id) } });
     if (!existing) throw new NotFoundException(`Record ${id} tidak ditemukan`);
     const dbData = this.mapInputToDb(entity, data);
-    const record = await (model as any).update({ where: { id: parseInt(id) }, data: dbData });
-    return format(record);
+    try {
+      const record = await (model as any).update({ where: { id: parseInt(id) }, data: dbData });
+      return format(record);
+    } catch (err: any) {
+      if (err?.code === 'P2002') {
+        throw new BadRequestException(
+          `Data gagal diperbarui: Kode atau nilai unik sudah terdaftar pada data lain. Silakan gunakan kode yang berbeda.`,
+        );
+      }
+      throw err;
+    }
   }
 
   async remove(entity: string, id: string) {
