@@ -14,28 +14,14 @@ export default function DashboardPage() {
 
   const canViewDashboard = hasPermission("perm_view_dashboard");
 
-  // Role detection
+  // Dynamic role & permission detection
   const roleLower = (currentUser?.role || "").toLowerCase();
-  const isAccounting =
-    hasPermission("perm_review_capex") ||
-    roleLower.includes("accounting") ||
-    roleLower.includes("finance");
-
-  const isCommittee =
-    !isAccounting &&
-    (hasPermission("perm_committee_review") ||
-      roleLower.includes("director") ||
-      roleLower.includes("division head") ||
-      roleLower.includes("general manager") ||
-      roleLower.includes("management"));
-
-  const isProposer = !isAccounting && !isCommittee && roleLower !== "admin";
-
-  const isAllAccess =
-    isAccounting ||
-    isCommittee ||
-    hasPermission("perm_view_reports") ||
-    roleLower === "admin";
+  const userName = (currentUser?.username || "").toLowerCase();
+  const isAdmin = roleLower === "admin" || userName === "admin";
+  const isAccounting = hasPermission("perm_review_capex") || isAdmin;
+  const isCommittee = hasPermission("perm_committee_review") || isAdmin;
+  const isProposer = hasPermission("perm_create_capex") && !isAccounting && !isCommittee && !isAdmin;
+  const isAllAccess = isAccounting || isCommittee || hasPermission("perm_view_reports") || isAdmin;
 
   // Filter proposals according to user login & role permissions
   const visibleProposals = useMemo(() => {
@@ -87,35 +73,30 @@ export default function DashboardPage() {
   }, [visibleProposals]);
 
   const waitingFinanceCount = useMemo(() => {
-    return visibleProposals.filter(
-      (p) =>
-        p.gateStatus === "Gate 1 - Finance Review" ||
-        p.gateStatus === "Gate 1 - Pending User Feedback" ||
-        p.gateStatus === "Gate 1 - Revise"
-    ).length;
+    return visibleProposals.filter((p) => {
+      const gs = (p.gateStatus || "").toLowerCase();
+      return gs.includes("finance") || gs.includes("pending") || gs.includes("feedback");
+    }).length;
   }, [visibleProposals]);
 
   const readyCommitteeCount = useMemo(() => {
-    return visibleProposals.filter(
-      (p) => p.gateStatus === "Gate 2 - Committee Review"
-    ).length;
+    return visibleProposals.filter((p) => {
+      const gs = (p.gateStatus || "").toLowerCase();
+      return gs.includes("committee") || gs.includes("komite");
+    }).length;
   }, [visibleProposals]);
 
   const approvedCount = useMemo(() => {
-    return visibleProposals.filter(
-      (p) =>
-        p.gateStatus === "Approved / Archived" ||
-        p.gateStatus === "Closed" ||
-        p.gateStatus === "Gate 3 - Procurement"
-    ).length;
+    return visibleProposals.filter((p) => {
+      const gs = (p.gateStatus || "").toLowerCase();
+      return gs.includes("approved") || gs.includes("closed") || gs.includes("procurement");
+    }).length;
   }, [visibleProposals]);
 
   const approvedBudget = useMemo(() => {
     return visibleProposals.reduce((sum: number, item: any) => {
-      const isAppr =
-        item.gateStatus === "Approved / Archived" ||
-        item.gateStatus === "Closed" ||
-        item.gateStatus === "Gate 3 - Procurement";
+      const gs = (item.gateStatus || "").toLowerCase();
+      const isAppr = gs.includes("approved") || gs.includes("closed") || gs.includes("procurement");
       return sum + (isAppr ? (item.estimatedCost || 0) : 0);
     }, 0);
   }, [visibleProposals]);

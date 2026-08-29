@@ -61,16 +61,14 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
   const [purpose, setPurpose] = useState(initialData?.purpose || "");
   const [investmentType, setInvestmentType] = useState(initialData?.investmentType || "");
   const [name, setName] = useState(initialData?.name || "");
-  const [description, setDescription] = useState(initialData?.description || "");
+  const [description, setDescription] = useState("");
   const [department, setDepartment] = useState(initialData?.department || currentUser?.department || "Engineering");
   const [pic, setPic] = useState(initialData?.pic || currentUser?.name || currentUser?.username || "");
   const [estimatedCost, setEstimatedCost] = useState(initialData?.estimatedCost ? initialData.estimatedCost.toLocaleString("id-ID") : "");
   const [startDate, setStartDate] = useState(initialData?.startDate || "");
   const [endDate, setEndDate] = useState(initialData?.endDate || "");
   const [attachmentNames, setAttachmentNames] = useState<string[]>(
-    initialData?.revisedAttachmentName
-      ? initialData.revisedAttachmentName.split(", ").filter(Boolean)
-      : isRevisionMode
+    isRevisionMode
       ? []
       : initialData?.attachmentName
       ? initialData.attachmentName.split(", ").filter(Boolean)
@@ -143,14 +141,17 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
     const draftName = name.trim() || (purpose ? `Draft Usulan ${purpose}` : "Draft Usulan Capex Baru");
     const numericCost = Number(estimatedCost.replace(/\./g, "")) || 0;
 
-    const finalAttachmentName =
-      attachmentNames.length > 0
-        ? attachmentNames.join(", ")
-        : (initialData?.attachmentName || "");
+    const finalAttachmentName = isRevisionMode
+      ? Array.from(new Set([...(initialData?.attachmentName ? initialData.attachmentName.split(", ").filter(Boolean) : []), ...attachmentNames])).join(", ")
+      : attachmentNames.length > 0
+      ? attachmentNames.join(", ")
+      : (initialData?.attachmentName || "");
+
     const finalInitialAttachmentName =
       initialData?.initialAttachmentName || (isRevisionMode ? initialData?.attachmentName : finalAttachmentName);
+
     const finalRevisedAttachmentName =
-      isRevisionMode && attachmentNames.length > 0 ? attachmentNames.join(", ") : initialData?.revisedAttachmentName;
+      isRevisionMode && attachmentNames.length > 0 ? attachmentNames.join(", ") : undefined;
 
     onSubmit({
       id: initialData?.id,

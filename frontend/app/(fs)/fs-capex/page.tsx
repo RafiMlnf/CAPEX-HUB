@@ -79,25 +79,98 @@ function calculateDays(startDateStr?: string, endDateStr?: string): string {
   return diffDays.toString();
 }
 
+// ── 100% Accumulated Planning Lead Time (Doesn't reset on revision/reject) ──
+function calculatePlanningLeadTime(proposal: any): string {
+  const createdAt = proposal.createdAt ? new Date(proposal.createdAt).getTime() : Date.now();
+  const history: any[] = Array.isArray(proposal.history) ? proposal.history : [];
+  const gsLower = (proposal.gateStatus || "").toLowerCase();
+  const isCurrentlyInPlanning = gsLower.includes("idea") || gsLower.includes("draft");
+
+  let totalMs = 0;
+
+  // 1. Initial Planning interval (from createdAt to first submission)
+  const firstSubmission = history.find(
+    (h: any) => h.gate >= 1 || (h.action && (h.action.includes("SUBMITTED") || h.action.includes("Diajukan")))
+  );
+  const firstSubTime = firstSubmission
+    ? new Date(firstSubmission.timestamp).getTime()
+    : proposal.financeApprovedAt
+    ? new Date(proposal.financeApprovedAt).getTime()
+    : null;
+
+  if (firstSubTime && !isNaN(firstSubTime)) {
+    totalMs += Math.max(0, firstSubTime - createdAt);
+  } else {
+    // Has never been submitted yet
+    totalMs += Math.max(0, Date.now() - createdAt);
+  }
+
+  // 2. Subsequent Revision intervals (from revision return until next resubmit)
+  for (let i = 0; i < history.length; i++) {
+    const h = history[i];
+    const actionLower = (h.action || "").toLowerCase();
+    const notesLower = (h.notes || "").toLowerCase();
+
+    // Check if this history entry returned proposal to Draft/Revision
+    const isRevisionReturn =
+      actionLower.includes("revise") ||
+      actionLower.includes("revisi") ||
+      actionLower.includes("reject") ||
+      actionLower.includes("tolak") ||
+      actionLower.includes("kembali") ||
+      notesLower.includes("revisi") ||
+      notesLower.includes("reject");
+
+    if (isRevisionReturn) {
+      const revStartTime = new Date(h.timestamp).getTime();
+      if (!isNaN(revStartTime)) {
+        // Find when it was resubmitted next
+        let resubTime: number | null = null;
+        for (let j = i + 1; j < history.length; j++) {
+          const nextH = history[j];
+          const nextActionLower = (nextH.action || "").toLowerCase();
+          if (
+            nextActionLower.includes("resubmitted") ||
+            nextActionLower.includes("diajukan ulang") ||
+            nextActionLower.includes("diunggah ulang") ||
+            nextH.gate >= 1
+          ) {
+            const t = new Date(nextH.timestamp).getTime();
+            if (!isNaN(t) && t >= revStartTime) {
+              resubTime = t;
+              break;
+            }
+          }
+        }
+
+        if (resubTime !== null) {
+          totalMs += Math.max(0, resubTime - revStartTime);
+        } else if (isCurrentlyInPlanning) {
+          // Still in draft currently, continue counting
+          totalMs += Math.max(0, Date.now() - revStartTime);
+        }
+      }
+    }
+  }
+
+  const days = Math.max(1, Math.ceil(totalMs / (1000 * 60 * 60 * 24)));
+  return days.toString();
+}
+
   // Compute Gate Status & Actual Days for each row
   const enrichedRows: ProgressRowData[] = useMemo(() => {
     return combinedProposals.map((p: any) => {
       const gs = p.gateStatus || "Gate 0 - Idea";
       const createdAt = p.createdAt || new Date().toISOString();
 
-      // Gate 0 (Planning)
+      // Gate 0 (Planning) — Accumulated lead time
+      const gsLower = gs.toLowerCase();
       let g0Status = "Waiting";
-      let g0Days = "-";
-      if (gs === "Gate 0 - Idea" || gs === "Gate 0 - Draft") {
+      let g0Days = calculatePlanningLeadTime(p);
+      if (gsLower.includes("idea") || gsLower.includes("draft")) {
         g0Status = "Open";
-        g0Days = calculateDays(createdAt);
       } else {
         g0Status = "Closed";
-        const g0End =
-          (Array.isArray(p.history) && p.history.find((h: any) => h.gate >= 1)?.timestamp) ||
-          p.financeApprovedAt ||
-          createdAt;
-        g0Days = calculateDays(createdAt, g0End);
       }
 
       // Gate 1 (FinAcct Review)
@@ -107,17 +180,18 @@ function calculateDays(startDateStr?: string, endDateStr?: string): string {
         (Array.isArray(p.history) && p.history.find((h: any) => h.gate >= 1)?.timestamp) ||
         createdAt;
 
-      if (gs === "Gate 1 - Finance Review" || gs === "Gate 1 - Revise") {
+      if (gsLower.includes("finance") || gsLower.includes("revise")) {
         g1Status = "In Progress";
         g1Days = calculateDays(g1Start);
-      } else if (gs === "Gate 1 - Pending User Feedback") {
+      } else if (gsLower.includes("pending") || gsLower.includes("feedback")) {
         g1Status = "Semi Close";
         g1Days = calculateDays(g1Start);
       } else if (
-        gs === "Gate 2 - Committee Review" ||
-        gs === "Gate 3 - Procurement" ||
-        gs === "Approved / Archived" ||
-        gs === "Closed"
+        gsLower.includes("committee") ||
+        gsLower.includes("komite") ||
+        gsLower.includes("procurement") ||
+        gsLower.includes("approved") ||
+        gsLower.includes("closed")
       ) {
         g1Status = "Closed";
         const g1End = p.financeApprovedAt || g1Start;
@@ -132,19 +206,19 @@ function calculateDays(startDateStr?: string, endDateStr?: string): string {
         (Array.isArray(p.history) && p.history.find((h: any) => h.gate === 2)?.timestamp) ||
         g1Start;
 
-      if (gs === "Gate 2 - Committee Review") {
+      if (gsLower.includes("committee") || gsLower.includes("komite")) {
         g2Status = "In Progress";
         g2Days = calculateDays(g2Start);
-      } else if (gs === "Gate 2 - Revised") {
+      } else if (gsLower.includes("revised")) {
         g2Status = "Open";
         g2Days = calculateDays(g2Start);
-      } else if (gs === "Gate 2 - Rejected") {
+      } else if (gsLower.includes("rejected") || gsLower.includes("tolak")) {
         g2Status = "Overdue, Closed";
         g2Days = calculateDays(g2Start);
       } else if (
-        gs === "Approved / Archived" ||
-        gs === "Gate 3 - Procurement" ||
-        gs === "Closed"
+        gsLower.includes("approved") ||
+        gsLower.includes("procurement") ||
+        gsLower.includes("closed")
       ) {
         g2Status = "Closed";
         const g2End = p.committeeApprovedAt || g2Start;

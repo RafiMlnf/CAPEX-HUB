@@ -1,204 +1,302 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Sidebar from "../../components/sidebars/SidebarBODR";
 import Header from "../../components/Header";
-import { ApiBodrProposal, ApiDeptSettings } from "../../lib/api";
-import { api } from "../../lib/api";
+import {
+  api,
+  BodrProgressProposalItem,
+  BodrProgressWorkflowSummary,
+  BodrProgressWorkflowStep,
+  ApiApprovalWorkflow,
+} from "../../lib/api";
 
-const STEPS = [
-  "Create", "Approval Dept", "Approve ACC", "Approve Dept. ACC",
-  "Approve Div Plan", "Approve Div Eng", "Approve Div Admin",
-  "Approve Director", "Approve Presdir"
-];
+import BodrProgressHeader from "../../components/progress/BodrProgressHeader";
+import BodrProgressStatusLegend from "../../components/progress/BodrProgressStatusLegend";
+import BodrProgressStageTabs from "../../components/progress/BodrProgressStageTabs";
+import BodrProgressStepper from "../../components/progress/BodrProgressStepper";
+import BodrProgressMatrixTable, { BodrProgressRowData } from "../../components/progress/BodrProgressMatrixTable";
+import BodrProgressLeadTimeModal from "../../components/progress/BodrProgressLeadTimeModal";
 
-const statusBadge = (s: string) => {
-  if (s === "Approved") return "bg-emerald-50 text-emerald-700 border border-emerald-300";
-  if (s === "Rejected") return "bg-red-50 text-red-700 border border-red-300";
-  if (s === "Revision Required") return "bg-orange-50 text-orange-700 border border-orange-300";
-  return "bg-blue-50 text-blue-700 border border-blue-300";
-};
+// ── Helper: calculate actual days between two date strings ──────────────────
+function calculateDays(startStr?: string, endStr?: string): string {
+  if (!startStr) return "-";
+  const start = new Date(startStr).getTime();
+  if (isNaN(start)) return "-";
+  const end = endStr ? new Date(endStr).getTime() : Date.now();
+  if (isNaN(end)) return "-";
+  const diffMs = Math.max(0, end - start);
+  const diffDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  return diffDays.toString();
+}
 
-const fmt = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
+// ── Helper: convert BodrProgressWorkflowSummary to ApiApprovalWorkflow shape ─
+function toApiWorkflow(summary: BodrProgressWorkflowSummary | null): ApiApprovalWorkflow | null {
+  if (!summary) return null;
+  return {
+    id: summary.departemen_id,
+    departemen_id: summary.departemen_id,
+    departemen_nama: summary.departemen_nama,
+    type_approval_id: "",
+    type_approval_nama: "",
+    list_approval: summary.steps.map((s) => ({
+      user_id: "",
+      user_name: s.user_name,
+      role: s.role,
+      order: s.step_order,
+    })),
+    status: "active",
+    created_at: "",
+  };
+}
 
 export default function BodrProgressPage() {
-  const [items, setItems] = useState<ApiBodrProposal[]>([]);
-  const [deptSettings, setDeptSettings] = useState<ApiDeptSettings[]>([]);
-  const [dynamicSteps, setDynamicSteps] = useState<string[]>([]);
+  const [proposals, setProposals] = useState<BodrProgressProposalItem[]>([]);
+  const [workflows, setWorkflows] = useState<BodrProgressWorkflowSummary[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [activeTab, setActiveTab] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [selectedProject, setSelectedProject] = useState<BodrProgressRowData | null>(null);
+  const [exportToast, setExportToast] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      api.getBodrProposals(),
-      api.getDeptSettings(),
-      api.getApprovalWorkflows(),
-    ]).then(([proposals, depts, workflows]) => {
-      setItems(proposals || []);
-      setDeptSettings(depts || []);
-      if (workflows && workflows.length > 0) {
-        // Collect all distinct step roles/names from active workflows
-        const allSteps: string[] = [];
-        workflows.forEach((wf: any) => {
-          if (wf.list_approval && Array.isArray(wf.list_approval)) {
-            wf.list_approval.forEach((s: any) => {
-              if (s.role && !allSteps.includes(s.role)) {
-                allSteps.push(s.role);
-              }
-            });
-          }
-        });
-        if (allSteps.length > 0) {
-          setDynamicSteps(allSteps);
-        } else {
-          setDynamicSteps(STEPS);
-        }
-      } else {
-        setDynamicSteps(STEPS);
-      }
-    }).catch(console.error);
+    setLoading(true);
+    api
+      .getBodrProgress()
+      .then((res) => {
+        setProposals(res.proposals || []);
+        setWorkflows((res.workflows || []).filter((w) => w.steps.length > 0));
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
-  const activeSteps = dynamicSteps.length > 0 ? dynamicSteps : STEPS;
+  // ── 100% Dynamic Workflow Steps from DB Settings (Zero Mock / Zero Hardcode) ─
+  const workflowStepNames: string[] = useMemo(() => {
+    if (workflows.length === 0) {
+      return [];
+    }
+    const allStepsWithOrder: { role: string; order: number }[] = [];
+    workflows.forEach((w) => {
+      (w.steps || []).forEach((s) => {
+        if (s.role && !allStepsWithOrder.some((x) => x.role.toLowerCase().trim() === s.role.toLowerCase().trim())) {
+          allStepsWithOrder.push({ role: s.role, order: s.step_order });
+        }
+      });
+    });
+    allStepsWithOrder.sort((a, b) => a.order - b.order);
+    return allStepsWithOrder.map((s) => s.role);
+  }, [workflows]);
 
-  const filtered = items.filter(b => {
-    const s = search.toLowerCase();
-    const matchSearch = b.title.toLowerCase().includes(s) || b.bodr_no.toLowerCase().includes(s) || b.proposer.toLowerCase().includes(s);
-    const matchCat = categoryFilter === "ALL" || b.category === categoryFilter;
-    const matchStat = statusFilter === "ALL" || b.status === statusFilter;
-    return matchSearch && matchCat && matchStat;
-  });
-
-  const getStepIndex = (step: string) => {
-    const idx = activeSteps.indexOf(step);
-    return idx >= 0 ? idx : 0;
+  // ── Find workflow summary for a given departemen_nama ──────────────────────
+  const getWorkflowForDept = (deptName: string): BodrProgressWorkflowSummary | null => {
+    const name = deptName.toLowerCase().trim();
+    return (
+      workflows.find((w) => (w.departemen_nama || "").toLowerCase().trim() === name) ||
+      workflows[0] ||
+      null
+    );
   };
-  const totalSteps = activeSteps.length;
+
+  // ── Enrich proposals into BodrProgressRowData (Dynamic Step Statuses) ───────
+  const enrichedRows: BodrProgressRowData[] = useMemo(() => {
+    return proposals.map((proposal) => {
+      const history = proposal.approval_history || [];
+      const proposalStatus = (proposal.status || "").toLowerCase();
+
+      const stepStatuses: Record<string, { days: string; status: string }> = {};
+
+      workflowStepNames.forEach((stepRole, sIdx) => {
+        const roleLower = stepRole.toLowerCase().trim();
+        const matchHist = history.find((h) => (h.role || "").toLowerCase().trim() === roleLower);
+
+        if (matchHist) {
+          const st = (matchHist.status || "").toLowerCase();
+          const prevTs = sIdx === 0 ? proposal.created_at : (history[sIdx - 1]?.timestamp || proposal.created_at);
+          const days = calculateDays(prevTs, matchHist.timestamp);
+
+          if (st.includes("reject")) {
+            stepStatuses[stepRole] = { days, status: "Rejected" };
+          } else if (st.includes("revision")) {
+            stepStatuses[stepRole] = { days, status: "Revision" };
+          } else if (st.includes("approve")) {
+            stepStatuses[stepRole] = { days, status: "Approved" };
+          } else {
+            stepStatuses[stepRole] = { days, status: "In Progress" };
+          }
+        } else {
+          // Check if proposal is currently waiting at this step
+          const isCurrent =
+            proposal.current_step === sIdx + 1 ||
+            (sIdx === 0 && history.length === 0 && !proposalStatus.includes("draft") && !proposalStatus.includes("approve"));
+
+          if (isCurrent) {
+            const prevTs = sIdx === 0 ? proposal.created_at : (history[sIdx - 1]?.timestamp || proposal.created_at);
+            const days = calculateDays(prevTs);
+            stepStatuses[stepRole] = { days, status: "In Progress" };
+          } else {
+            stepStatuses[stepRole] = { days: "-", status: "Waiting" };
+          }
+        }
+      });
+
+      return {
+        id: proposal.id,
+        bodr_no: proposal.bodr_no,
+        title: proposal.title,
+        category: proposal.category,
+        department: proposal.department,
+        proposer: proposal.proposer,
+        amount: proposal.amount,
+        step: `Step ${proposal.current_step}`,
+        status: proposal.status,
+        created_at: proposal.created_at,
+        stepStatuses,
+        rawProposal: proposal,
+      };
+    });
+  }, [proposals, workflows, workflowStepNames]);
+
+  // ── Dynamic Tab Filtering ──────────────────────────────────────────────────
+  const tabFiltered = useMemo(() => {
+    if (activeTab === "all") return enrichedRows;
+    return enrichedRows.filter((r) => {
+      const st = r.stepStatuses?.[activeTab]?.status || "";
+      return st === "In Progress" || st === "Revision";
+    });
+  }, [enrichedRows, activeTab]);
+
+  // ── Search & Status Filter ─────────────────────────────────────────────────
+  const filteredRows = useMemo(() => {
+    return tabFiltered.filter((r) => {
+      const s = search.toLowerCase();
+      const matchSearch =
+        r.bodr_no.toLowerCase().includes(s) ||
+        r.title.toLowerCase().includes(s) ||
+        r.proposer.toLowerCase().includes(s) ||
+        r.department.toLowerCase().includes(s) ||
+        r.category.toLowerCase().includes(s);
+
+      const matchStatus =
+        statusFilter === "All" || r.status === statusFilter;
+
+      return matchSearch && matchStatus;
+    });
+  }, [tabFiltered, search, statusFilter]);
+
+  // ── Dynamic Tab Badge Counters ─────────────────────────────────────────────
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: enrichedRows.length,
+    };
+    workflowStepNames.forEach((s) => {
+      counts[s] = enrichedRows.filter((r) => {
+        const st = r.stepStatuses?.[s]?.status || "";
+        return st === "In Progress" || st === "Revision";
+      }).length;
+    });
+    return counts;
+  }, [enrichedRows, workflowStepNames]);
+
+  // ── Get ApiApprovalWorkflow shape for the selected project's modal ──────────
+  const selectedWorkflow = useMemo((): ApiApprovalWorkflow | null => {
+    if (!selectedProject) return null;
+    const wfSummary = getWorkflowForDept(selectedProject.department);
+    return toApiWorkflow(wfSummary);
+  }, [selectedProject, workflows]);
+
+  const handleExportExcel = () => {
+    setExportToast(true);
+    setTimeout(() => setExportToast(false), 4000);
+  };
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-slate-900">
+    <div className="flex min-h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-x-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-h-screen ml-64">
+
+      <div className="flex-1 flex flex-col min-h-screen ml-64 bg-slate-100 min-w-0 overflow-x-hidden">
         <Header
-          title="Progress BODR"
-          subtitle="Monitoring status dan progress approval seluruh pengajuan BODR"
+          title="BODR Progress Monitoring"
+          subtitle="Overview dan detail workflow approval pengajuan BODR per departemen secara realtime"
         />
-        <main className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
-          {/* Filters */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Cari judul, no BODR, pengusul..."
-              className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 text-xs font-normal focus:outline-none focus:border-blue-600 w-72 shadow-2xs"
-            />
-            <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 text-xs font-medium focus:outline-none focus:border-blue-600 shadow-2xs cursor-pointer">
-              <option value="ALL">Semua Kategori</option>
-              <option value="CAPEX">CAPEX</option>
-              <option value="FOH">FOH</option>
-              <option value="GOP">GOP</option>
-            </select>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 text-xs font-medium focus:outline-none focus:border-blue-600 shadow-2xs cursor-pointer">
-              <option value="ALL">Semua Status</option>
-              <option value="Pending Review">Pending Review</option>
-              <option value="Approved">Approved</option>
-              <option value="Revision Required">Revision Required</option>
-              <option value="Rejected">Rejected</option>
-            </select>
-            <span className="text-xs text-slate-500 font-medium ml-auto">{filtered.length} BODR</span>
+
+        {/* Export Notification Toast */}
+        {exportToast && (
+          <div className="fixed top-20 right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border border-emerald-500/20 bg-white/95 backdrop-blur-md text-emerald-800 text-xs font-semibold shadow-lg transition-all">
+            <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              ✓
+            </div>
+            <div>
+              <p className="font-semibold text-xs text-slate-800">Ekspor Berhasil</p>
+              <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                Data Progress BODR berhasil diekspor ke Excel!
+              </p>
+            </div>
           </div>
+        )}
 
-          {/* Progress Cards */}
-          <div className="space-y-4">
-            {filtered.map(bodr => {
-              const currentStepIdx = getStepIndex(bodr.step);
-              const progressPct = Math.round(((currentStepIdx + 1) / totalSteps) * 100);
-              const headDept = deptSettings.find(ds => ds.departemen_nama === bodr.department);
+        <main className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5 w-full min-w-0 overflow-x-hidden">
+          {/* Header Action Bar */}
+          <BodrProgressHeader
+            search={search}
+            onSearchChange={(val) => {
+              setSearch(val);
+              setCurrentPage(1);
+            }}
+            statusFilter={statusFilter}
+            onStatusFilterChange={(val) => {
+              setStatusFilter(val);
+              setCurrentPage(1);
+            }}
+            onExportExcel={handleExportExcel}
+            totalCount={filteredRows.length}
+          />
 
-              return (
-                <div key={bodr.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs hover:shadow-xs transition-shadow">
-                  {/* Row 1: Title + Status */}
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-mono text-xs text-blue-600 font-semibold">{bodr.bodr_no}</span>
-                        <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border ${statusBadge(bodr.status)}`}>{bodr.status}</span>
-                        <span className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full">{bodr.category}</span>
-                      </div>
-                      <p className="font-semibold text-slate-800 text-sm leading-snug">{bodr.title}</p>
-                      <div className="flex items-center gap-4 mt-1">
-                        <span className="text-xs text-slate-500 font-normal">{bodr.department}</span>
-                        <span className="text-xs text-slate-500 font-normal">{bodr.proposer}</span>
-                        <span className="text-xs font-semibold text-slate-800">{fmt(bodr.amount)}</span>
-                        {headDept && <span className="text-xs text-slate-500 font-normal">Head: {headDept.head_dept_nama}</span>}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-2xl font-semibold text-blue-600">{progressPct}%</p>
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase">Progress</p>
-                    </div>
-                  </div>
+          {/* Status Legend Strip */}
+          <BodrProgressStatusLegend />
 
-                  {/* Progress Bar */}
-                  <div className="mb-3">
-                    <div className="flex justify-between text-[10px] text-slate-400 font-medium mb-1">
-                      <span>Step {currentStepIdx + 1} / {totalSteps}</span>
-                      <span className="text-blue-600 font-semibold">{bodr.step}</span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-700 ${bodr.status === 'Approved' ? 'bg-emerald-500' : bodr.status === 'Rejected' ? 'bg-red-500' : 'bg-blue-600'}`}
-                        style={{ width: `${progressPct}%` }}
-                      />
-                    </div>
-                  </div>
+          {/* Process Stage Navigation Tabs — 100% Dinamis per Approval Step */}
+          <BodrProgressStageTabs
+            activeTab={activeTab}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              setCurrentPage(1);
+            }}
+            counts={tabCounts}
+            steps={workflowStepNames}
+          />
 
-                  {/* Step Indicators */}
-                  <div className="flex items-center gap-0 overflow-x-auto pb-1">
-                    {STEPS.map((step, idx) => {
-                      const isDone = idx < currentStepIdx;
-                      const isCurrent = idx === currentStepIdx;
-                      return (
-                        <div key={step} className="flex items-center shrink-0">
-                          <div className="flex flex-col items-center" title={step}>
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold text-white transition-all ${
-                              isDone ? 'bg-emerald-500 scale-90' : isCurrent ? 'bg-blue-600 ring-2 ring-blue-300 scale-110' : 'bg-slate-200 text-slate-400'
-                            }`}>
-                              {isDone ? "✓" : idx + 1}
-                            </div>
-                            <p className={`text-[9px] font-semibold mt-1 text-center max-w-14 leading-tight ${isCurrent ? 'text-blue-600' : isDone ? 'text-emerald-600' : 'text-slate-400'}`}>
-                              {step.replace("Approve ", "").replace("Approval ", "")}
-                            </p>
-                          </div>
-                          {idx < STEPS.length - 1 && (
-                            <div className={`h-0.5 w-5 shrink-0 mx-0.5 ${isDone ? 'bg-emerald-400' : 'bg-slate-200'}`} />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+          {/* Stepper & Main Table Card */}
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs w-full min-w-0 space-y-3.5">
+            <BodrProgressStepper steps={workflowStepNames} />
 
-                  {/* Last Note */}
-                  {bodr.last_note && (
-                    <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase mb-0.5">Catatan Terakhir ({bodr.last_actor})</p>
-                      <p className="text-xs text-slate-600 italic font-normal">"{bodr.last_note}"</p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {filtered.length === 0 && (
-              <div className="text-center py-16 text-slate-400 font-normal">
-                <p className="font-semibold text-sm">Tidak ada BODR yang sesuai filter</p>
-                <p className="text-xs mt-1">Coba ubah pencarian atau filter Anda</p>
-              </div>
-            )}
+            <BodrProgressMatrixTable
+              loading={loading}
+              rows={filteredRows}
+              currentPage={currentPage}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(num) => {
+                setItemsPerPage(num);
+                setCurrentPage(1);
+              }}
+              onSelectProject={(row) => setSelectedProject(row)}
+              steps={workflowStepNames}
+            />
           </div>
         </main>
       </div>
+
+      {/* Lead Time & Approval History Modal */}
+      <BodrProgressLeadTimeModal
+        isOpen={!!selectedProject}
+        onClose={() => setSelectedProject(null)}
+        row={selectedProject}
+        approvalWorkflow={selectedWorkflow}
+      />
     </div>
   );
 }

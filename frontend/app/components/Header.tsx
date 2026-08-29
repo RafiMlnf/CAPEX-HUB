@@ -35,50 +35,52 @@ export default function Header({ title, subtitle, children }: HeaderProps) {
     const list: { id: string; title: string; desc: string; type: string }[] = [];
 
     proposals.forEach((p) => {
-      if (p.gateStatus === "Gate 0 - Idea" && (activeRole === "Finance" || activeRole === "Admin")) {
+      const status = (p.gateStatus || "").toLowerCase();
+
+      if (status.includes("idea") && hasPermission("perm_review_capex")) {
         list.push({
-          id: `${p.id}-g0`,
-          title: "New Investment Idea (Gate 0)",
+          id: `${p.id}-idea`,
+          title: "New Investment Idea",
           desc: `${p.id}: ${p.name} is awaiting Finance verification.`,
           type: "planning",
         });
       }
-      if (p.gateStatus === "Gate 2 - Committee Review" && (activeRole === "Investment Committee" || activeRole === "Admin")) {
+      if (status.includes("committee") && hasPermission("perm_committee_review")) {
         list.push({
-          id: `${p.id}-g2`,
-          title: "Committee Approval (Gate 2)",
+          id: `${p.id}-committee`,
+          title: "Committee Approval",
           desc: `${p.id}: ${p.name} is awaiting approval decision.`,
           type: "approval",
         });
       }
-      if (p.gateStatus === "Gate 3 - Procurement" && (activeRole === "Procurement" || activeRole === "Admin")) {
+      if (status.includes("procurement") && (hasPermission("perm_create_price") || hasPermission("perm_manage_master_price"))) {
         list.push({
-          id: `${p.id}-g3`,
-          title: "PO Issuance (Gate 3)",
+          id: `${p.id}-procurement`,
+          title: "PO Issuance",
           desc: `${p.id}: ${p.name} requires PO number entry.`,
           type: "realization",
         });
       }
-      if (p.gateStatus === "Gate 4 - Commissioning" && (activeRole === "Proposer" || activeRole === "Admin")) {
+      if (status.includes("commissioning") && hasPermission("perm_create_capex")) {
         list.push({
-          id: `${p.id}-g4`,
-          title: "Upload Handover Report (Gate 4)",
+          id: `${p.id}-commissioning`,
+          title: "Upload Handover Report",
           desc: `${p.id}: ${p.name} requires Handover Report (BAST) upload.`,
           type: "realization",
         });
       }
-      if (p.gateStatus === "Gate 5 - Benefit Realization" && (activeRole === "Proposer" || activeRole === "Admin")) {
+      if (status.includes("benefit") && hasPermission("perm_create_capex")) {
         list.push({
-          id: `${p.id}-g5`,
-          title: "Benefit Realization (Gate 5)",
+          id: `${p.id}-benefit`,
+          title: "Benefit Realization",
           desc: `${p.id}: ${p.name} benefit realization needs to be reported.`,
           type: "realization",
         });
       }
-      if (p.gateStatus === "Gate 6 - Project Closing" && (activeRole === "Finance" || activeRole === "Admin")) {
+      if (status.includes("closing") && hasPermission("perm_closing_capex")) {
         list.push({
-          id: `${p.id}-g6`,
-          title: "PIR Evaluation (Gate 6)",
+          id: `${p.id}-closing`,
+          title: "PIR Evaluation",
           desc: `${p.id}: ${p.name} is ready for closing and PIR evaluation.`,
           type: "realization",
         });

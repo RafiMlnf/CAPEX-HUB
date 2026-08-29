@@ -1,33 +1,31 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import Sidebar from "../../components/sidebars/SidebarBODR";
 import Header from "../../components/Header";
 import { api, BodrProposal, CapexProposal } from "../../lib/api";
 import { useCapex } from "../../context/CapexContext";
+import BodrRequesterDashboard from "./components/BodrRequesterDashboard";
+import BodrApproverDashboard from "./components/BodrApproverDashboard";
 
 export default function BodrDashboardPage() {
-  const router = useRouter();
   const { currentUser, hasPermission } = useCapex();
   const [data, setData] = useState<any | null>(null);
   const [bodrList, setBodrList] = useState<BodrProposal[]>([]);
   const [capexList, setCapexList] = useState<CapexProposal[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Filters for Chart
-  const [kriteriaFilter, setKriteriaFilter] = useState<string>("ALL");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-
   const canViewDashboard = hasPermission("perm_view_dashboard");
 
   const refreshData = () => {
     if (!canViewDashboard) return;
     setLoading(true);
+    const userId = currentUser?.id ? currentUser.id.toString() : undefined;
+
     Promise.all([
-      api.getBodrDashboard(),
-      api.getBodrProposals(),
-      api.getProposals(),
+      api.getBodrDashboard(userId).catch(() => null),
+      api.getBodrProposals().catch(() => []),
+      api.getProposals().catch(() => []),
     ])
       .then(([dashData, proposals, capex]) => {
         setData(dashData);
@@ -41,7 +39,7 @@ export default function BodrDashboardPage() {
             amount: Number(b.amount || 0),
             step: b.step,
             status: b.status,
-            date: b.date,
+            date: b.date || b.created_at || "",
             notes: b.notes,
             proposer: b.proposer,
             benefit: b.benefit,
@@ -68,112 +66,15 @@ export default function BodrDashboardPage() {
     if (canViewDashboard) {
       refreshData();
     }
-  }, [canViewDashboard]);
+  }, [canViewDashboard, currentUser]);
 
+  // Role detection
   const userRole = (currentUser?.role || "").toLowerCase();
   const userName = (currentUser?.username || "").toLowerCase();
   const isAdmin = userRole === "admin" || userName === "admin";
   const isAccounting = isAdmin || hasPermission("perm_approve_bodr");
   const isApprover = isAdmin || hasPermission("perm_approve_bodr");
   const isProposer = hasPermission("perm_create_bodr") && !isAccounting && !isApprover && !isAdmin;
-
-  // Filtered List based on dropdown filters
-  const filteredList = useMemo(() => {
-    return bodrList.filter((b) => {
-      const c = (b.category || "").toUpperCase();
-      const matchKriteria =
-        kriteriaFilter === "ALL" ||
-        (kriteriaFilter === "CAP" && (c === "CAPEX" || c === "CAP")) ||
-        c === kriteriaFilter;
-      const matchStatus = statusFilter === "ALL" || b.status === statusFilter;
-      return matchKriteria && matchStatus;
-    });
-  }, [bodrList, kriteriaFilter, statusFilter]);
-
-  // KPIs
-  const totalBodr = bodrList.length;
-  const pendingRequests = bodrList.filter((b) => b.status === "Pending Review").length;
-  const completedTasks = bodrList.filter((b) => b.status === "Approved").length;
-  const overdueTasks = bodrList.filter((b) => b.status === "Rejected" || b.status === "Revision Required").length;
-
-  // Additional Role-based Metrics
-  const totalAmount = useMemo(() => {
-    return bodrList.reduce((acc, b) => acc + (b.amount || 0), 0);
-  }, [bodrList]);
-
-  const uniqueDepartments = useMemo(() => {
-    return Array.from(new Set(bodrList.map((b) => b.department).filter(Boolean)));
-  }, [bodrList]);
-
-  const userDeptList = useMemo(() => {
-    if (!currentUser?.department) return bodrList;
-    return bodrList.filter((b) => (b.department || "").toLowerCase() === currentUser.department.toLowerCase());
-  }, [bodrList, currentUser]);
-
-  const userDeptAmount = useMemo(() => {
-    return userDeptList.reduce((acc, b) => acc + (b.amount || 0), 0);
-  }, [userDeptList]);
-
-  const userDeptPending = useMemo(() => {
-    return userDeptList.filter((b) => b.status === "Pending Review").length;
-  }, [userDeptList]);
-
-  const userDeptApproved = useMemo(() => {
-    return userDeptList.filter((b) => b.status === "Approved").length;
-  }, [userDeptList]);
-
-  // Donut Chart Status Distribution Calculations
-  const donutData = useMemo(() => {
-    const total = bodrList.length || 1;
-    const approved = bodrList.filter((b) => b.status === "Approved").length;
-    const pending = bodrList.filter((b) => b.status === "Pending Review").length;
-    const rejected = bodrList.filter((b) => b.status === "Rejected" || b.status === "Revision Required").length;
-
-    const r = 50;
-    const c = 2 * Math.PI * r; // ~314.16
-
-    const pApproved = (approved / total) * c;
-    const pPending = (pending / total) * c;
-    const pRejected = (rejected / total) * c;
-
-    return {
-      approved,
-      pending,
-      rejected,
-      total: bodrList.length,
-      c,
-      pApproved,
-      pPending,
-      pRejected,
-      offsetApproved: 0,
-      offsetPending: -pApproved,
-      offsetRejected: -(pApproved + pPending),
-    };
-  }, [bodrList]);
-
-  // Bar Chart Data (Kriteria Breakdown / Comparison)
-  const barChartData = useMemo(() => {
-    const categories = ["CAPEX", "FOH", "GOP"];
-    const items = categories.map((cat) => {
-      const list = filteredList.filter((b) => {
-        const c = (b.category || "").toUpperCase();
-        if (cat === "CAPEX") return c === "CAPEX" || c === "CAP";
-        return c === cat;
-      });
-      const pendingCount = list.filter((b) => b.status === "Pending Review").length;
-      const approvedCount = list.filter((b) => b.status === "Approved").length;
-      const totalCount = list.length;
-      return {
-        category: cat,
-        pendingCount,
-        approvedCount,
-        totalCount,
-      };
-    });
-
-    const maxVal = Math.max(...items.map((x) => Math.max(x.pendingCount, x.approvedCount)), 3);
-    return { items, maxVal };
-  }, [filteredList]);
 
   if (!canViewDashboard) {
     return (
@@ -198,7 +99,7 @@ export default function BodrDashboardPage() {
             </div>
             <a
               href="/"
-              className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-2xs cursor-pointer w-full text-center"
+              className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider transition-all shadow-2xs w-full text-center"
             >
               Kembali ke Portal Utama
             </a>
@@ -217,540 +118,57 @@ export default function BodrDashboardPage() {
           subtitle="Ringkasan eksekutif anggaran Capex, realisasi pengeluaran BODR, dan status antrian persetujuan"
         />
 
-        <main className="flex-1 overflow-y-auto px-6 py-4 space-y-3.5">
+        <main className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {/* Top Hero Banner */}
-          <div className="bg-linear-to-r from-blue-600 to-blue-700 rounded-2xl px-6 py-4 text-white shadow-sm relative overflow-hidden">
+          <div className="bg-linear-to-r from-blue-600 via-blue-700 to-indigo-700 rounded-2xl px-6 py-4 text-white shadow-sm relative overflow-hidden">
             <div className="relative z-10 space-y-1">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-semibold backdrop-blur-sm border border-white/20">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                {isAccounting
-                  ? "Accounting & Finance Workspace"
-                  : isApprover
-                  ? "Executive BODR Workspace"
-                  : `${currentUser?.department || "Department"} BODR Workspace`}
+                {isProposer
+                  ? `Dashboard Requester (${currentUser?.department || "Department"})`
+                  : isAccounting
+                  ? "Dashboard Accounting & Finance BODR"
+                  : "Dashboard Approval & Executive BODR"}
               </span>
               <h1 className="text-xl font-semibold tracking-tight text-white">
-                {isAccounting
+                {isProposer
+                  ? `Dashboard Pengajuan BODR - ${currentUser?.department || "Requester"}`
+                  : isAccounting
                   ? "Dashboard Verifikasi & Pengendalian Anggaran BODR"
-                  : isApprover
-                  ? "Executive BODR Dashboard & Approval Monitoring"
-                  : currentUser?.department
-                  ? `Dashboard Pengajuan BODR ${currentUser.department}`
-                  : "Dashboard Pengajuan BODR"}
+                  : "Dashboard Approval & Monitoring Eksekutif BODR"}
               </h1>
               <p className="text-blue-100 text-[11px] max-w-2xl font-normal leading-normal">
-                {isAccounting
-                  ? "Ringkasan realisasi pencairan anggaran BODR seluruh departemen, verifikasi pos akun/cost center, dan antrean review persetujuan Finance."
-                  : isApprover
-                  ? "Ringkasan eksekutif alokasi pengeluaran dana BODR, status persetujuan berjenjang, dan monitoring realisasi anggaran departemen."
-                  : `Ringkasan usulan pencairan anggaran BODR dan status verifikasi approval untuk ${currentUser?.department || "Departemen Anda"}.`}
+                {isProposer
+                  ? "Ringkasan pengajuan usulan BODR Anda, status antrean persetujuan, sisa pagu Capex, serta riwayat usulan anggaran departemen."
+                  : "Monitoring menyeluruh seluruh pengajuan BODR perusahaan, tren pengajuan bulanan, distribusi kriteria approval, dan antrean tindakan."}
               </p>
             </div>
-            {/* Background geometric accents */}
+            {/* Geometric accents */}
             <div className="absolute right-0 top-0 w-80 h-full bg-white/5 transform skew-x-12 pointer-events-none" />
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-blue-500/30 rounded-full blur-2xl pointer-events-none" />
           </div>
 
           {loading ? (
-            <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-500 font-semibold">
-              Memuat data dashboard eksekutif...
+            <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-500 font-semibold shadow-2xs">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mb-3" />
+              <p>Memuat data dashboard BODR...</p>
             </div>
+          ) : isProposer ? (
+            /* 1. DASHBOARD KHUSUS PEMOHON / REQUESTER */
+            <BodrRequesterDashboard
+              currentUser={currentUser}
+              bodrList={bodrList}
+              capexList={capexList}
+              data={data}
+            />
           ) : (
-            <div className="space-y-3.5">
-              {/* KPI CARDS - Role Specific Layout */}
-              {isAccounting ? (
-                /* ── ACCOUNTING KPI CARDS (5 Cards) ─────────────────────────────── */
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                  {/* KPI 1: Total Dokumen BODR */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL DOKUMEN BODR</p>
-                      <p className="text-xl font-semibold text-slate-900 font-mono">{totalBodr}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* KPI 2: Departemen Pengaju */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">DEPARTEMEN PENGAJU</p>
-                      <p className="text-xl font-semibold text-indigo-700 font-mono">{uniqueDepartments.length}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* KPI 3: Total Nilai Realisasi Biaya */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL REALISASI BIAYA</p>
-                      <p className="text-lg font-semibold text-slate-900 font-mono truncate" title={`Rp ${totalAmount.toLocaleString("id-ID")}`}>
-                        Rp {totalAmount.toLocaleString("id-ID")}
-                      </p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* KPI 4: Menunggu Review & Approval */}
-                  <div
-                    onClick={() => router.push("/bodr-approval")}
-                    className="bg-white border border-slate-200 hover:border-amber-400 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between cursor-pointer transition-all hover:bg-amber-50/40 group"
-                    title="Buka Antrean Approval BODR"
-                  >
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">REVIEW & APPROVAL</p>
-                      <p className="text-xl font-semibold text-amber-700 font-mono">{pendingRequests}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* KPI 5: Disetujui (Approved) */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">DISETUJUI (APPROVED)</p>
-                      <p className="text-xl font-semibold text-emerald-600 font-mono">{completedTasks}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              ) : isProposer ? (
-                /* ── PROPOSER / DEPT USER KPI CARDS (4 Cards) ─────────────────────── */
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {/* KPI 1: Dokumen Usulan Dept */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">DOKUMEN USULAN</p>
-                      <p className="text-xl font-semibold text-slate-900 font-mono">{userDeptList.length}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* KPI 2: Total Nominal Diajukan */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL USULAN DEPT</p>
-                      <p className="text-lg font-semibold text-blue-600 font-mono truncate" title={`Rp ${userDeptAmount.toLocaleString("id-ID")}`}>
-                        Rp {userDeptAmount.toLocaleString("id-ID")}
-                      </p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* KPI 3: Dalam Proses Approval */}
-                  <div
-                    onClick={() => router.push("/bodr")}
-                    className="bg-white border border-slate-200 hover:border-amber-400 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between cursor-pointer transition-all hover:bg-amber-50/40 group"
-                    title="Buka Daftar BODR"
-                  >
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">DALAM PROSES APPROVAL</p>
-                      <p className="text-xl font-semibold text-amber-700 font-mono">{userDeptPending}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* KPI 4: Disetujui (Approved) */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">DISETUJUI (APPROVED)</p>
-                      <p className="text-xl font-semibold text-emerald-600 font-mono">{userDeptApproved}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* ── APPROVER / EXECUTIVE / ADMIN KPI CARDS (4 Cards) ─────────────── */
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {/* KPI 1: TOTAL BODR REQUESTS */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL PENGAJUAN BODR</p>
-                      <p className="text-xl font-semibold text-slate-900 font-mono">{totalBodr}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* KPI 2: TOTAL NILAI ANGGARAN */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL NILAI ANGGARAN</p>
-                      <p className="text-lg font-semibold text-slate-900 font-mono truncate" title={`Rp ${totalAmount.toLocaleString("id-ID")}`}>
-                        Rp {totalAmount.toLocaleString("id-ID")}
-                      </p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* KPI 3: MENUNGGU APPROVAL */}
-                  <div
-                    onClick={() => router.push("/bodr-approval")}
-                    className="bg-white border border-slate-200 hover:border-amber-400 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between cursor-pointer transition-all hover:bg-amber-50/40 group"
-                    title="Buka Antrean Approval BODR"
-                  >
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">MENUNGGU APPROVAL</p>
-                      <p className="text-xl font-semibold text-amber-700 font-mono">{pendingRequests}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* KPI 4: DISETUJUI (APPROVED) */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">DISETUJUI (APPROVED)</p>
-                      <p className="text-xl font-semibold text-emerald-600 font-mono">{completedTasks}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Chart Filters Bar */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3 px-4 shadow-2xs flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">CHART FILTERS</h3>
-                    <p className="text-[10px] text-slate-500">Filter chart statistics by criteria and status</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-                    <span className="text-[10px] font-semibold text-slate-500">Kriteria:</span>
-                    <select
-                      value={kriteriaFilter}
-                      onChange={(e) => setKriteriaFilter(e.target.value)}
-                      className="bg-transparent text-slate-800 font-semibold text-xs outline-none cursor-pointer"
-                    >
-                      <option value="ALL">Semua Kriteria</option>
-                      <option value="CAP">CAPEX</option>
-                      <option value="FOH">FOH</option>
-                      <option value="GOP">GOP</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-                    <span className="text-[10px] font-semibold text-slate-500">Status:</span>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="bg-transparent text-slate-800 font-semibold text-xs outline-none cursor-pointer"
-                    >
-                      <option value="ALL">Semua Status</option>
-                      <option value="Pending Review">Pending Review</option>
-                      <option value="Approved">Approved</option>
-                      <option value="Rejected">Rejected</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2 Charts in Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-                {/* Left Chart: Donut Chart Status Distribution */}
-                <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-2xs space-y-3">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-blue-600">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </span>
-                      <h3 className="text-xs font-semibold text-slate-800">BODR Work Status Distribution</h3>
-                    </div>
-                    <p className="text-[10px] text-slate-500">Current proportion of BODR approval task statuses</p>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center pt-2 pb-1 space-y-3">
-                    {/* SVG Donut */}
-                    <div className="relative w-36 h-36 flex items-center justify-center">
-                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
-                        {/* Background track */}
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="50"
-                          fill="transparent"
-                          stroke="#f1f5f9"
-                          strokeWidth="14"
-                        />
-                        {/* Approved Segment (Green) */}
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="50"
-                          fill="transparent"
-                          stroke="#10b981"
-                          strokeWidth="14"
-                          strokeDasharray={`${donutData.pApproved} ${donutData.c}`}
-                          strokeDashoffset={donutData.offsetApproved}
-                          className="transition-all duration-700"
-                        />
-                        {/* Pending Segment (Blue) */}
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="50"
-                          fill="transparent"
-                          stroke="#3b82f6"
-                          strokeWidth="14"
-                          strokeDasharray={`${donutData.pPending} ${donutData.c}`}
-                          strokeDashoffset={donutData.offsetPending}
-                          className="transition-all duration-700"
-                        />
-                        {/* Rejected Segment (Red) */}
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="50"
-                          fill="transparent"
-                          stroke="#ef4444"
-                          strokeWidth="14"
-                          strokeDasharray={`${donutData.pRejected} ${donutData.c}`}
-                          strokeDashoffset={donutData.offsetRejected}
-                          className="transition-all duration-700"
-                        />
-                      </svg>
-                      {/* Center total count */}
-                      <div className="absolute flex flex-col items-center justify-center pointer-events-none">
-                        <span className="text-xl font-semibold text-slate-800 font-mono">{donutData.total}</span>
-                        <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider">Total Doc</span>
-                      </div>
-                    </div>
-
-                    {/* Donut Legend */}
-                    <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-semibold">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                        <span className="text-slate-700 text-[10px]">Completed / Approved ({donutData.approved})</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />
-                        <span className="text-slate-700 text-[10px]">Rejected ({donutData.rejected})</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
-                        <span className="text-slate-700 text-[10px]">Pending / Review ({donutData.pending})</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Chart: Bar Chart Quotation & Estimation Trends */}
-                <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-2xs space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-blue-600">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                          </svg>
-                        </span>
-                        <h3 className="text-xs font-semibold text-slate-800">Criteria Quotation & Estimation Trends</h3>
-                      </div>
-                      <p className="text-[10px] text-slate-500">Volume of BODR proposals processed by criteria</p>
-                    </div>
-
-                    {/* Legend Top-Right */}
-                    <div className="flex items-center gap-3 text-[10px] font-semibold">
-                      <div className="flex items-center gap-1">
-                        <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 inline-block" />
-                        <span className="text-slate-600">Completed</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="w-2.5 h-2.5 rounded-xs bg-blue-600 inline-block" />
-                        <span className="text-slate-600">Pending / In Progress</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Clean Bar Chart Canvas */}
-                  <div className="pt-1 pb-1">
-                    <div className="relative h-40 flex">
-                      {/* Y-Axis scale numbers on left */}
-                      <div className="w-8 flex flex-col justify-between text-[9px] font-mono text-slate-400 pb-5 text-right pr-2">
-                        <span>{barChartData.maxVal}</span>
-                        <span>{(barChartData.maxVal * 0.75).toFixed(0)}</span>
-                        <span>{(barChartData.maxVal * 0.5).toFixed(0)}</span>
-                        <span>{(barChartData.maxVal * 0.25).toFixed(0)}</span>
-                        <span>0</span>
-                      </div>
-
-                      {/* Main Chart Area */}
-                      <div className="flex-1 flex flex-col justify-between relative border-b border-slate-200 pb-5">
-                        {/* Grid lines */}
-                        <div className="absolute inset-0 pb-5 flex flex-col justify-between pointer-events-none">
-                          <div className="border-b border-slate-100 w-full" />
-                          <div className="border-b border-slate-100 w-full" />
-                          <div className="border-b border-slate-100 w-full" />
-                          <div className="border-b border-slate-100 w-full" />
-                        </div>
-
-                        {/* Bars Group */}
-                        <div className="relative h-full flex items-end justify-around px-4">
-                          {barChartData.items.map((item, idx) => {
-                            const pHeight = Math.max(0, (item.pendingCount / barChartData.maxVal) * 100);
-                            const cHeight = Math.max(0, (item.approvedCount / barChartData.maxVal) * 100);
-
-                            return (
-                              <div key={idx} className="flex flex-col items-center h-full justify-end group">
-                                <div className="flex items-end gap-1.5 h-full">
-                                  {/* Pending Bar (Blue) */}
-                                  <div
-                                    className="w-9 bg-blue-600 rounded-t transition-all duration-500 hover:bg-blue-700 relative"
-                                    style={{ height: `${pHeight > 0 ? pHeight : 3}%` }}
-                                    title={`Pending: ${item.pendingCount}`}
-                                  />
-                                  {/* Completed Bar (Green) */}
-                                  <div
-                                    className="w-9 bg-emerald-500 rounded-t transition-all duration-500 hover:bg-emerald-600 relative"
-                                    style={{ height: `${cHeight > 0 ? cHeight : 3}%` }}
-                                    title={`Approved: ${item.approvedCount}`}
-                                  />
-                                </div>
-                                <span className="text-[10px] font-semibold text-slate-700 mt-1.5 block select-none">
-                                  {item.category}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tabel BODR List Ringkas */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4.5 space-y-3 shadow-2xs">
-                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                  <div>
-                    <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
-                      {isProposer
-                        ? "BODR List (Daftar Pengajuan Departemen)"
-                        : "BODR List (Daftar Pengajuan Aktif)"}
-                    </h3>
-                    <p className="text-[10px] text-slate-500">Proposal yang sedang aktif dalam proses approval</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => router.push(isProposer ? "/bodr" : "/bodr-approval")}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer"
-                  >
-                    {isProposer ? "Buka Seluruh List BODR →" : "Buka Antrean Approval BODR →"}
-                  </button>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-100 text-slate-700 text-[10px] font-semibold uppercase tracking-wider border-b border-slate-200">
-                        <th className="py-2.5 px-3 border-r border-slate-200">BODR NO</th>
-                        <th className="py-2.5 px-3 border-r border-slate-200">Created BODR</th>
-                        <th className="py-2.5 px-3 border-r border-slate-200">Title BODR</th>
-                        <th className="py-2.5 px-3 border-r border-slate-200">AMOUNT</th>
-                        <th className="py-2.5 px-3 border-r border-slate-200 text-center">Kriteria Capex</th>
-                        <th className="py-2.5 px-3 text-center">Status BODR</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredList.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="py-8 text-center text-slate-400 italic">
-                            Tidak ada data pengajuan yang cocok dengan filter.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredList.slice(0, 8).map((b) => (
-                          <tr key={b.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="py-2.5 px-3 font-mono font-semibold text-blue-600 border-r border-slate-100">{b.bodrNo}</td>
-                            <td className="py-2.5 px-3 text-slate-600 border-r border-slate-100">{b.date}</td>
-                            <td className="py-2.5 px-3 font-medium text-slate-800 border-r border-slate-100 max-w-64 truncate" title={b.title}>{b.title}</td>
-                            <td className="py-2.5 px-3 font-mono font-semibold text-slate-800 border-r border-slate-100 whitespace-nowrap">
-                              Rp {b.amount.toLocaleString("id-ID")}
-                            </td>
-                            <td className="py-2.5 px-3 text-center border-r border-slate-100">
-                              <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-semibold">
-                                {b.category || "CAPEX"}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 text-center">
-                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                                b.status === "Approved"
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-300"
-                                  : b.status === "Rejected"
-                                  ? "bg-red-50 text-red-700 border border-red-300"
-                                  : "bg-blue-50 text-blue-700 border border-blue-300"
-                              }`}>
-                                {b.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            /* 2. DASHBOARD KHUSUS APPROVAL / EXECUTIVE / ADMIN / FINACCT */
+            <BodrApproverDashboard
+              currentUser={currentUser}
+              bodrList={bodrList}
+            />
           )}
         </main>
       </div>

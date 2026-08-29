@@ -1,12 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-// Helper: append batch file list ke JSON history revisi dokumen
+// Helper: append batch file list ke JSON history revisi dokumen tanpa duplikasi file sebelumnya
 function appendToRevisionHistory(existing: string | null, newEntry: string): string {
   try {
     const arr: string[][] = existing ? JSON.parse(existing) : [];
-    const newFiles = newEntry.split(', ').map(s => s.trim()).filter(Boolean);
-    if (newFiles.length > 0) arr.push(newFiles);
+    const allPreviousFiles = new Set(arr.flat());
+    const incomingFiles = newEntry.split(', ').map(s => s.trim()).filter(Boolean);
+    // Hanya masukkan file yang benar-benar baru di batch ini
+    const trulyNewFiles = incomingFiles.filter(f => !allPreviousFiles.has(f));
+    const filesToAdd = trulyNewFiles.length > 0 ? trulyNewFiles : incomingFiles;
+
+    if (filesToAdd.length > 0) {
+      const lastBatch = arr[arr.length - 1];
+      if (!lastBatch || JSON.stringify(lastBatch) !== JSON.stringify(filesToAdd)) {
+        arr.push(filesToAdd);
+      }
+    }
     return JSON.stringify(arr);
   } catch {
     const newFiles = newEntry.split(', ').map(s => s.trim()).filter(Boolean);
@@ -19,19 +29,7 @@ export class CapexService {
   constructor(private readonly prisma: PrismaService) {}
 
   private formatProposal(c: any): any {
-    const isApproved = [
-      'Approved / Archived',
-      'Closed',
-      'Gate 3 - Procurement',
-      'Gate 4 - Commissioning',
-      'Gate 5 - Benefit Realization',
-      'Gate 6 - Project Closing',
-    ].includes(c.status);
-
-    const deptName = c.departemen?.nama_departemen || 'GENERAL';
-    const noUrut = String(c.id).padStart(3, '0');
-    const generatedCode = `CPX - ${deptName} - ${noUrut}`;
-    const capexId = isApproved ? (c.kode_capex && c.kode_capex.startsWith('CPX -') ? c.kode_capex : generatedCode) : '-';
+    const capexId = c.kode_capex && c.kode_capex.startsWith('CPX') ? c.kode_capex : '-';
 
     return {
       id: c.id.toString(),
@@ -190,11 +188,8 @@ export class CapexService {
     }
 
     const newStatus = data.gateStatus ?? data.status;
-    const isApprovedNow = [
-      'Approved / Archived',
-      'Closed',
-      'Gate 3 - Procurement',
-    ].includes(newStatus);
+    const statusLower = (newStatus || '').toLowerCase();
+    const isApprovedNow = statusLower.includes('approv') || statusLower.includes('close');
 
     let kodeCapexToUpdate: string | undefined = undefined;
     if (isApprovedNow) {
@@ -220,7 +215,9 @@ export class CapexService {
         initial_attachment_name: data.initialAttachmentName !== undefined ? data.initialAttachmentName : (existing.initial_attachment_name || existing.attachment_name),
         revised_attachment_name: data.revisedAttachmentName !== undefined ? data.revisedAttachmentName : undefined,
         // Append ke history revisi jika ada dokumen revisi baru — tidak pernah ditimpa
-        revised_attachment_history: data.revisedAttachmentName !== undefined
+        revised_attachment_history: (data.revisedAttachmentHistory !== undefined || data.revised_attachment_history !== undefined)
+          ? (data.revisedAttachmentHistory ?? data.revised_attachment_history)
+          : data.revisedAttachmentName !== undefined
           ? appendToRevisionHistory(existing.revised_attachment_history as string | null, data.revisedAttachmentName)
           : undefined,
         status: newStatus,

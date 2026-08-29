@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { ProgressRowData } from "./ProgressMatrixTable";
 import { getUsers, getCurrentUser, User } from "../../lib/api";
+import { formatDateDisplay } from "../../lib/dateUtils";
 
 interface ActivityLogItem {
   id: string | number;
@@ -24,23 +25,7 @@ interface ProgressLeadTimeModalProps {
 }
 
 function formatDateWIB(dateStr?: string): string {
-  if (!dateStr || dateStr === "-") return "—";
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    const months = [
-      "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-      "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
-    ];
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = months[d.getMonth()];
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, "0");
-    const minutes = String(d.getMinutes()).padStart(2, "0");
-    return `${day} ${month} ${year}, ${hours}:${minutes} WIB`;
-  } catch {
-    return dateStr;
-  }
+  return formatDateDisplay(dateStr);
 }
 
 export default function ProgressLeadTimeModal({
@@ -152,11 +137,12 @@ export default function ProgressLeadTimeModal({
       ? (found.department ? `${found.role} (${found.department})` : found.role)
       : (deptFallback ? `Proposer / Pemohon (${deptFallback})` : "Proposer / Pemohon");
 
-    const cleanFiles = (fileNames || "")
-      .replace(/^Dokumen Revisi Diunggah oleh Pemohon:\s*/i, "")
-      .replace(/^Dokumen pendukung diunggah:\s*/i, "")
-      .replace(/^Dokumen Diunggah Ulang \/ Pendukung:\s*/i, "")
-      .trim();
+    const proposalBenefit =
+      raw?.description ||
+      raw?.benefit ||
+      (proposal as any)?.description ||
+      (proposal as any)?.benefit ||
+      "-";
 
     const submitByName = (found?.name || resolvedIdentifier || getCurrentUser()?.name || "Pemohon").toUpperCase();
 
@@ -170,7 +156,7 @@ export default function ProgressLeadTimeModal({
       action: "UPLOAD",
       actionType: "upload",
       days: "1 Day",
-      description: cleanFiles ? `Dokumen Pendukung: ${cleanFiles}` : "Dokumen pendukung diunggah oleh pemohon.",
+      description: proposalBenefit,
     };
   };
 
@@ -180,31 +166,14 @@ export default function ProgressLeadTimeModal({
     approvedByField?: string,
     dateStr?: string,
     notes?: string,
-    isApproved: boolean = true,
+    isApproved: boolean = false,
     isRevised: boolean = false,
     isPending: boolean = false,
     daysVal: number = 1,
     id: number = 3
   ): ActivityLogItem => {
     const target = (explicitActor || approvedByField || "").trim();
-    let found = target ? findUserByIdentifier(target) : undefined;
-
-    if (!found) {
-      const loggedIn = getCurrentUser();
-      if (loggedIn) {
-        const uRole = (loggedIn.role || "").toLowerCase();
-        const uDept = (loggedIn.department || "").toLowerCase();
-        if (uRole.includes("account") || uRole.includes("finan") || uDept.includes("account") || uDept.includes("finan")) {
-          found = loggedIn;
-        }
-      }
-    }
-
-    if (!found && usersList.length > 0) {
-      found =
-        usersList.find((u) => (u.department || "").toLowerCase().includes("finan") && (u.can_admin || (u.allowed_portals && u.allowed_portals.includes("admin")))) ||
-        usersList.find((u) => (u.department || "").toLowerCase().includes("finan") || (u.role || "").toLowerCase().includes("account"));
-    }
+    const found = target ? findUserByIdentifier(target) : undefined;
 
     const roleName = found?.role
       ? (found.department ? `${found.role} (${found.department})` : found.role)
@@ -246,24 +215,7 @@ export default function ProgressLeadTimeModal({
     id: number = 5
   ): ActivityLogItem => {
     const target = (explicitActor || approvedByField || "").trim();
-    let found = target ? findUserByIdentifier(target) : undefined;
-
-    if (!found) {
-      const loggedIn = getCurrentUser();
-      if (loggedIn) {
-        const uRole = (loggedIn.role || "").toLowerCase();
-        const uDept = (loggedIn.department || "").toLowerCase();
-        if (uRole.includes("komite") || uRole.includes("committee") || uRole.includes("direksi") || uRole.includes("admin")) {
-          found = loggedIn;
-        }
-      }
-    }
-
-    if (!found && usersList.length > 0) {
-      found =
-        usersList.find((u) => (u.department || "").toLowerCase().includes("komite") || (u.role || "").toLowerCase().includes("komite") || (u.role || "").toLowerCase().includes("direksi")) ||
-        usersList.find((u) => u.can_admin || (u.allowed_portals && u.allowed_portals.includes("admin")));
-    }
+    const found = target ? findUserByIdentifier(target) : undefined;
 
     const roleName = found?.role
       ? (found.department ? `${found.role} (${found.department})` : found.role)
@@ -330,141 +282,104 @@ export default function ProgressLeadTimeModal({
         const isUpload = actLower.includes("upload") || actLower.includes("unggah") || actLower.includes("dokumen");
 
         if (isUpload) {
-          const lastLog = logs[logs.length - 1];
-          const cleanFiles = (h.notes || "")
-            .replace(/^Dokumen Revisi Diunggah oleh Pemohon:\s*/i, "")
-            .replace(/^Dokumen pendukung diunggah:\s*/i, "")
-            .replace(/^Dokumen Diunggah Ulang \/ Pendukung:\s*/i, "")
-            .trim();
-
-          if (
-            lastLog &&
-            lastLog.action === "UPLOAD" &&
-            lastLog.approvalType === "Document Upload" &&
-            (lastLog.submitBy.toLowerCase() === (h.actor || "").trim().toLowerCase() ||
-             lastLog.submitBy.toLowerCase() === "pemohon")
-          ) {
-            if (cleanFiles && !lastLog.description.includes(cleanFiles)) {
-              lastLog.description = `${lastLog.description}, ${cleanFiles}`;
-            }
-          } else {
-            logs.push(buildDocumentUploadStageLog(h.actor, dept, h.notes, h.timestamp || createdAt, 100 + idx));
-          }
+          logs.push(buildDocumentUploadStageLog(h.actor, dept, h.notes, h.timestamp || createdAt, 100 + idx));
         } else if (isComm) {
           const isAppr = actLower.includes("approv") || actLower.includes("setuju");
           const isRej = actLower.includes("reject") || actLower.includes("tolak");
           const isRev = actLower.includes("revis") || actLower.includes("kembali");
-          // Pass h.actor as explicitActor so this history entry's actual actor is always prioritized
           logs.push(buildCommitteeApprovalStageLog(h.actor, undefined, h.timestamp || createdAt, h.notes, isAppr, isRej, isRev, raw.capexId, g2DaysVal, 100 + idx));
         } else if (isFin) {
           const isAppr = actLower.includes("approv") || actLower.includes("setuju");
           const isRev = actLower.includes("revis") || actLower.includes("kembali");
           const isPend = actLower.includes("pending");
-          // Pass h.actor as explicitActor so this history entry's actual actor is always prioritized
           logs.push(buildFinanceReviewStageLog(h.actor, undefined, h.timestamp || createdAt, h.notes, isAppr, isRev, isPend, g1DaysVal, 100 + idx));
         } else {
           logs.push(buildPlanningStageLog(h.actor, dept, h.notes, h.timestamp || createdAt, 1));
         }
       });
-    }
+    } else {
+      // 3. Fallback only for legacy proposals without history array
+      const hasFinanceNotes = Boolean(raw.financeNotes);
+      const hasFinanceStage =
+        hasFinanceNotes ||
+        Boolean(raw.financeApprovedAt) ||
+        raw.revisionSource === "Finance" ||
+        gs.includes("finance") ||
+        gs.includes("accounting") ||
+        gs.includes("committee") ||
+        gs.includes("komite") ||
+        gs.includes("sidang") ||
+        gs.includes("approved") ||
+        gs.includes("closed");
 
-    // 3. Finance & Accounting Review Stage via Dedicated Handler (if not already in history)
-    const hasFinanceNotes = Boolean(raw.financeNotes);
-    const isFinanceInHistory = logs.some((l) => l.roleName.toLowerCase().includes("finan") || l.submitBy.toLowerCase().includes("finan") || l.roleName.toLowerCase().includes("account"));
-    const hasFinanceStage =
-      hasFinanceNotes ||
-      Boolean(raw.financeApprovedAt) ||
-      raw.revisionSource === "Finance" ||
-      gs.includes("finance") ||
-      gs.includes("accounting") ||
-      gs.includes("review") ||
-      gs.includes("committee") ||
-      gs.includes("komite") ||
-      gs.includes("sidang") ||
-      gs.includes("approved") ||
-      gs.includes("closed") ||
-      Boolean(raw.committeeNotes);
+      if (hasFinanceStage) {
+        const finDate = raw.financeApprovedAt || createdAt;
+        const isFinPendingFeedback = gs.includes("pending");
+        const isFinRevised = raw.revisionSource === "Finance" || gs.includes("revis");
+        const isFinApproved = !isFinPendingFeedback && !isFinRevised;
 
-    if (hasFinanceStage && !isFinanceInHistory) {
-      const finDate = raw.financeApprovedAt || createdAt;
-      const isFinPendingFeedback = gs.includes("pending");
-      const isFinRevised = raw.revisionSource === "Finance" || gs.includes("revis");
-      const isFinApproved = !isFinPendingFeedback && !isFinRevised;
+        logs.push(
+          buildFinanceReviewStageLog(
+            raw.financeApprovedBy,
+            raw.financeApprovedBy,
+            finDate,
+            raw.financeNotes,
+            isFinApproved,
+            isFinRevised,
+            isFinPendingFeedback,
+            g1DaysVal,
+            3
+          )
+        );
+      }
 
-      const rawFinActor =
-        raw.financeApprovedBy ||
-        (Array.isArray(raw.history) && raw.history.find((h: any) => (h.actor || "").toLowerCase().includes("finan") || (h.actor || "").toLowerCase().includes("account"))?.actor);
+      // 4. Revised Document Upload (if uploaded separately in legacy mode)
+      if (raw.revisedAttachmentName) {
+        logs.push(
+          buildDocumentUploadStageLog(
+            pic,
+            dept,
+            raw.revisedAttachmentName,
+            raw.financeApprovedAt || createdAt,
+            4
+          )
+        );
+      }
 
-      logs.push(
-        buildFinanceReviewStageLog(
-          rawFinActor,
-          raw.financeApprovedBy,
-          finDate,
-          raw.financeNotes,
-          isFinApproved,
-          isFinRevised,
-          isFinPendingFeedback,
-          g1DaysVal,
-          3
-        )
-      );
-    }
+      // 5. Investment Committee Review Stage (only if actually reached committee stage in legacy mode)
+      const hasCommitteeStage =
+        Boolean(raw.committeeApprovedAt) ||
+        (raw.revisionSource === "Committee" && Boolean(raw.committeeNotes)) ||
+        gs.includes("committee") ||
+        gs.includes("komite") ||
+        gs.includes("sidang") ||
+        gs.includes("reject") ||
+        gs.includes("tolak") ||
+        gs.includes("approved") ||
+        gs.includes("closed") ||
+        (Boolean(raw.capexId) && raw.capexId !== "-");
 
-    // 4. Revised Document Upload via Dedicated Handler (if uploaded separately)
-    const isRevisedUploadInHistory = logs.some((l) => l.action === "UPLOAD" && l.id !== 1);
-    if (raw.revisedAttachmentName && !isRevisedUploadInHistory) {
-      logs.push(
-        buildDocumentUploadStageLog(
-          pic,
-          dept,
-          raw.revisedAttachmentName,
-          raw.financeApprovedAt || createdAt,
-          4
-        )
-      );
-    }
+      if (hasCommitteeStage) {
+        const commDate = raw.committeeApprovedAt || createdAt;
+        const isCommRejected = gs.includes("reject") || gs.includes("tolak");
+        const isCommRevised = raw.revisionSource === "Committee" || (!raw.committeeApprovedAt && Boolean(raw.committeeNotes) && !isCommRejected);
+        const isCommApproved = !isCommRejected && !isCommRevised && (gs.includes("approved") || gs.includes("closed") || Boolean(raw.capexId && raw.capexId !== "-") || Boolean(raw.committeeApprovedAt));
 
-    // 5. Investment Committee Review Stage via Dedicated Handler (if not already in history)
-    const hasCommitteeNotes = Boolean(raw.committeeNotes);
-    const isCommitteeInHistory = logs.some((l) => l.roleName.toLowerCase().includes("komite") || l.roleName.toLowerCase().includes("committee"));
-    const hasCommitteeStage =
-      hasCommitteeNotes ||
-      Boolean(raw.committeeApprovedAt) ||
-      Boolean(raw.committeeReviewSchedule) ||
-      raw.revisionSource === "Committee" ||
-      gs.includes("committee") ||
-      gs.includes("komite") ||
-      gs.includes("sidang") ||
-      gs.includes("reject") ||
-      gs.includes("tolak") ||
-      gs.includes("approved") ||
-      gs.includes("closed") ||
-      Boolean(raw.capexId && raw.capexId !== "-");
-
-    if (hasCommitteeStage && !isCommitteeInHistory) {
-      const commDate = raw.committeeApprovedAt || raw.financeApprovedAt || createdAt;
-      const isCommRejected = gs.includes("reject") || gs.includes("tolak");
-      const isCommRevised = raw.revisionSource === "Committee" || (!raw.committeeApprovedAt && hasCommitteeNotes && !isCommRejected && (!raw.capexId || raw.capexId === "-"));
-      const isCommApproved = !isCommRejected && !isCommRevised && (gs.includes("approved") || gs.includes("closed") || Boolean(raw.capexId && raw.capexId !== "-") || Boolean(raw.committeeApprovedAt));
-
-      const rawCommActor =
-        raw.committeeApprovedBy ||
-        (Array.isArray(raw.history) && raw.history.find((h: any) => (h.actor || "").toLowerCase().includes("komite") || (h.actor || "").toLowerCase().includes("committee"))?.actor);
-
-      logs.push(
-        buildCommitteeApprovalStageLog(
-          rawCommActor,
-          raw.committeeApprovedBy,
-          commDate,
-          raw.committeeNotes,
-          isCommApproved,
-          isCommRejected,
-          isCommRevised,
-          raw.capexId || proposal.capexId,
-          g2DaysVal,
-          5
-        )
-      );
+        logs.push(
+          buildCommitteeApprovalStageLog(
+            raw.committeeApprovedBy,
+            raw.committeeApprovedBy,
+            commDate,
+            raw.committeeNotes,
+            isCommApproved,
+            isCommRejected,
+            isCommRevised,
+            raw.capexId || proposal.capexId,
+            g2DaysVal,
+            5
+          )
+        );
+      }
     }
 
     // Sort chronologically ascending by timestamp so activities appear in exact timeline order
@@ -705,15 +620,16 @@ export default function ProgressLeadTimeModal({
                 {activityLogs.length > 0 && (
                   <tfoot className="bg-slate-50/90 border-t-2 border-slate-200 font-semibold text-slate-800 text-xs">
                     <tr>
-                      <td colSpan={6} className="py-3.5 px-4 text-right uppercase tracking-wider text-[11px] text-slate-700 font-bold border-r border-slate-200">
-                        TOTAL LEAD TIME:
+                      <td colSpan={8} className="py-3.5 px-4 text-left">
+                        <div className="flex items-center gap-2.5">
+                          <span className="uppercase tracking-wider text-[11px] text-slate-500 font-bold">
+                            TOTAL LEAD TIME:
+                          </span>
+                          <span className="text-xs font-bold text-slate-800 font-mono">
+                            {totalLeadTimeDisplay}
+                          </span>
+                        </div>
                       </td>
-                      <td className="py-3.5 px-2.5 text-center font-mono text-[11px] border-r border-slate-200 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300 shadow-2xs">
-                          {totalLeadTimeDisplay}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-400 font-normal text-[11px]"></td>
                     </tr>
                   </tfoot>
                 )}

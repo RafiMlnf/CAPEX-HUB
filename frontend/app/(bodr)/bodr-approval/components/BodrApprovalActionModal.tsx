@@ -2,11 +2,13 @@
 
 import React, { useState } from "react";
 import Swal from "sweetalert2";
-import { User, api, BodrProposal } from "@/app/lib/api";
+import { User, api, BodrProposal, ApiApprovalWorkflow } from "@/app/lib/api";
 
 interface BodrApprovalActionModalProps {
   proposal: BodrProposal;
   currentUser: User | null;
+  workflow?: ApiApprovalWorkflow | null;
+  workflowSteps?: string[];
   onClose: () => void;
   onSuccess: (updated: BodrProposal) => void;
 }
@@ -14,6 +16,8 @@ interface BodrApprovalActionModalProps {
 export default function BodrApprovalActionModal({
   proposal,
   currentUser,
+  workflow,
+  workflowSteps,
   onClose,
   onSuccess,
 }: BodrApprovalActionModalProps) {
@@ -37,34 +41,41 @@ export default function BodrApprovalActionModal({
     const actorName = currentUser?.name || "Approver";
     const actorRole = currentUser?.role || "Approver";
 
+    // 100% Dynamic workflow steps from database / Admin Settings
+    const dynamicSteps = workflowSteps && workflowSteps.length > 0
+      ? workflowSteps
+      : (workflow?.list_approval || [])
+          .sort((a, b) => (a.order || 0) - (b.order || 0))
+          .map((s) => s.role)
+          .filter(Boolean);
+
+    // If no workflow steps found, fallback to current step
+    const steps = dynamicSteps.length > 0 ? dynamicSteps : [proposal.step];
+
     let nextStatus = proposal.status;
     let nextStep = proposal.step;
 
     if (action === "Approve") {
-      // Transition step forward
-      const stepsOrder = [
-        "Create",
-        "Approval Dept",
-        "Approve ACC",
-        "Approve Dept. ACC",
-        "Approve Div Plan",
-        "Approve Div Eng",
-        "Approve Div Admin",
-        "Approve Director",
-        "Approve Presdir",
-      ];
-      const currentIdx = stepsOrder.indexOf(proposal.step);
-      if (currentIdx >= 0 && currentIdx < stepsOrder.length - 1) {
-        nextStep = stepsOrder[currentIdx + 1];
+      // Find current step position in the dynamic steps list
+      const currentIdx = steps.findIndex(
+        (s) => s.toLowerCase().trim() === (proposal.step || "").toLowerCase().trim()
+      );
+
+      if (currentIdx >= 0 && currentIdx < steps.length - 1) {
+        // Advance to next dynamic step
+        nextStep = steps[currentIdx + 1];
         nextStatus = "Pending Review";
       } else {
+        // Last step completed -> Approved
+        nextStep = steps[steps.length - 1] || proposal.step;
         nextStatus = "Approved";
       }
     } else if (action === "Reject") {
       nextStatus = "Rejected";
     } else if (action === "Revision") {
       nextStatus = "Revision Required";
-      nextStep = "Approval Dept";
+      // Return to the first step of this department's dynamic workflow
+      nextStep = steps[0] || "Draft";
     }
 
     const newHistory = [

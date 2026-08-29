@@ -10,31 +10,7 @@ import IdeaForm from "../../components/planning/IdeaForm";
 import Modal from "../../components/shared/Modal";
 import { useCapex } from "../../context/CapexContext";
 import { CapexProposal, api } from "../../lib/api";
-
-function formatDateDisplay(dateStr?: string) {
-  if (!dateStr || dateStr === "-" || dateStr.trim() === "") return "-";
-  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
-  if (match) {
-    const [, year, month, day, hours, minutes] = match;
-    if (hours && minutes) {
-      return `${day}/${month}/${year} pukul ${hours}:${minutes} WIB`;
-    }
-    return `${day}/${month}/${year}`;
-  }
-  const d = new Date(dateStr);
-  if (!isNaN(d.getTime())) {
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, "0");
-    const minutes = String(d.getMinutes()).padStart(2, "0");
-    if (dateStr.includes("T") || dateStr.includes(" ")) {
-      return `${day}/${month}/${year} pukul ${hours}:${minutes} WIB`;
-    }
-    return `${day}/${month}/${year}`;
-  }
-  return dateStr;
-}
+import { formatDateDisplay } from "../../lib/dateUtils";
 
 export default function PlanningPage() {
   return (
@@ -64,15 +40,16 @@ function PlanningPageContent() {
 
   const canCreate = hasPermission("perm_create_capex");
 
+  const isAdmin =
+    (currentUser?.role || "").toLowerCase() === "admin" ||
+    (currentUser?.username || "").toLowerCase() === "admin";
+
   const isAllAccess =
     hasPermission("perm_review_capex") ||
     hasPermission("perm_committee_review") ||
     hasPermission("perm_view_reports") ||
-    (currentUser?.role || "").toLowerCase() === "admin" ||
-    (currentUser?.role || "").toLowerCase().includes("accounting") ||
-    (currentUser?.role || "").toLowerCase().includes("finance") ||
-    (currentUser?.role || "").toLowerCase().includes("director") ||
-    (currentUser?.role || "").toLowerCase().includes("division head");
+    hasPermission("ALL_ACCESS") ||
+    isAdmin;
 
   // Filter proposals according to user login & role permissions
   const visibleProposals = useMemo(() => {
@@ -622,15 +599,16 @@ function PlanningPageContent() {
                   const uploaderName = currentUser?.name || uploadProposal.pic || "Pemohon";
                   const fileListStr = supportingFiles.join(", ");
 
-                  // Akumulasi dengan dokumen yang sudah ada — tidak ditimpa
-                  const existingRevised = uploadProposal.revisedAttachmentName
-                    ? uploadProposal.revisedAttachmentName.split(", ").map(s => s.trim()).filter(Boolean)
-                    : [];
-                  const combinedRevised = Array.from(new Set([...existingRevised, ...supportingFiles])).join(", ");
+                  // Akumulasi dengan dokumen aktif keseluruhan — kirim hanya file baru untuk batch revisi ini
+                  const existingAll = (uploadProposal.attachmentName || "")
+                    .split(", ")
+                    .map(s => s.trim())
+                    .filter(Boolean);
+                  const combinedAll = Array.from(new Set([...existingAll, ...supportingFiles])).join(", ");
 
                   await editProposal(uploadProposal.id, {
-                    attachmentName: combinedRevised,
-                    revisedAttachmentName: combinedRevised,
+                    attachmentName: combinedAll,
+                    revisedAttachmentName: fileListStr,
                     gateStatus: "Gate 1 - Finance Review",
                     history: [
                       ...(uploadProposal.history || []),
@@ -743,16 +721,28 @@ function PlanningPageContent() {
                   {viewingProposal.isFsRequired ? `Ya (FS: ${viewingProposal.fsCategory || "-"})` : "Tidak (Non-FS)"}
                 </p>
               </div>
-              <div>
-                <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">Jadwal Sidang Komite</span>
-                <p className="font-semibold text-purple-900 mt-0.5 truncate">
-                  {viewingProposal.committeeReviewSchedule
-                    ? `📅 ${formatDateDisplay(viewingProposal.committeeReviewSchedule)}`
-                    : (viewingProposal.gateStatus?.toLowerCase().includes("committee") || viewingProposal.gateStatus?.toLowerCase().includes("komite") || viewingProposal.gateStatus?.toLowerCase().includes("sidang"))
-                    ? "Dikoordinasikan Finance"
-                    : "-"}
-                </p>
-              </div>
+              {/* Jadwal Sidang Komite: Hanya muncul jika usulan telah disetujui Finance dan diteruskan ke Sidang Komite / tahap setelahnya */}
+              {(() => {
+                const gsLower = (viewingProposal.gateStatus || "").toLowerCase();
+                const isApprovedByFinance =
+                  gsLower.includes("committee") ||
+                  gsLower.includes("komite") ||
+                  gsLower.includes("procurement") ||
+                  gsLower.includes("approved") ||
+                  gsLower.includes("closed") ||
+                  gsLower.includes("archived");
+
+                if (!isApprovedByFinance || !viewingProposal.committeeReviewSchedule) return null;
+
+                return (
+                  <div>
+                    <span className="text-[9px] uppercase font-semibold text-slate-400 tracking-wider block">Jadwal Sidang Komite</span>
+                    <p className="font-semibold text-purple-900 mt-0.5 truncate">
+                      📅 {formatDateDisplay(viewingProposal.committeeReviewSchedule)}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* 2-Column Side-by-Side: Attachments & Project Notes */}
@@ -781,7 +771,20 @@ function PlanningPageContent() {
                   let revisionBatches: string[][] = [];
                   if (viewingProposal.revisedAttachmentHistory) {
                     try {
-                      revisionBatches = JSON.parse(viewingProposal.revisedAttachmentHistory);
+                      const rawBatches = JSON.parse(viewingProposal.revisedAttachmentHistory);
+                      if (Array.isArray(rawBatches)) {
+                        const seenFiles = new Set<string>();
+                        revisionBatches = rawBatches
+                          .map((batch: string[]) => {
+                            const clean = batch.filter((f) => {
+                              if (seenFiles.has(f)) return false;
+                              seenFiles.add(f);
+                              return true;
+                            });
+                            return clean;
+                          })
+                          .filter((b: string[]) => b.length > 0);
+                      }
                     } catch { revisionBatches = []; }
                   }
                   // Fallback: jika history belum ada tapi revisedDocs ada, tampilkan sebagai batch tunggal
@@ -908,10 +911,24 @@ function PlanningPageContent() {
                   </p>
                 </div>
 
-                {/* Finance Notes — baca dari history gate 1, tampilkan semua */}
+                {/* Finance Notes — baca dari history gate 1 (hanya catatan ulasan Finance, bukan log upload pemohon) */}
                 {(() => {
                   const financeEntries = (viewingProposal.history || [])
-                    .filter((h) => h.gate === 1 && h.notes && h.notes.trim())
+                    .filter((h) => {
+                      if (h.gate !== 1 || !h.notes || !h.notes.trim()) return false;
+                      const actLower = (h.action || "").toLowerCase();
+                      const notesLower = (h.notes || "").toLowerCase();
+                      // Exclude requester document upload logs
+                      if (
+                        actLower.includes("unggah") ||
+                        actLower.includes("upload") ||
+                        notesLower.startsWith("dokumen pendukung diunggah") ||
+                        notesLower.startsWith("dokumen pendukung:")
+                      ) {
+                        return false;
+                      }
+                      return true;
+                    })
                     .map((h) => ({ notes: h.notes!, actor: h.actor, timestamp: h.timestamp }));
 
                   // Fallback ke financeNotes jika history belum ada
@@ -932,7 +949,7 @@ function PlanningPageContent() {
                           </p>
                           {allFinanceNotes.length > 1 && (
                             <p className="text-[10px] text-amber-600 font-medium mt-0.5 not-italic">
-                              — {entry.actor}
+                              {entry.actor}
                             </p>
                           )}
                         </div>
@@ -941,10 +958,22 @@ function PlanningPageContent() {
                   ) : null;
                 })()}
 
-                {/* Committee Notes — baca dari history gate 2, tampilkan semua */}
+                {/* Committee Notes — baca dari history gate 2 (hanya catatan ulasan Komite) */}
                 {(() => {
                   const committeeEntries = (viewingProposal.history || [])
-                    .filter((h) => h.gate === 2 && h.notes && h.notes.trim())
+                    .filter((h) => {
+                      if (h.gate !== 2 || !h.notes || !h.notes.trim()) return false;
+                      const actLower = (h.action || "").toLowerCase();
+                      const notesLower = (h.notes || "").toLowerCase();
+                      if (
+                        actLower.includes("unggah") ||
+                        actLower.includes("upload") ||
+                        notesLower.startsWith("dokumen pendukung")
+                      ) {
+                        return false;
+                      }
+                      return true;
+                    })
                     .map((h) => ({ notes: h.notes!, actor: h.actor, timestamp: h.timestamp }));
 
                   // Fallback ke committeeNotes jika history belum ada
@@ -965,7 +994,7 @@ function PlanningPageContent() {
                           </p>
                           {allCommitteeNotes.length > 1 && (
                             <p className="text-[10px] text-purple-600 font-medium mt-0.5 not-italic">
-                              — {entry.actor}
+                              {entry.actor}
                             </p>
                           )}
                         </div>

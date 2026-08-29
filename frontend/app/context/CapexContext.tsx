@@ -60,38 +60,23 @@ export function CapexProvider({ children }: { children: React.ReactNode }) {
       setUserPermissions([]);
       return;
     }
-    const roleName = (user.role || "").toLowerCase().trim();
-    if (roleName === "admin" || (user.username || "").toLowerCase() === "admin") {
-      setUserPermissions([
-        "ALL_ACCESS",
-        "perm_create_capex",
-        "perm_review_capex",
-        "perm_committee_review",
-        "perm_closing_capex",
-        "perm_create_bodr",
-        "perm_approve_bodr",
-        "perm_create_price",
-        "perm_approve_price",
-        "perm_export_data",
-        "perm_access_portal",
-        "perm_manage_users",
-        "perm_manage_settings",
-        "perm_manage_config",
-      ]);
-      return;
-    }
 
     try {
       const rps: ApiRolePermission[] = await api.getRolePermissions();
       const userRoleId = (user as any).role_id?.toString();
+      const roleName = (user.role || "").toLowerCase().trim();
+
       const match = rps.find(
         (rp: ApiRolePermission) =>
           (userRoleId && rp.role_id?.toString() === userRoleId) ||
           (rp.kode_role && rp.kode_role.toLowerCase().trim() === roleName) ||
           (rp.nama_role && rp.nama_role.toLowerCase().trim() === roleName)
       );
+
       if (match && Array.isArray(match.permissions)) {
         setUserPermissions(match.permissions);
+      } else if (roleName === "admin" || (user.username || "").toLowerCase() === "admin") {
+        setUserPermissions(["ALL_ACCESS"]);
       } else {
         setUserPermissions([]);
       }

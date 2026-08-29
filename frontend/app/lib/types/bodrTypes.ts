@@ -7,17 +7,7 @@ export interface ApprovalHistory {
   note?: string;
 }
 
-export type BodrStep =
-  | "Create"
-  | "Approval Dept"
-  | "Approve ACC"
-  | "Approve Dept. ACC"
-  | "Approve Div Plan"
-  | "Approve Div Eng"
-  | "Approve Div Admin"
-  | "Approve Director"
-  | "Approve Presdir"
-  | string;
+export type BodrStep = string;
 
 export type BodrCategory = "FOH" | "GOP" | "CAPEX" | string;
 
@@ -78,4 +68,51 @@ export interface ApiBodrProposal {
   approval_history?: ApprovalHistory[];
   created_at: string;
   documents?: string[];
+}
+
+// ── BODR Progress API Response Types (from GET /bodr/progress) ────────────
+
+export interface BodrProgressApprovalStep {
+  step_order: number;
+  role: string;
+  name: string;
+  initials: string;
+  status: string;
+  timestamp: string;
+  note: string;
+}
+
+export interface BodrProgressWorkflowStep {
+  step_order: number;
+  role: string;
+  user_name: string;
+}
+
+export interface BodrProgressProposalItem {
+  id: string;
+  bodr_no: string;
+  title: string;
+  category: string;
+  department: string;
+  proposer: string;
+  amount: number;
+  status: string;
+  current_step: number;
+  created_at: string;
+  notes?: string;
+  benefit?: string;
+  approval_history: BodrProgressApprovalStep[];
+  workflow_id: string | null;
+  workflow_steps: BodrProgressWorkflowStep[];
+}
+
+export interface BodrProgressWorkflowSummary {
+  departemen_id: string;
+  departemen_nama: string;
+  steps: BodrProgressWorkflowStep[];
+}
+
+export interface BodrProgressApiResponse {
+  proposals: BodrProgressProposalItem[];
+  workflows: BodrProgressWorkflowSummary[];
 }

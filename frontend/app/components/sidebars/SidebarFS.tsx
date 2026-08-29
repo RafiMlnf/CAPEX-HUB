@@ -82,15 +82,24 @@ export default function SidebarFS() {
 
   const hasPlanningUpdate =
     canPlan &&
-    proposals.some((p: { gateStatus: string }) => p.gateStatus === "Gate 2 - Revised");
+    proposals.some((p: { gateStatus?: string }) => {
+      const gs = (p.gateStatus || "").toLowerCase();
+      return gs.includes("revis");
+    });
 
   const hasFinanceReviewUpdate =
     canReview &&
-    proposals.some((p: { gateStatus: string }) => p.gateStatus === "Gate 1 - Finance Review");
+    proposals.some((p: { gateStatus?: string }) => {
+      const gs = (p.gateStatus || "").toLowerCase();
+      return gs.includes("finance") || gs.includes("idea") || gs.includes("feedback");
+    });
 
   const hasApprovalUpdate =
     canApprove &&
-    proposals.some((p: { gateStatus: string }) => p.gateStatus === "Gate 2 - Committee Review");
+    proposals.some((p: { gateStatus?: string }) => {
+      const gs = (p.gateStatus || "").toLowerCase();
+      return gs.includes("committee") || gs.includes("komite");
+    });
 
   const showDotFor = (key: string) => {
     if (key === "planning") return hasPlanningUpdate;

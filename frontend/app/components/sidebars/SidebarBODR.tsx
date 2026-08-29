@@ -21,11 +21,11 @@ export default function SidebarBODR() {
   const canApproveBodr = hasPermission("perm_approve_bodr");
 
   const visibleMainItems = mainItems.filter((item) => {
-    if (item.href === "/bodr-dashboard") return canViewDashboard;
+    if (item.href === "/bodr-dashboard") return canViewDashboard || isAdmin;
     if (item.href === "/bodr") return canCreateBodr || isAdmin;
-    if (item.href === "/bodr-approval") return canApproveBodr;
-    if (item.href === "/bodr-progress") return canCreateBodr || canViewDashboard || canApproveBodr;
-    return true;
+    if (item.href === "/bodr-approval") return canApproveBodr || isAdmin;
+    if (item.href === "/bodr-progress") return canViewDashboard || canApproveBodr || canCreateBodr || isAdmin;
+    return false;
   });
 
   return (

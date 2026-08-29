@@ -4,6 +4,7 @@ import { useState } from "react";
 import Swal from "sweetalert2";
 import { CapexProposal, api } from "../../lib/api";
 import { useCapex } from "../../context/CapexContext";
+import { formatDateDisplay } from "../../lib/dateUtils";
 import StatusBadge from "../StatusBadge";
 import InfoTooltip from "../InfoTooltip";
 
@@ -12,23 +13,6 @@ interface CommitteeReviewFormProps {
   activeRole?: string;
   canApprove?: boolean;
   onDecision: (proposal: CapexProposal, decision: "Approve" | "Reject" | "Revise", notes: string) => void;
-}
-
-function formatDateDisplay(dateStr?: string) {
-  if (!dateStr || dateStr === "-" || dateStr.trim() === "") return "-";
-  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (match) {
-    const [, year, month, day] = match;
-    return `${day}/${month}/${year}`;
-  }
-  const d = new Date(dateStr);
-  if (!isNaN(d.getTime())) {
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
-  return dateStr;
 }
 
 export default function CommitteeReviewForm({ pendingApprovals, onDecision }: CommitteeReviewFormProps) {
@@ -142,7 +126,7 @@ export default function CommitteeReviewForm({ pendingApprovals, onDecision }: Co
                       type="button"
                       onClick={() => {
                         setSelectedProposal(item);
-                        setCommitteeNotes(item.committeeNotes || "");
+                        setCommitteeNotes("");
                         setNotesError(false);
                       }}
                       className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-semibold tracking-wide transition-all shadow-2xs cursor-pointer active:scale-95"
@@ -270,131 +254,150 @@ export default function CommitteeReviewForm({ pendingApprovals, onDecision }: Co
                       Lampiran Dokumen Usulan
                     </span>
 
-                    {(() => {
-                      const initialDocs = (selectedProposal.initialAttachmentName || "")
-                        .split(", ")
-                        .map((s) => s.trim())
-                        .filter(Boolean);
-                      const revisedDocs = (selectedProposal.revisedAttachmentName || "")
-                        .split(", ")
-                        .map((s) => s.trim())
-                        .filter(Boolean);
-                      const allDocs = (selectedProposal.attachmentName || "")
-                        .split(", ")
-                        .map((s) => s.trim())
-                        .filter(Boolean);
+                      {(() => {
+                        const initialDocs = (selectedProposal.initialAttachmentName || "")
+                          .split(", ")
+                          .map((s) => s.trim())
+                          .filter(Boolean);
+                        const revisedDocs = (selectedProposal.revisedAttachmentName || "")
+                          .split(", ")
+                          .map((s) => s.trim())
+                          .filter(Boolean);
+                        const allDocs = (selectedProposal.attachmentName || "")
+                          .split(", ")
+                          .map((s) => s.trim())
+                          .filter(Boolean);
 
-                      const hasSeparateRevisions =
-                        initialDocs.length > 0 &&
-                        (revisedDocs.length > 0 ||
-                          (allDocs.length > 0 &&
-                            JSON.stringify(initialDocs) !== JSON.stringify(allDocs)));
+                        // Baca semua batch revisi dari history
+                        let revisionBatches: string[][] = [];
+                        if (selectedProposal.revisedAttachmentHistory) {
+                          try {
+                            const rawBatches = JSON.parse(selectedProposal.revisedAttachmentHistory);
+                            if (Array.isArray(rawBatches)) {
+                              const seenFiles = new Set<string>();
+                              revisionBatches = rawBatches
+                                .map((batch: string[]) => {
+                                  const clean = batch.filter((f) => {
+                                    if (seenFiles.has(f)) return false;
+                                    seenFiles.add(f);
+                                    return true;
+                                  });
+                                  return clean;
+                                })
+                                .filter((b: string[]) => b.length > 0);
+                            }
+                          } catch { revisionBatches = []; }
+                        }
+                        if (revisionBatches.length === 0 && revisedDocs.length > 0) {
+                          revisionBatches = [revisedDocs];
+                        }
 
-                      const effectiveRevised =
-                        revisedDocs.length > 0
-                          ? revisedDocs
-                          : hasSeparateRevisions
-                          ? allDocs.filter((d) => !initialDocs.includes(d))
-                          : [];
+                        const hasSeparateRevisions =
+                          initialDocs.length > 0 &&
+                          (revisionBatches.length > 0 ||
+                            (allDocs.length > 0 &&
+                              JSON.stringify(initialDocs) !== JSON.stringify(allDocs)));
 
-                      if (hasSeparateRevisions && (initialDocs.length > 0 || effectiveRevised.length > 0)) {
+                        if (hasSeparateRevisions && initialDocs.length > 0) {
+                          return (
+                            <div className="space-y-3">
+                              {/* Dokumen Awal */}
+                              <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2 shadow-2xs">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] uppercase font-bold text-slate-600 tracking-wider flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                    Dokumen Awal (Versi Pengajuan)
+                                  </span>
+                                  <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                                    {initialDocs.length} File
+                                  </span>
+                                </div>
+                                <div className="flex flex-col gap-1.5 max-h-32 overflow-y-auto">
+                                  {initialDocs.map((filename, i) => (
+                                    <a
+                                      key={i}
+                                      href={api.getUploadFileUrl(filename)}
+                                      download={filename}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center justify-between text-slate-700 hover:text-blue-600 font-mono font-medium text-xs bg-slate-50 hover:bg-blue-50/60 border border-slate-200 rounded-lg px-2.5 py-1.5 transition-all shadow-2xs group"
+                                      title={`Unduh Dokumen Awal: ${filename}`}
+                                    >
+                                      <span className="truncate underline font-normal max-w-[200px]">{filename}</span>
+                                      <svg className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                      </svg>
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Semua batch Dokumen Revisi */}
+                              {revisionBatches.map((batch, batchIdx) => (
+                                <div key={batchIdx} className="bg-white border border-emerald-200 rounded-xl p-3 space-y-2 shadow-2xs">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                      Dokumen Revisi {revisionBatches.length > 1 ? `#${batchIdx + 1}` : ""}
+                                    </span>
+                                    <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-mono font-semibold">
+                                      {batch.length} File
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-col gap-1.5 max-h-32 overflow-y-auto">
+                                    {batch.map((filename, i) => (
+                                      <a
+                                        key={i}
+                                        href={api.getUploadFileUrl(filename)}
+                                        download={filename}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center justify-between text-emerald-800 hover:text-emerald-900 font-mono font-medium text-xs bg-emerald-50/50 hover:bg-emerald-100/70 border border-emerald-200 rounded-lg px-2.5 py-1.5 transition-all shadow-2xs group"
+                                        title={`Unduh Dokumen Revisi #${batchIdx + 1}: ${filename}`}
+                                      >
+                                        <span className="truncate underline font-normal max-w-[200px]">{filename}</span>
+                                        <svg className="w-3.5 h-3.5 text-emerald-600 group-hover:translate-y-0.5 shrink-0 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+
                         return (
-                          <div className="space-y-3">
-                            {/* Dokumen Awal */}
-                            <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2 shadow-2xs">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] uppercase font-bold text-slate-600 tracking-wider flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                                  Dokumen Awal (Versi Pengajuan)
-                                </span>
-                                <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">
-                                  {initialDocs.length} File
-                                </span>
-                              </div>
-                              <div className="flex flex-col gap-1.5">
-                                {initialDocs.map((filename, i) => (
+                          <div className="flex flex-col gap-2">
+                            {allDocs.length > 0 ? (
+                              allDocs.map((filename, i) => {
+                                const cleanName = filename.trim();
+                                const downloadUrl = api.getUploadFileUrl(cleanName);
+                                return (
                                   <a
                                     key={i}
-                                    href={api.getUploadFileUrl(filename)}
-                                    download={filename}
+                                    href={downloadUrl}
+                                    download={cleanName}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-between text-slate-700 hover:text-blue-600 font-mono font-medium text-xs bg-slate-50 hover:bg-blue-50/60 border border-slate-200 rounded-lg px-2.5 py-1.5 transition-all shadow-2xs group"
-                                    title={`Unduh Dokumen Awal: ${filename}`}
+                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100/70 font-mono font-medium text-xs bg-white border border-blue-200 rounded-lg px-3 py-2 transition-all cursor-pointer group shadow-2xs w-full"
+                                    title={`Klik untuk mengunduh berkas: ${cleanName}`}
                                   >
-                                    <span className="truncate underline font-normal">{filename}</span>
-                                    <svg className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <svg className="w-4 h-4 text-blue-500 shrink-0 group-hover:translate-y-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                     </svg>
+                                    <span className="truncate underline font-normal">{cleanName}</span>
                                   </a>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Dokumen Revisi */}
-                            <div className="bg-white border border-emerald-200 rounded-xl p-3 space-y-2 shadow-2xs">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                  Dokumen Revisi (Terbaru)
-                                </span>
-                                <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-mono font-semibold">
-                                  {(effectiveRevised.length > 0 ? effectiveRevised : allDocs).length} File
-                                </span>
-                              </div>
-                              <div className="flex flex-col gap-1.5">
-                                {(effectiveRevised.length > 0 ? effectiveRevised : allDocs).map((filename, i) => (
-                                  <a
-                                    key={i}
-                                    href={api.getUploadFileUrl(filename)}
-                                    download={filename}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-between text-emerald-800 hover:text-emerald-900 font-mono font-medium text-xs bg-emerald-50/50 hover:bg-emerald-100/70 border border-emerald-200 rounded-lg px-2.5 py-1.5 transition-all shadow-2xs group"
-                                    title={`Unduh Dokumen Revisi: ${filename}`}
-                                  >
-                                    <span className="truncate underline font-normal">{filename}</span>
-                                    <svg className="w-3.5 h-3.5 text-emerald-600 group-hover:translate-y-0.5 shrink-0 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                    </svg>
-                                  </a>
-                                ))}
-                              </div>
-                            </div>
+                                );
+                              })
+                            ) : (
+                              <span className="text-xs font-medium text-slate-500 italic">Tidak ada lampiran berkas</span>
+                            )}
                           </div>
                         );
-                      }
-
-                      return (
-                        <div className="flex flex-col gap-2">
-                          {allDocs.length > 0 ? (
-                            allDocs.map((filename, i) => {
-                              const cleanName = filename.trim();
-                              const downloadUrl = api.getUploadFileUrl(cleanName);
-                              return (
-                                <a
-                                  key={i}
-                                  href={downloadUrl}
-                                  download={cleanName}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100/70 font-mono font-medium text-xs bg-white border border-blue-200 rounded-lg px-3 py-2 transition-all cursor-pointer group shadow-2xs w-full"
-                                  title={`Klik untuk mengunduh berkas: ${cleanName}`}
-                                >
-                                  <svg className="w-4 h-4 text-blue-500 shrink-0 group-hover:translate-y-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                  </svg>
-                                  <span className="truncate underline font-normal">{cleanName}</span>
-                                </a>
-                              );
-                            })
-                          ) : (
-                            <span className="text-xs font-medium text-slate-500 italic">Tidak ada lampiran berkas</span>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
+                      })()}
+                    </div>
 
                   {/* Committee Decision Form */}
                   <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-2xs">

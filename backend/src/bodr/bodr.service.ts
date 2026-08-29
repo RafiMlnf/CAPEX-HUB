@@ -92,13 +92,32 @@ export class BodrService {
       throw new BadRequestException('user_id, capex_id, cost_center_id wajib diisi');
     }
 
+    const deptId = parseInt(data.departemen_id);
+
+    // Look up active ApprovalWorkflow for this department to seed initial approvals
+    const activeWorkflow = await this.prisma.approvalWorkflow.findFirst({
+      where: {
+        departemen_id: deptId,
+        status: 'active',
+      },
+      include: {
+        steps: { orderBy: { step_order: 'asc' } },
+      },
+    });
+
+    const initialApprovals = (activeWorkflow?.steps || []).map((s) => ({
+      step_order: s.step_order,
+      approver_user_id: s.approver_user_id,
+      status: 'pending',
+    }));
+
     // Generate BODR number (DB trigger handles it, but we set empty for safety)
     const bodr = await this.prisma.bodr.create({
       data: {
         bodr_no: `BODR/${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(Date.now()).slice(-4)}`,
         title: data.title ?? 'Untitled',
         user_id: parseInt(data.user_id),
-        departemen_id: parseInt(data.departemen_id),
+        departemen_id: deptId,
         cost_center_id: parseInt(data.cost_center_id),
         kriteria_approval: data.kriteria_approval ?? data.category,
         start_date: new Date(data.start_date),
@@ -108,8 +127,16 @@ export class BodrService {
         amount: data.amount,
         category: data.budget_type ?? data.category_budget ?? 'budget',
         budget_remarks: data.budget_remarks ?? null,
-        status: 'draft',
-        current_step: 0,
+        status: data.status ?? 'in_approval',
+        current_step: initialApprovals.length > 0 ? 1 : 0,
+        // Seed initial approvals from department's active workflow
+        ...(initialApprovals.length > 0
+          ? {
+              approvals: {
+                create: initialApprovals,
+              },
+            }
+          : {}),
         // Create asset if CAP
         ...(data.kriteria_approval === 'CAP' && data.nama_asset
           ? {
@@ -130,7 +157,10 @@ export class BodrService {
         costCenter: true,
         capex: true,
         asset: { include: { assetType: true } },
-        approvals: true,
+        approvals: {
+          include: { approver: { include: { role: true } } },
+          orderBy: { step_order: 'asc' },
+        },
         documents: true,
       },
     });
@@ -247,25 +277,84 @@ export class BodrService {
 
   // ── BODR Progress ─────────────────────────────────────────────────────────
   async getProgress() {
-    const approvals = await this.prisma.bodrApproval.findMany({
+    // 1. Fetch all BODR proposals with their approval records + dept info
+    const bodrs = await this.prisma.bodr.findMany({
       include: {
-        bodr: { include: { departemen: true } },
-        approver: { include: { role: true } },
+        user: { include: { role: true } },
+        departemen: true,
+        approvals: {
+          include: { approver: { include: { role: true } } },
+          orderBy: { step_order: 'asc' },
+        },
       },
-      orderBy: [{ bodr_id: 'asc' }, { step_order: 'asc' }],
+      orderBy: { created_at: 'desc' },
     });
 
-    return approvals.map((a) => ({
-      bodr_id: a.bodr_id.toString(),
-      bodr_no: a.bodr?.bodr_no ?? '',
-      title: a.bodr?.title ?? '',
-      type_approval: '',
-      step_order: a.step_order,
-      approval_head_dept: a.approver?.nama_user ?? '',
-      status_step: a.status,
-      comment: a.comment ?? '',
-      action_date: a.action_date,
+    // 2. Fetch all active approval workflows with their ordered steps
+    const workflows = await this.prisma.approvalWorkflow.findMany({
+      where: { status: 'active' },
+      include: {
+        departemen: true,
+        steps: {
+          include: { approver: { include: { role: true } } },
+          orderBy: { step_order: 'asc' },
+        },
+      },
+    });
+
+    // 3. Build lookup map: departemen_id → workflow
+    const workflowByDept = new Map(workflows.map((w) => [w.departemen_id, w]));
+
+    // 4. Format each BODR proposal with its approval history + matching workflow steps
+    const proposals = bodrs.map((b) => {
+      const wf = workflowByDept.get(b.departemen_id) ?? null;
+      return {
+        id: b.id.toString(),
+        bodr_no: b.bodr_no,
+        title: b.title,
+        category: b.kriteria_approval,
+        department: b.departemen?.nama_departemen ?? '',
+        proposer: b.user?.nama_user ?? '',
+        amount: b.amount ? parseFloat(b.amount.toString()) : 0,
+        status: b.status,
+        current_step: b.current_step,
+        created_at: b.created_at,
+        notes: b.budget_remarks ?? '',
+        benefit: b.benefit ?? '',
+        // Approval records from DB (ordered by step_order asc)
+        approval_history: b.approvals.map((a) => ({
+          step_order: a.step_order,
+          role: a.approver?.role?.nama_role ?? '',
+          name: a.approver?.nama_user ?? '',
+          initials: (a.approver?.nama_user ?? '').substring(0, 2).toUpperCase(),
+          status: a.status,
+          timestamp: (a.action_date ?? a.created_at).toISOString(),
+          note: a.comment ?? '',
+        })),
+        // Workflow definition for this dept (null if dept has no active workflow)
+        workflow_id: wf ? wf.id.toString() : null,
+        workflow_steps: wf
+          ? wf.steps.map((s) => ({
+              step_order: s.step_order,
+              role: s.approver?.role?.nama_role ?? '',
+              user_name: s.approver?.nama_user ?? '',
+            }))
+          : [],
+      };
+    });
+
+    // 5. Also return global workflow list for phase label derivation on frontend
+    const workflowSummaries = workflows.map((w) => ({
+      departemen_id: w.departemen_id.toString(),
+      departemen_nama: w.departemen?.nama_departemen ?? '',
+      steps: w.steps.map((s) => ({
+        step_order: s.step_order,
+        role: s.approver?.role?.nama_role ?? '',
+        user_name: s.approver?.nama_user ?? '',
+      })),
     }));
+
+    return { proposals, workflows: workflowSummaries };
   }
 
   // ── BODR Dashboard ────────────────────────────────────────────────────────

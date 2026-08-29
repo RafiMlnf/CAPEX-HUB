@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Swal from "sweetalert2";
-import { User, api, BodrProposal, BodrCategory } from "@/app/lib/api";
+import { User, api, BodrProposal, BodrCategory, ApiApprovalWorkflow } from "@/app/lib/api";
 
 interface BodrCreateModalProps {
   currentUser: User | null;
@@ -10,6 +10,7 @@ interface BodrCreateModalProps {
   costCenters: any[];
   capexItems: any[];
   approvedCapexProposals: any[];
+  workflows?: ApiApprovalWorkflow[];
   onClose: () => void;
   onSuccess: (newProposal: BodrProposal) => void;
 }
@@ -20,13 +21,14 @@ export default function BodrCreateModal({
   costCenters,
   capexItems,
   approvedCapexProposals,
+  workflows = [],
   onClose,
   onSuccess,
 }: BodrCreateModalProps) {
   const [form, setForm] = useState({
     user: currentUser?.name || "",
     department: currentUser?.department || "",
-    costCenter: costCenters.length > 0 ? costCenters[0].kode : "",
+    costCenter: costCenters.length > 0 ? costCenters[0].kode || costCenters[0].kode_cost_center : "",
     kriteria: "FOH" as "FOH" | "CAP" | "GOP",
     title: "",
     startDate: "",
@@ -35,13 +37,104 @@ export default function BodrCreateModal({
     capexId: "",
     amountRp: "",
     budgetType: "budget" as "budget" | "unbudget",
-    budgetRemark: "",
+    unbudgetRemark: "",
+    remarks: "",
     documents: [] as File[],
     namaAsset: "",
     plan: "2301",
     location: "Office" as "Office" | "Plant",
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // ── Smart Auto-Numbering Handler on Enter Keypress for Benefit / Manfaat ──
+  const handleBenefitKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter") {
+      const textarea = e.currentTarget;
+      const { selectionStart, selectionEnd, value } = textarea;
+
+      // Extract text before and after cursor
+      const textBefore = value.substring(0, selectionStart);
+      const textAfter = value.substring(selectionEnd);
+      const lines = textBefore.split("\n");
+      const currentLine = lines[lines.length - 1];
+
+      // Regex matching numbered patterns like "1. ", "2. ", "10. "
+      const match = currentLine.match(/^(\s*)(\d+)\.\s*(.*)$/);
+
+      if (match) {
+        e.preventDefault();
+        const indent = match[1];
+        const currentNum = parseInt(match[2], 10);
+        const itemContent = match[3].trim();
+
+        if (itemContent === "") {
+          // If user presses enter on an empty number (e.g. "2. "), clear the number
+          const updatedBefore = lines.slice(0, -1).join("\n") + (lines.length > 1 ? "\n" : "");
+          const newValue = updatedBefore + textAfter;
+          setForm((prev) => ({ ...prev, benefit: newValue }));
+
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = updatedBefore.length;
+          }, 0);
+        } else {
+          // Auto increment number (e.g. "1. " -> "2. ")
+          const nextNum = currentNum + 1;
+          const insertText = `\n${indent}${nextNum}. `;
+          const newValue = textBefore + insertText + textAfter;
+          const nextCursor = selectionStart + insertText.length;
+
+          setForm((prev) => ({ ...prev, benefit: newValue }));
+
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = nextCursor;
+          }, 0);
+        }
+      }
+    }
+  };
+
+  // ── Smart Auto-Numbering Handler for Unbudget Remarks ──────────────────────
+  const handleUnbudgetKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter") {
+      const textarea = e.currentTarget;
+      const { selectionStart, selectionEnd, value } = textarea;
+
+      const textBefore = value.substring(0, selectionStart);
+      const textAfter = value.substring(selectionEnd);
+      const lines = textBefore.split("\n");
+      const currentLine = lines[lines.length - 1];
+
+      const match = currentLine.match(/^(\s*)(\d+)\.\s*(.*)$/);
+
+      if (match) {
+        e.preventDefault();
+        const indent = match[1];
+        const currentNum = parseInt(match[2], 10);
+        const itemContent = match[3].trim();
+
+        if (itemContent === "") {
+          const updatedBefore = lines.slice(0, -1).join("\n") + (lines.length > 1 ? "\n" : "");
+          const newValue = updatedBefore + textAfter;
+          setForm((prev) => ({ ...prev, unbudgetRemark: newValue }));
+
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = updatedBefore.length;
+          }, 0);
+        } else {
+          const nextNum = currentNum + 1;
+          const insertText = `\n${indent}${nextNum}. `;
+          const newValue = textBefore + insertText + textAfter;
+          const nextCursor = selectionStart + insertText.length;
+
+          setForm((prev) => ({ ...prev, unbudgetRemark: newValue }));
+
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = nextCursor;
+          }, 0);
+        }
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +146,22 @@ export default function BodrCreateModal({
     const noAsset = form.namaAsset
       ? `AST-${new Date().getFullYear()}-${String(proposalsCount + 100).padStart(3, "0")}`
       : "-";
+
+    const combinedNotes =
+      form.budgetType === "unbudget"
+        ? form.unbudgetRemark + (form.remarks ? ` | Remarks: ${form.remarks}` : "")
+        : form.remarks;
+
+    // Dynamically resolve initial step from the department's active Approval Workflow
+    const deptWf = workflows.find(
+      (w) =>
+        (w.departemen_nama || "").toLowerCase().trim() ===
+        (form.department || "").toLowerCase().trim()
+    );
+    const sortedSteps = (deptWf?.list_approval || []).sort(
+      (a, b) => (a.order || 0) - (b.order || 0)
+    );
+    const initialStep = sortedSteps[0]?.role || "Approval Dept";
 
     try {
       let uploadedDocUrls: string[] = [];
@@ -68,10 +177,10 @@ export default function BodrCreateModal({
         category,
         department: form.department,
         amount,
-        step: "Approval Dept",
+        step: initialStep,
         status: "Pending Review",
         date: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
-        notes: form.budgetRemark,
+        notes: combinedNotes,
         proposer: form.user,
         benefit: form.benefit,
         capex_id: form.capexId || "-",
@@ -88,10 +197,10 @@ export default function BodrCreateModal({
         category: category as BodrCategory,
         department: form.department,
         amount,
-        step: "Approval Dept",
+        step: initialStep,
         status: "Pending Review",
         date: newBodr.date,
-        notes: form.budgetRemark,
+        notes: combinedNotes,
         proposer: form.user,
         benefit: form.benefit,
         capexId: form.capexId || "-",
@@ -123,315 +232,379 @@ export default function BodrCreateModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden text-slate-800">
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
+      <div className="bg-white border border-slate-200 w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden my-6 text-slate-800 flex flex-col max-h-[90vh]">
+        {/* Header Modal */}
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
           <div>
-            <h3 className="text-lg font-semibold text-slate-800 uppercase tracking-wider">BODR Resolution</h3>
+            <h3 className="text-base font-bold text-slate-800 uppercase tracking-wider">BODR Resolution</h3>
+            <p className="text-[11px] text-slate-500 font-normal">Formulir Pengajuan Usulan Anggaran Budget Over Design Review</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer p-1 rounded-full hover:bg-slate-200">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer p-1.5 rounded-full hover:bg-slate-200"
+          >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[80vh] bg-white">
-          <div className="p-6 space-y-5">
-            {/* User Info */}
-            <div className="space-y-3">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-1.5">Informasi Pengaju</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">User</label>
-                  <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-slate-800 font-medium text-xs">{form.user}</span>
-                  </div>
+        {/* Form Container (2-Column Grid Layout) */}
+        <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 p-6 space-y-6 bg-white">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* ── KOLOM KIRI: INFORMASI PENGAJU & DETAIL INVESTASI ────────────── */}
+            <div className="lg:col-span-6 space-y-4">
+              {/* Card 1: Informasi Pengaju */}
+              <div className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200">
+                  <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Informasi Pengaju</p>
                 </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Department</label>
-                  <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-slate-800 font-medium text-xs">{form.department}</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">User</label>
+                    <div className="px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs font-semibold">
+                      {form.user || "-"}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Department</label>
+                    <div className="px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs font-semibold">
+                      {form.department || "-"}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* General Info */}
-            <div className="space-y-3">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-1.5">Informasi Umum</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Cost Center *</label>
-                  <select
-                    required
-                    value={form.costCenter}
-                    onChange={(e) => setForm({ ...form, costCenter: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
-                  >
-                    <option value="">Pilih Cost Center...</option>
-                    {costCenters.map((cc) => (
-                      <option key={cc.id} value={cc.kode}>
-                        {cc.kode} - {cc.nama}
-                      </option>
-                    ))}
-                  </select>
+              {/* Card 2: Informasi Umum Investasi */}
+              <div className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200">
+                  <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Informasi Investasi</p>
                 </div>
 
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Kriteria BODR *</label>
-                  <div className="flex gap-2">
-                    {(["FOH", "CAP", "GOP"] as const).map((k) => (
-                      <label
-                        key={k}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border cursor-pointer transition-all flex-1 justify-center ${
-                          form.kriteria === k
-                            ? "bg-blue-600 border-blue-600 text-white font-semibold shadow-2xs"
-                            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 font-normal"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="kriteria"
-                          value={k}
-                          checked={form.kriteria === k}
-                          onChange={() => setForm({ ...form, kriteria: k })}
-                          className="hidden"
-                        />
-                        <span className="text-[10px]">{k === "CAP" ? "CAPEX" : k}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Judul Investasi *</label>
-                  <input
-                    type="text"
-                    required
-                    value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
-                    placeholder="Contoh: Pengadaan Mesin CNC Milling Baru"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Start Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={form.startDate}
-                    onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">End Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={form.endDate}
-                    onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Benefit / Manfaat *</label>
-                  <textarea
-                    required
-                    rows={2}
-                    value={form.benefit}
-                    onChange={(e) => setForm({ ...form, benefit: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal resize-none"
-                    placeholder="Jelaskan justifikasi dan manfaat investasi..."
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Financial Details */}
-            <div className="space-y-3">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-1.5">Detail Anggaran</p>
-              <div className="grid grid-cols-2 gap-4">
-                {form.kriteria === "CAP" && (
-                  <div className="col-span-2 space-y-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
-                    <div>
-                      <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">ID Capex (Data Master CAPEX Approved) *</label>
-                      <select
-                        required={form.kriteria === "CAP"}
-                        value={form.capexId}
-                        onChange={(e) => setForm({ ...form, capexId: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
-                      >
-                        <option value="">Pilih ID Capex Terkait</option>
-                        {approvedCapexProposals.map((cp) => (
-                          <option key={cp.id} value={cp.id}>
-                            {cp.id} - {cp.name} (Pagu: Rp {Number(cp.estimatedCost || 0).toLocaleString("id-ID")})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Amount Available (Otomatis ambil sisa dana) */}
-                    <div>
-                      <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Amount Available (Sisa Dana Capex)</label>
-                      <div className="px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs font-mono font-semibold">
-                        {(() => {
-                          const selected = approvedCapexProposals.find((c) => c.id === form.capexId);
-                          if (!selected) return "Pilih Capex untuk melihat sisa dana";
-                          const avail = Number(selected.estimatedCost || 0) - Number(selected.actualSpent || 0);
-                          return `Rp ${Math.max(0, avail).toLocaleString("id-ID")}`;
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Nilai Investasi (Amount IDR) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={form.amountRp}
-                    onChange={(e) => {
-                      const num = e.target.value.replace(/\D/g, "");
-                      setForm({ ...form, amountRp: num ? Number(num).toLocaleString("id-ID") : "" });
-                    }}
-                    className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-mono font-semibold"
-                    placeholder="Contoh: 50.000.000"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Category *</label>
-                  <select
-                    value={form.budgetType}
-                    onChange={(e) => setForm({ ...form, budgetType: e.target.value as "budget" | "unbudget" })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
-                  >
-                    <option value="budget">Budget</option>
-                    <option value="unbudget">Unbudget</option>
-                  </select>
-                </div>
-
-                {form.budgetType === "unbudget" && (
-                  <div className="col-span-2">
-                    <label className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider block mb-1">Pengisian Keterangan Alokasi Budget (Unbudget) *</label>
-                    <input
-                      type="text"
-                      required={form.budgetType === "unbudget"}
-                      value={form.budgetRemark}
-                      onChange={(e) => setForm({ ...form, budgetRemark: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-amber-50/60 border-amber-200 text-slate-800 focus:border-amber-600 text-xs font-normal"
-                      placeholder="Jelaskan alasan dan justifikasi alokasi unbudget..."
-                    />
-                  </div>
-                )}
-
-                <div className="col-span-2">
-                  <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Remarks (Catatan Tambahan)</label>
-                  <input
-                    type="text"
-                    value={form.budgetRemark}
-                    onChange={(e) => setForm({ ...form, budgetRemark: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-slate-50 border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
-                    placeholder="Catatan tambahan bila ada..."
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Document (Attachment Maks. 50 File)</label>
-                    <span className="text-[10px] text-slate-400 font-mono">{form.documents.length}/50 file</span>
-                  </div>
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      setForm((prev) => ({ ...prev, documents: [...prev.documents, ...files].slice(0, 50) }));
-                    }}
-                    className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Format didukung: PDF, Excel (.xls/.xlsx), PowerPoint (.ppt/.pptx)</p>
-                  {form.documents.length > 0 && (
-                    <div className="mt-2 space-y-1 max-h-36 overflow-y-auto">
-                      {form.documents.map((f, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-slate-50 p-2 rounded text-xs">
-                          <span className="truncate max-w-sm">{idx + 1}. {f.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => setForm((p) => ({ ...p, documents: p.documents.filter((_, i) => i !== idx) }))}
-                            className="text-red-500 hover:text-red-700 font-semibold cursor-pointer"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Asset Master Data for CAPEX */}
-            {form.kriteria === "CAP" && (
-              <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <p className="text-[10px] font-semibold text-slate-700 uppercase tracking-widest border-b border-slate-200 pb-1.5">Asset Master Data (Khusus Kriteria CAP)</p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-3">
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Nama Asset *</label>
-                    <input
-                      type="text"
-                      required={form.kriteria === "CAP"}
-                      value={form.namaAsset}
-                      onChange={(e) => setForm({ ...form, namaAsset: e.target.value })}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Cost Center *</label>
+                    <select
+                      required
+                      value={form.costCenter}
+                      onChange={(e) => setForm({ ...form, costCenter: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
-                      placeholder="Contoh: Mesin Press 200 Ton Line 3"
+                    >
+                      <option value="">Pilih Cost Center...</option>
+                      {costCenters.map((cc) => (
+                        <option key={cc.id} value={cc.kode || cc.kode_cost_center}>
+                          {cc.kode || cc.kode_cost_center} - {cc.nama || cc.nama_cost_center}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Kriteria BODR (Dropdown Select Standard Sesuai Permintaan) */}
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Kriteria BODR *</label>
+                    <select
+                      required
+                      value={form.kriteria}
+                      onChange={(e) => setForm({ ...form, kriteria: e.target.value as "FOH" | "CAP" | "GOP" })}
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-semibold"
+                    >
+                      <option value="FOH">FOH</option>
+                      <option value="CAP">CAPEX (CAP)</option>
+                      <option value="GOP">GOP</option>
+                    </select>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Judul Investasi *</label>
+                    <input
+                      type="text"
+                      required
+                      value={form.title}
+                      onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                      placeholder="Contoh: Pengadaan Mesin CNC Milling Baru"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Plan (Terkunci)</label>
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Start Date *</label>
                     <input
-                      type="text"
-                      value="2301"
-                      readOnly
-                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-slate-100 border-slate-200 text-slate-600 text-xs font-mono font-semibold cursor-not-allowed"
+                      type="date"
+                      required
+                      value={form.startDate}
+                      onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
                     />
                   </div>
 
-                  <div className="md:col-span-2">
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Location *</label>
-                    <select
-                      value={form.location}
-                      onChange={(e) => setForm({ ...form, location: e.target.value as "Office" | "Plant" })}
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">End Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={form.endDate}
+                      onChange={(e) => setForm({ ...form, endDate: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
-                    >
-                      <option value="Office">Office</option>
-                      <option value="Plant">Plant / Pabrik</option>
-                    </select>
+                    />
+                  </div>
+
+                  {/* Benefit / Manfaat (Penomoran Otomatis saat Enter & Poin Terstruktur) */}
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Benefit / Manfaat *</label>
+                    <textarea
+                      required
+                      rows={4}
+                      value={form.benefit}
+                      onChange={(e) => setForm({ ...form, benefit: e.target.value })}
+                      onKeyDown={handleBenefitKeyDown}
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal resize-none leading-relaxed"
+                      placeholder={`1. Meningkatkan kapasitas dan efisiensi produksi\n2. Mengurangi tingkat downtime operasional mesin\n3. Penghematan biaya perawatan tahunan`}
+                    />
+                    <p className="text-[9px] text-slate-400">
+                      Tekan <span className="font-semibold text-slate-600">Enter</span> untuk melanjutkan penomoran baris berikutnya secara otomatis.
+                    </p>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* ── KOLOM KANAN: DETAIL ANGGARAN, MASTER ASET & DOKUMEN ──────────── */}
+            <div className="lg:col-span-6 space-y-4">
+              {/* Card 3: Detail Anggaran */}
+              <div className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Detail Anggaran</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Kondisional Khusus CAPEX Box */}
+                  {form.kriteria === "CAP" && (
+                    <div className="col-span-2 space-y-3 p-3 bg-blue-50/70 rounded-xl border border-blue-200">
+                      <div>
+                        <label className="text-[10px] font-semibold text-blue-900 uppercase tracking-wider block mb-1">
+                          ID Capex (Data Master CAPEX Approved) *
+                        </label>
+                        <select
+                          required={form.kriteria === "CAP"}
+                          value={form.capexId}
+                          onChange={(e) => setForm({ ...form, capexId: e.target.value })}
+                          className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-blue-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                        >
+                          <option value="">Pilih ID Capex Terkait...</option>
+                          {approvedCapexProposals.map((cp) => (
+                            <option key={cp.id} value={cp.id}>
+                              {cp.id} - {cp.name} (Pagu: Rp {Number(cp.estimatedCost || 0).toLocaleString("id-ID")})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-semibold text-blue-900 uppercase tracking-wider block mb-1">
+                          Amount Available (Sisa Dana Capex)
+                        </label>
+                        <div className="px-3.5 py-2 rounded-lg bg-white border border-blue-200 text-emerald-700 text-xs font-mono font-bold">
+                          {(() => {
+                            const selected = approvedCapexProposals.find((c) => c.id === form.capexId);
+                            if (!selected) return "Pilih Capex untuk melihat sisa dana";
+                            const avail = Number(selected.estimatedCost || 0) - Number(selected.actualSpent || 0);
+                            return `Rp ${Math.max(0, avail).toLocaleString("id-ID")}`;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
+                      Nilai Investasi (Amount IDR) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={form.amountRp}
+                      onChange={(e) => {
+                        const num = e.target.value.replace(/\D/g, "");
+                        setForm({ ...form, amountRp: num ? Number(num).toLocaleString("id-ID") : "" });
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-mono font-bold"
+                      placeholder="Contoh: 50.000.000"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
+                      Category *
+                    </label>
+                    <select
+                      value={form.budgetType}
+                      onChange={(e) => setForm({ ...form, budgetType: e.target.value as "budget" | "unbudget" })}
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                    >
+                      <option value="budget">Budget</option>
+                      <option value="unbudget">Unbudget</option>
+                    </select>
+                  </div>
+
+                  {/* Pengisian Keterangan Alokasi Budget (Unbudget) dengan Format Penomoran / Enter Otomatis */}
+                  {form.budgetType === "unbudget" && (
+                    <div className="col-span-2 space-y-1.5 p-3.5 bg-amber-50/70 border border-amber-300 rounded-xl">
+                      <label className="text-[10px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                        Pengisian Keterangan Alokasi Budget (Unbudget) *
+                      </label>
+                      <textarea
+                        required={form.budgetType === "unbudget"}
+                        rows={3}
+                        value={form.unbudgetRemark}
+                        onChange={(e) => setForm({ ...form, unbudgetRemark: e.target.value })}
+                        onKeyDown={handleUnbudgetKeyDown}
+                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-amber-300 text-slate-800 focus:border-amber-600 text-xs font-normal resize-none leading-relaxed"
+                        placeholder={`1. Alasan kebutuhan investasi di luar pagu alokasi (Unbudget)\n2. Penjelasan sumber pergeseran / pos anggaran terkait (jika ada)\n3. Dampak operasional apabila usulan tidak direalisasikan`}
+                      />
+                      <p className="text-[9px] text-amber-800 font-medium">
+                        Wajib diisi dengan format penjelasan/poin terstruktur. Tekan <span className="font-bold">Enter</span> untuk penomoran otomatis.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="col-span-2">
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
+                      Remarks (Catatan Tambahan)
+                    </label>
+                    <input
+                      type="text"
+                      value={form.remarks}
+                      onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                      placeholder="Catatan tambahan bila ada..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 4: Asset Master Data (Khusus jika Kriteria CAP) */}
+              {form.kriteria === "CAP" && (
+                <div className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-3">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                      Asset Master Data (Khusus Kriteria CAP)
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="md:col-span-3">
+                      <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
+                        Nama Asset *
+                      </label>
+                      <input
+                        type="text"
+                        required={form.kriteria === "CAP"}
+                        value={form.namaAsset}
+                        onChange={(e) => setForm({ ...form, namaAsset: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                        placeholder="Contoh: Mesin Press 200 Ton Line 3"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
+                        Plan (Terkunci)
+                      </label>
+                      <input
+                        type="text"
+                        value="2301"
+                        readOnly
+                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-slate-100 border-slate-200 text-slate-600 text-xs font-mono font-semibold cursor-not-allowed"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
+                        Location *
+                      </label>
+                      <select
+                        value={form.location}
+                        onChange={(e) => setForm({ ...form, location: e.target.value as "Office" | "Plant" })}
+                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                      >
+                        <option value="Office">Office</option>
+                        <option value="Plant">Plant / Pabrik</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Card 5: Dokumen Lampiran */}
+              <div className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-2.5">
+                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                      Dokumen Lampiran
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono font-semibold">
+                    {form.documents.length}/50 file
+                  </span>
+                </div>
+
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    setForm((prev) => ({ ...prev, documents: [...prev.documents, ...files].slice(0, 50) }));
+                  }}
+                  className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                />
+                <p className="text-[9px] text-slate-400">
+                  Format didukung: PDF, Excel (.xls/.xlsx), PowerPoint (.ppt/.pptx), Gambar
+                </p>
+
+                {form.documents.length > 0 && (
+                  <div className="mt-1.5 space-y-1 max-h-28 overflow-y-auto">
+                    {form.documents.map((f, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs">
+                        <span className="truncate max-w-xs text-[11px] font-medium text-slate-700">
+                          {idx + 1}. {f.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setForm((p) => ({ ...p, documents: p.documents.filter((_, i) => i !== idx) }))}
+                          className="text-red-500 hover:text-red-700 font-bold text-xs cursor-pointer ml-2"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+          {/* Footer Action Buttons */}
+          <div className="pt-4 border-t border-slate-200 flex justify-end gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-xl text-[10px] uppercase cursor-pointer"
+              className="px-5 py-2.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-colors shadow-2xs"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-[10px] uppercase shadow-2xs disabled:opacity-50 cursor-pointer active:scale-95 transition-all"
+              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider shadow-2xs disabled:opacity-50 cursor-pointer active:scale-95 transition-all"
             >
               {submitting ? "Menyimpan..." : "Simpan Pengajuan"}
             </button>

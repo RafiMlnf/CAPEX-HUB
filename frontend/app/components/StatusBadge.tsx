@@ -7,7 +7,7 @@ interface StatusBadgeProps {
   noBackground?: boolean;
 }
 
-export default function StatusBadge({ status, size = "md", showDot = true, noBackground = false }: StatusBadgeProps) {
+export default function StatusBadge({ status, size = "sm", showDot = false, noBackground = true }: StatusBadgeProps) {
   const badgeMap: Record<string, string> = {
     approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
     "approved / archived": "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -126,7 +126,8 @@ export default function StatusBadge({ status, size = "md", showDot = true, noBac
     };
     const textColor = textColorMap[statusKey] || "text-slate-700";
     return (
-      <span className={`inline-flex items-center text-xs font-semibold ${textColor}`}>
+      <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${textColor}`}>
+        {showDot && <span className={`w-1.5 h-1.5 rounded-full ${dotClass} shrink-0`} />}
         <span>{label}</span>
       </span>
     );

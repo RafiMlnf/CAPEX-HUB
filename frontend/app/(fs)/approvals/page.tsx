@@ -30,11 +30,14 @@ export default function ApprovalsPage() {
     setAlertConfig({ show: true, title, message });
   };
 
+  const isAdmin =
+    (currentUser?.role || "").toLowerCase() === "admin" ||
+    (currentUser?.username || "").toLowerCase() === "admin";
+
   const canViewPage =
     hasPermission("perm_committee_review") ||
-    hasPermission("perm_review_capex") ||
-    hasPermission("perm_view_dashboard") ||
-    hasPermission("ALL_ACCESS");
+    hasPermission("ALL_ACCESS") ||
+    isAdmin;
 
   if (!canViewPage) {
     return (
@@ -144,7 +147,7 @@ export default function ApprovalsPage() {
 
       <div className="flex-1 flex flex-col min-h-screen ml-64 bg-slate-100 min-w-0 overflow-x-hidden">
         <Header
-          title="Persetujuan Investasi (Gate 2)"
+          title="Persetujuan Investasi Komite"
           subtitle="Dashboard peninjauan dan persetujuan pengajuan Capex oleh Komite Investasi (Division Head ke atas)"
         />
 

@@ -1,38 +1,40 @@
 "use client";
 
-interface ProgressHeaderProps {
+interface BodrProgressHeaderProps {
   search: string;
   onSearchChange: (val: string) => void;
   statusFilter: string;
   onStatusFilterChange: (val: string) => void;
   onExportExcel: () => void;
+  totalCount: number;
 }
 
-export default function ProgressHeader({
+export default function BodrProgressHeader({
   search,
   onSearchChange,
   statusFilter,
   onStatusFilterChange,
   onExportExcel,
-}: ProgressHeaderProps) {
+  totalCount,
+}: BodrProgressHeaderProps) {
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3.5">
       {/* Title & Info */}
       <div className="flex items-center gap-3 shrink-0">
-        <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-xs shrink-0">
           <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
           </svg>
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold text-slate-900 tracking-tight">CAPEX Progress Monitoring</h1>
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
-              CAPEX Workflows
+            <h1 className="text-sm font-bold text-slate-900 tracking-tight">BODR Progress Monitoring</h1>
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 whitespace-nowrap">
+              BODR Workflows
             </span>
           </div>
           <p className="text-[10px] text-slate-500 font-normal">
-            Monitoring tahapan usulan anggaran belanja modal secara realtime.
+            Monitoring tahapan approval pengajuan BODR secara realtime berdasarkan workflow per departemen.
           </p>
         </div>
       </div>
@@ -43,10 +45,10 @@ export default function ProgressHeader({
         <div className="relative w-48 sm:w-56">
           <input
             type="text"
-            placeholder="Cari ID Capex, Proyek, PIC, Dept..."
+            placeholder="Cari No BODR, Judul, Pengusul..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-normal text-slate-700 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all shadow-2xs"
+            className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-normal text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-2xs"
           />
           <svg
             className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"
@@ -59,21 +61,18 @@ export default function ProgressHeader({
           </svg>
         </div>
 
-        {/* All Statuses Filter */}
+        {/* Status Filter */}
         <div className="relative">
           <select
             value={statusFilter}
             onChange={(e) => onStatusFilterChange(e.target.value)}
-            className="pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs appearance-none"
+            className="pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs appearance-none"
           >
             <option value="All">Semua Status</option>
-            <option value="Closed">Closed</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Open">Open</option>
-            <option value="Waiting">Waiting</option>
-            <option value="Semi Close">Semi Close</option>
-            <option value="Overdue, Open">Overdue, Open</option>
-            <option value="Overdue, Closed">Overdue, Closed</option>
+            <option value="Pending Review">Pending Review</option>
+            <option value="Approved">Approved</option>
+            <option value="Revision Required">Revision Required</option>
+            <option value="Rejected">Rejected</option>
           </select>
           <span className="pointer-events-none absolute right-2.5 inset-y-0 flex items-center text-slate-400">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -81,6 +80,9 @@ export default function ProgressHeader({
             </svg>
           </span>
         </div>
+
+        {/* Total Count */}
+        <span className="text-xs text-slate-500 font-medium whitespace-nowrap">{totalCount} BODR</span>
 
         {/* Export Excel Button */}
         <button

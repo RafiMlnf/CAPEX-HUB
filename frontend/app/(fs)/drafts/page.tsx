@@ -34,15 +34,16 @@ function DraftsPageContent() {
     setTimeout(() => setToast((t) => ({ ...t, show: false })), 4000);
   };
 
+  const isAdmin =
+    (currentUser?.role || "").toLowerCase() === "admin" ||
+    (currentUser?.username || "").toLowerCase() === "admin";
+
   const isAllAccess =
     hasPermission("perm_review_capex") ||
     hasPermission("perm_committee_review") ||
     hasPermission("perm_view_reports") ||
-    (currentUser?.role || "").toLowerCase() === "admin" ||
-    (currentUser?.role || "").toLowerCase().includes("accounting") ||
-    (currentUser?.role || "").toLowerCase().includes("finance") ||
-    (currentUser?.role || "").toLowerCase().includes("director") ||
-    (currentUser?.role || "").toLowerCase().includes("division head");
+    hasPermission("ALL_ACCESS") ||
+    isAdmin;
 
   // Filter proposals according to user login & role permissions
   const userProposals = useMemo(() => {
@@ -580,8 +581,14 @@ function DraftsPageContent() {
                     const uploaderName = currentUser?.name || currentUser?.username || uploadProposal.pic || "Pemohon";
                     const fileListStr = supportingFiles.join(", ");
 
+                    const existingAll = (uploadProposal.attachmentName || "")
+                      .split(", ")
+                      .map(s => s.trim())
+                      .filter(Boolean);
+                    const combinedAll = Array.from(new Set([...existingAll, ...supportingFiles])).join(", ");
+
                     await editProposal(uploadProposal.id, {
-                      attachmentName: fileListStr,
+                      attachmentName: combinedAll,
                       revisedAttachmentName: fileListStr,
                       gateStatus: "Gate 1 - Finance Review", // send back to finance review
                       history: [
