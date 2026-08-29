@@ -66,6 +66,7 @@ export interface ProgressRowData {
   g1Status: string;
   g2Days: string;
   g2Status: string;
+  isClosedAll?: boolean;
 }
 
 interface ProgressMatrixTableProps {

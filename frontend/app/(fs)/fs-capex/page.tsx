@@ -20,7 +20,7 @@ export default function CapexProgressPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [activeTab, setActiveTab] = useState<"all" | "gate0" | "gate1" | "gate2">("all");
+  const [activeTab, setActiveTab] = useState<string>("all");
   const [exportToast, setExportToast] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -225,6 +225,12 @@ function calculatePlanningLeadTime(proposal: any): string {
         g2Days = calculateDays(g2Start, g2End);
       }
 
+      // Evaluasi otomatis: bila seluruh tahapan Closed atau status approved/closed -> masuk Arsip
+      const isClosedAll =
+        [g0Status, g1Status, g2Status].every((s) => (s || "").toLowerCase().includes("closed")) ||
+        gsLower.includes("approved") ||
+        gsLower.includes("closed");
+
       return {
         id: p.id,
         capexId: p.capexId && p.capexId !== "-" ? p.capexId : "-",
@@ -244,13 +250,20 @@ function calculatePlanningLeadTime(proposal: any): string {
         g1Status,
         g2Days,
         g2Status,
+        isClosedAll,
       };
     });
   }, [combinedProposals]);
 
-  // Tab Filtering
+  // Tab Filtering — Otomatis pisahkan antrean aktif vs arsip
   const tabFiltered = useMemo(() => {
     return enrichedRows.filter((r) => {
+      if (activeTab === "archive") {
+        return r.isClosedAll;
+      }
+      // Untuk tab aktif, hanya tampilkan dokumen yang belum selesai semua
+      if (r.isClosedAll) return false;
+
       if (activeTab === "gate0") return r.g0Status === "Open" || r.g0Status === "In Progress";
       if (activeTab === "gate1") return r.g1Status === "In Progress" || r.g1Status === "Semi Close";
       if (activeTab === "gate2") return r.g2Status === "In Progress" || r.g2Status === "Closed";
@@ -278,13 +291,19 @@ function calculatePlanningLeadTime(proposal: any): string {
     });
   }, [tabFiltered, search, statusFilter]);
 
-  // Tab badge counters
-  const tabCounts = useMemo(() => ({
-    all: enrichedRows.length,
-    gate0: enrichedRows.filter(r => r.g0Status === "Open" || r.g0Status === "In Progress").length,
-    gate1: enrichedRows.filter(r => r.g1Status === "In Progress" || r.g1Status === "Semi Close").length,
-    gate2: enrichedRows.filter(r => r.g2Status === "In Progress" || r.g2Status === "Closed").length,
-  }), [enrichedRows]);
+  // Tab badge counters dinamis
+  const tabCounts = useMemo(() => {
+    const activeRows = enrichedRows.filter((r) => !r.isClosedAll);
+    const archiveRows = enrichedRows.filter((r) => r.isClosedAll);
+
+    return {
+      all: activeRows.length,
+      gate0: activeRows.filter((r) => r.g0Status === "Open" || r.g0Status === "In Progress").length,
+      gate1: activeRows.filter((r) => r.g1Status === "In Progress" || r.g1Status === "Semi Close").length,
+      gate2: activeRows.filter((r) => r.g2Status === "In Progress" || r.g2Status === "Closed").length,
+      archive: archiveRows.length,
+    };
+  }, [enrichedRows]);
 
   const handleExportExcel = () => {
     setExportToast(true);

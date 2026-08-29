@@ -6,10 +6,10 @@ import { useSearchParams } from "next/navigation";
 
 import { useCapex } from "../../context/CapexContext";
 
-type AdminSection = "dashboard" | "masterdata" | "settings" | "history";
-type MasterBodrSub = "users" | "departemen" | "roles" | "permissions" | "type_approval" | "cost_centers";
-type MasterPriceSub = "vendor" | "part_number" | "jenis_otorisasi" | "jenis_barang";
-type SettingsSub = "role_permission" | "approval_workflow" | "approval_price" | "dept_settings" | "portal_access";
+type AdminSection = string;
+type MasterBodrSub = string;
+type MasterPriceSub = string;
+type SettingsSub = string;
 
 const masterBodrItems: { key: MasterBodrSub; label: string; perm?: string }[] = [
   { key: "users", label: "Users", perm: "perm_manage_users" },
@@ -18,6 +18,9 @@ const masterBodrItems: { key: MasterBodrSub; label: string; perm?: string }[] = 
   { key: "permissions", label: "Permissions", perm: "perm_manage_config" },
   { key: "type_approval", label: "Approval Types", perm: "perm_manage_config" },
   { key: "cost_centers", label: "Cost Centers", perm: "perm_manage_config" },
+  { key: "capex_types", label: "Capex Types", perm: "perm_manage_config" },
+  { key: "capex_references", label: "Capex References", perm: "perm_manage_config" },
+  { key: "asset_types", label: "Asset Types", perm: "perm_manage_config" },
 ];
 
 const masterPriceItems: { key: MasterPriceSub; label: string; perm?: string }[] = [

@@ -12,6 +12,9 @@ import RolesPanel from "./components/RolesPanel";
 import PermissionsPanel from "./components/PermissionsPanel";
 import TypeApprovalPanel from "./components/TypeApprovalPanel";
 import CostCenterPanel from "./components/CostCenterPanel";
+import CapexTypePanel from "./components/CapexTypePanel";
+import CapexReferencePanel from "./components/CapexReferencePanel";
+import AssetTypePanel from "./components/AssetTypePanel";
 import { VendorPanel, PartNumberPanel, JenisOtorisasiPanel, JenisBarangPanel } from "./components/PriceMasterPanels";
 import RolePermissionPanel from "./components/RolePermissionPanel";
 import ApprovalWorkflowPanel from "./components/ApprovalWorkflowPanel";
@@ -101,6 +104,9 @@ function AdminPageInner() {
           {activeSub === "permissions" && (allowAllMaster ? <PermissionsPanel /> : <DashboardPanel />)}
           {activeSub === "type_approval" && (allowAllMaster ? <TypeApprovalPanel /> : <DashboardPanel />)}
           {activeSub === "cost_centers" && <CostCenterPanel />}
+          {activeSub === "capex_types" && <CapexTypePanel />}
+          {activeSub === "capex_references" && <CapexReferencePanel />}
+          {activeSub === "asset_types" && <AssetTypePanel />}
 
           {/* Master Data Otorisasi Harga */}
           {activeSub === "vendor" && <VendorPanel />}

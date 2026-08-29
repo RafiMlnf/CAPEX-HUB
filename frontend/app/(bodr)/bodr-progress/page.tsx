@@ -148,6 +148,12 @@ export default function BodrProgressPage() {
         || (proposal.approval_history || []).find((h) => h.step_order === proposal.current_step);
       const activeStepName = currentStepObj?.role || (proposalStatus.includes("approved") ? "Approved" : "Pending Review");
 
+      // Dynamic resolution: if proposal status is Approved or all step statuses are Approved -> isClosedAll
+      const isClosedAll =
+        proposalStatus.includes("approved") ||
+        (Object.values(stepStatuses).length > 0 &&
+          Object.values(stepStatuses).every((s) => (s.status || "").toLowerCase().includes("approved")));
+
       return {
         id: proposal.id,
         bodr_no: proposal.bodr_no,
@@ -160,6 +166,7 @@ export default function BodrProgressPage() {
         status: proposal.status,
         created_at: proposal.created_at,
         stepStatuses,
+        isClosedAll,
         rawProposal: proposal,
       };
     });
@@ -167,8 +174,15 @@ export default function BodrProgressPage() {
 
   // ── Dynamic Tab Filtering ──────────────────────────────────────────────────
   const tabFiltered = useMemo(() => {
-    if (activeTab === "all") return enrichedRows;
     return enrichedRows.filter((r) => {
+      if (activeTab === "archive") {
+        return r.isClosedAll;
+      }
+      // For active tabs, only show active proposals (not yet full approved)
+      if (r.isClosedAll) return false;
+
+      if (activeTab === "all") return true;
+
       const st = r.stepStatuses?.[activeTab]?.status || "";
       return st === "In Progress" || st === "Revision";
     });
@@ -194,11 +208,15 @@ export default function BodrProgressPage() {
 
   // ── Dynamic Tab Badge Counters ─────────────────────────────────────────────
   const tabCounts = useMemo(() => {
+    const activeRows = enrichedRows.filter((r) => !r.isClosedAll);
+    const archiveRows = enrichedRows.filter((r) => r.isClosedAll);
+
     const counts: Record<string, number> = {
-      all: enrichedRows.length,
+      all: activeRows.length,
+      archive: archiveRows.length,
     };
     workflowStepNames.forEach((s) => {
-      counts[s] = enrichedRows.filter((r) => {
+      counts[s] = activeRows.filter((r) => {
         const st = r.stepStatuses?.[s]?.status || "";
         return st === "In Progress" || st === "Revision";
       }).length;

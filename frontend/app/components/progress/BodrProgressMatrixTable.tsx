@@ -71,6 +71,7 @@ export interface BodrProgressRowData {
   f2Status?: string;
   f3Days?: string;
   f3Status?: string;
+  isClosedAll?: boolean;
   rawProposal: BodrProgressProposalItem;
 }
 

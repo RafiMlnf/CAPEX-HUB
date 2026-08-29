@@ -6,8 +6,8 @@ import Sidebar from "../../components/sidebars/SidebarBODR";
 import Header from "../../components/Header";
 import { ApiCostCenter, api } from "../../lib/api";
 
-const inputCls = "w-full bg-slate-800 border border-slate-700/70 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-blue-500 text-xs font-normal";
-const selectCls = "w-full bg-slate-800 border border-slate-700/70 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-blue-500 text-xs font-medium";
+const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none focus:border-blue-500 text-xs font-normal placeholder-slate-400 transition-all";
+const selectCls = "w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none focus:border-blue-500 text-xs font-medium cursor-pointer transition-all";
 const statusBadge = (s: string) => s === "active"
   ? "bg-emerald-50 text-emerald-700 border border-emerald-300 text-[10px] font-semibold uppercase px-2.5 py-0.5 rounded-full"
   : "bg-red-50 text-red-700 border border-red-300 text-[10px] font-semibold uppercase px-2.5 py-0.5 rounded-full";
@@ -59,40 +59,52 @@ export default function CostCenterPage() {
   const filtered = items.filter(i => i.kode.toLowerCase().includes(search.toLowerCase()) || i.nama.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-slate-900">
+    <div className="flex min-h-screen bg-slate-100 font-sans text-slate-800">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-h-screen ml-64">
-        <Header title="Master Data Cost Center" subtitle="Kelola daftar Cost Center yang digunakan dalam pengajuan BODR" />
+      <div className="flex-1 flex flex-col min-h-screen ml-64 bg-slate-100">
+        <Header title="Master Cost Center" subtitle="Kelola daftar cost center untuk pengajuan BODR" />
+
         <main className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
-          {/* Header Actions */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari kode atau nama..." className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 text-xs font-normal focus:outline-none focus:border-blue-600 w-72 shadow-2xs"/>
-              <span className="text-xs text-slate-500 font-medium">{filtered.length} data</span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cari kode atau nama cost center..."
+                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs focus:outline-none focus:border-blue-500 w-72 shadow-2xs font-normal"
+              />
+              <span className="text-xs text-slate-500 font-semibold">{filtered.length} data</span>
             </div>
-            <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 text-xs shadow-2xs cursor-pointer active:scale-95 transition-all">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-2xs cursor-pointer transition-all active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
               Tambah Cost Center
             </button>
           </div>
 
-          {/* Table */}
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
             <table className="w-full text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[10px]">
                 <tr>
-                  {["No","Kode","Nama Cost Center","Deskripsi","Status","Aksi"].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
-                  ))}
+                  <th className="px-4 py-3 text-left">No</th>
+                  <th className="px-4 py-3 text-left">Kode</th>
+                  <th className="px-4 py-3 text-left">Nama</th>
+                  <th className="px-4 py-3 text-left">Deskripsi</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtered.map((item, idx) => (
                   <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 text-slate-400 text-xs font-medium font-mono">{idx + 1}</td>
-                    <td className="px-4 py-3 font-mono font-semibold text-blue-600">{item.kode}</td>
+                    <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-blue-600">{item.kode}</td>
                     <td className="px-4 py-3 font-semibold text-slate-800">{item.nama}</td>
-                    <td className="px-4 py-3 text-slate-500 text-xs max-w-xs truncate font-normal">{item.deskripsi || "—"}</td>
+                    <td className="px-4 py-3 text-slate-500 max-w-xs truncate font-normal">{item.deskripsi || "—"}</td>
                     <td className="px-4 py-3"><span className={statusBadge(item.status)}>{item.status}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex gap-3">
@@ -114,23 +126,23 @@ export default function CostCenterPage() {
       {/* Modal */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-slate-900 border border-slate-700/70 rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-              <h3 className="font-semibold text-slate-100 uppercase tracking-wide text-sm">{editing ? "Edit Cost Center" : "Tambah Cost Center"}</h3>
-              <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-red-400 cursor-pointer">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-slate-800">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
+              <h3 className="font-bold text-slate-800 uppercase tracking-wide text-sm">{editing ? "Edit Cost Center" : "Tambah Cost Center"}</h3>
+              <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-200 p-1.5 rounded-full cursor-pointer transition-colors">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
             <form onSubmit={handleSave} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1"><label className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Kode *</label><input className={inputCls} value={fKode} onChange={e=>setFKode(e.target.value)} required placeholder="CC-001"/></div>
-                <div className="space-y-1"><label className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Nama *</label><input className={inputCls} value={fNama} onChange={e=>setFNama(e.target.value)} required placeholder="CC-PROD"/></div>
+                <div className="space-y-1"><label className="text-slate-600 font-semibold uppercase tracking-wider text-[10px]">Kode *</label><input className={inputCls} value={fKode} onChange={e=>setFKode(e.target.value)} required placeholder="CC-001"/></div>
+                <div className="space-y-1"><label className="text-slate-600 font-semibold uppercase tracking-wider text-[10px]">Nama *</label><input className={inputCls} value={fNama} onChange={e=>setFNama(e.target.value)} required placeholder="CC-PROD"/></div>
               </div>
-              <div className="space-y-1"><label className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Deskripsi</label><textarea className={inputCls} value={fDeskripsi} onChange={e=>setFDeskripsi(e.target.value)} rows={2} placeholder="Keterangan cost center"/></div>
-              <div className="space-y-1"><label className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Status</label><select className={selectCls} value={fStatus} onChange={e=>setFStatus(e.target.value as any)}><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+              <div className="space-y-1"><label className="text-slate-600 font-semibold uppercase tracking-wider text-[10px]">Deskripsi</label><textarea className={inputCls} value={fDeskripsi} onChange={e=>setFDeskripsi(e.target.value)} rows={2} placeholder="Keterangan cost center"/></div>
+              <div className="space-y-1"><label className="text-slate-600 font-semibold uppercase tracking-wider text-[10px]">Status</label><select className={selectCls} value={fStatus} onChange={e=>setFStatus(e.target.value as any)}><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={()=>setIsOpen(false)} className="px-4 py-2 bg-slate-800 text-slate-300 font-semibold rounded-xl hover:bg-slate-700 text-xs cursor-pointer">Batal</button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 text-xs cursor-pointer active:scale-95 transition-all">Simpan</button>
+                <button type="button" onClick={() => setIsOpen(false)} className="px-4 py-2 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 text-xs cursor-pointer transition-all">Batal</button>
+                <button type="submit" className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 text-xs cursor-pointer active:scale-95 transition-all shadow-xs">Simpan</button>
               </div>
             </form>
           </div>
