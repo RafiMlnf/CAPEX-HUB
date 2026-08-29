@@ -143,6 +143,11 @@ export default function BodrProgressPage() {
         }
       });
 
+      // Dynamically resolve active step's role from workflow_steps or approval_history
+      const currentStepObj = (proposal.workflow_steps || []).find((s) => s.step_order === proposal.current_step)
+        || (proposal.approval_history || []).find((h) => h.step_order === proposal.current_step);
+      const activeStepName = currentStepObj?.role || (proposalStatus.includes("approved") ? "Approved" : "Pending Review");
+
       return {
         id: proposal.id,
         bodr_no: proposal.bodr_no,
@@ -151,7 +156,7 @@ export default function BodrProgressPage() {
         department: proposal.department,
         proposer: proposal.proposer,
         amount: proposal.amount,
-        step: `Step ${proposal.current_step}`,
+        step: activeStepName,
         status: proposal.status,
         created_at: proposal.created_at,
         stepStatuses,

@@ -6,6 +6,14 @@ export class BodrService {
   constructor(private readonly prisma: PrismaService) {}
 
   private formatBodr(b: any) {
+    // Find current active approval step's role dynamically from approvals
+    const currentApproval = (b.approvals ?? []).find(
+      (a: any) => a.step_order === b.current_step
+    );
+    const activeRole = currentApproval?.approver?.role?.nama_role
+      || currentApproval?.approver?.role?.kode_role
+      || (b.status === 'approved' ? 'Approved' : b.status === 'draft' ? 'Draft' : 'Pending Review');
+
     return {
       id: b.id.toString(),
       bodr_no: b.bodr_no,
@@ -22,7 +30,7 @@ export class BodrService {
       start_date: b.start_date,
       end_date: b.end_date,
       status: b.status,
-      step: `Step ${b.current_step}`,
+      step: activeRole,
       date: b.created_at,
       created_at: b.created_at,
       // Asset (only for CAP)
@@ -33,8 +41,10 @@ export class BodrService {
       no_asset: b.asset?.nama_asset ?? '',
       // Approval history
       approval_history: (b.approvals ?? []).map((a: any) => ({
+        step_order: a.step_order,
+        approver_user_id: a.approver_user_id,
         initials: (a.approver?.nama_user ?? '').substring(0, 2).toUpperCase(),
-        role: a.approver?.role?.nama_role ?? '',
+        role: a.approver?.role?.nama_role || a.approver?.role?.kode_role || '',
         name: a.approver?.nama_user ?? '',
         status: a.status,
         timestamp: a.action_date ?? a.created_at,
@@ -94,7 +104,12 @@ export class BodrService {
 
     const deptId = parseInt(data.departemen_id);
 
-    // Look up active ApprovalWorkflow for this department to seed initial approvals
+    // 1. Fetch DepartmentSettings (head_dept & accounting user) — dikonfigurasi admin
+    const deptSettings = await this.prisma.departmentSettings.findUnique({
+      where: { departemen_id: deptId },
+    });
+
+    // 2. Fetch ApprovalWorkflow aktif beserta step-nya — dikonfigurasi admin
     const activeWorkflow = await this.prisma.approvalWorkflow.findFirst({
       where: {
         departemen_id: deptId,
@@ -105,11 +120,33 @@ export class BodrService {
       },
     });
 
-    const initialApprovals = (activeWorkflow?.steps || []).map((s) => ({
-      step_order: s.step_order,
-      approver_user_id: s.approver_user_id,
-      status: 'pending',
-    }));
+    // 3. Bangun combined approvals: [Head Dept] → [Accounting] → [Workflow steps]
+    //    100% dinamis dari konfigurasi admin — zero hardcode
+    const combinedApprovals: Array<{ step_order: number; approver_user_id: number; status: string }> = [];
+
+    if (deptSettings?.head_dept_user_id) {
+      combinedApprovals.push({
+        step_order: combinedApprovals.length + 1,
+        approver_user_id: deptSettings.head_dept_user_id,
+        status: 'pending',
+      });
+    }
+
+    if (deptSettings?.accounting_user_id) {
+      combinedApprovals.push({
+        step_order: combinedApprovals.length + 1,
+        approver_user_id: deptSettings.accounting_user_id,
+        status: 'pending',
+      });
+    }
+
+    (activeWorkflow?.steps ?? []).forEach((s) => {
+      combinedApprovals.push({
+        step_order: combinedApprovals.length + 1,
+        approver_user_id: s.approver_user_id,
+        status: 'pending',
+      });
+    });
 
     // Generate BODR number (DB trigger handles it, but we set empty for safety)
     const bodr = await this.prisma.bodr.create({
@@ -128,12 +165,12 @@ export class BodrService {
         category: data.budget_type ?? data.category_budget ?? 'budget',
         budget_remarks: data.budget_remarks ?? null,
         status: data.status ?? 'in_approval',
-        current_step: initialApprovals.length > 0 ? 1 : 0,
-        // Seed initial approvals from department's active workflow
-        ...(initialApprovals.length > 0
+        current_step: combinedApprovals.length > 0 ? 1 : 0,
+        // Seed combined approvals: Head Dept → Accounting → Workflow steps (dari konfigurasi admin)
+        ...(combinedApprovals.length > 0
           ? {
               approvals: {
-                create: initialApprovals,
+                create: combinedApprovals,
               },
             }
           : {}),
@@ -192,6 +229,11 @@ export class BodrService {
 
       if (data.approval_action === 'rejected') {
         await this.prisma.bodr.update({ where: { id: parseInt(id) }, data: { status: 'rejected' } });
+      } else if (data.approval_action === 'revision') {
+        await this.prisma.bodr.update({
+          where: { id: parseInt(id) },
+          data: { status: 'revision_required', current_step: 1 },
+        });
       } else if (data.approval_action === 'approved') {
         const allApprovals = await this.prisma.bodrApproval.findMany({ where: { bodr_id: parseInt(id) } });
         const allApproved = allApprovals.every((a) => a.status === 'approved');
@@ -205,7 +247,7 @@ export class BodrService {
         } else {
           await this.prisma.bodr.update({
             where: { id: parseInt(id) },
-            data: { status: 'in_approval', current_step: data.step_order },
+            data: { status: 'in_approval', current_step: data.step_order + 1 },
           });
         }
       }
@@ -305,7 +347,48 @@ export class BodrService {
     // 3. Build lookup map: departemen_id → workflow
     const workflowByDept = new Map(workflows.map((w) => [w.departemen_id, w]));
 
-    // 4. Format each BODR proposal with its approval history + matching workflow steps
+    // 4. Fetch all DepartmentSettings (head_dept & accounting per dept) — dikonfigurasi admin
+    const allDeptSettings = await this.prisma.departmentSettings.findMany({
+      include: {
+        headDept: { include: { role: true } },
+        accounting: { include: { role: true } },
+        departemen: true,
+      },
+    });
+    const deptSettingsMap = new Map(allDeptSettings.map((ds) => [ds.departemen_id, ds]));
+
+    // 5. Helper: bangun combined workflow steps per dept (100% dinamis, zero hardcode)
+    //    Urutan: [Head Dept] → [Accounting] → [Workflow Steps]
+    const buildCombinedSteps = (deptId: number) => {
+      const result: { step_order: number; role: string; user_name: string }[] = [];
+      const ds = deptSettingsMap.get(deptId);
+      const wf = workflowByDept.get(deptId);
+
+      if (ds?.headDept) {
+        result.push({
+          step_order: result.length + 1,
+          role: ds.headDept.role?.nama_role || ds.headDept.role?.kode_role || 'Head Dept',
+          user_name: ds.headDept.nama_user ?? '',
+        });
+      }
+      if (ds?.accounting) {
+        result.push({
+          step_order: result.length + 1,
+          role: ds.accounting.role?.nama_role || ds.accounting.role?.kode_role || 'Accounting',
+          user_name: ds.accounting.nama_user ?? '',
+        });
+      }
+      (wf?.steps ?? []).forEach((s) => {
+        result.push({
+          step_order: result.length + 1,
+          role: s.approver?.role?.nama_role || s.approver?.role?.kode_role || s.keterangan || 'Approver',
+          user_name: s.approver?.nama_user ?? '',
+        });
+      });
+      return result;
+    };
+
+    // 6. Format each BODR proposal with its approval history + combined workflow steps
     const proposals = bodrs.map((b) => {
       const wf = workflowByDept.get(b.departemen_id) ?? null;
       return {
@@ -331,28 +414,30 @@ export class BodrService {
           timestamp: (a.action_date ?? a.created_at).toISOString(),
           note: a.comment ?? '',
         })),
-        // Workflow definition for this dept (null if dept has no active workflow)
+        // Workflow definition for this dept
         workflow_id: wf ? wf.id.toString() : null,
-        workflow_steps: wf
-          ? wf.steps.map((s) => ({
-              step_order: s.step_order,
-              role: s.approver?.role?.nama_role ?? '',
-              user_name: s.approver?.nama_user ?? '',
-            }))
-          : [],
+        // Combined steps: Head Dept → Accounting → Workflow steps (dari konfigurasi admin)
+        workflow_steps: buildCombinedSteps(b.departemen_id),
       };
     });
 
-    // 5. Also return global workflow list for phase label derivation on frontend
-    const workflowSummaries = workflows.map((w) => ({
-      departemen_id: w.departemen_id.toString(),
-      departemen_nama: w.departemen?.nama_departemen ?? '',
-      steps: w.steps.map((s) => ({
-        step_order: s.step_order,
-        role: s.approver?.role?.nama_role ?? '',
-        user_name: s.approver?.nama_user ?? '',
-      })),
-    }));
+    // 7. workflowSummaries: per dept, steps = combined (DeptSettings + Workflow)
+    //    Mencakup semua dept yang punya DeptSettings ATAU ApprovalWorkflow
+    const allDeptIds = new Set([
+      ...allDeptSettings.map((ds) => ds.departemen_id),
+      ...workflows.map((w) => w.departemen_id),
+    ]);
+
+    const workflowSummaries = [...allDeptIds].map((deptId) => {
+      const ds = deptSettingsMap.get(deptId);
+      const wf = workflowByDept.get(deptId);
+      return {
+        departemen_id: deptId.toString(),
+        departemen_nama:
+          ds?.departemen?.nama_departemen ?? wf?.departemen?.nama_departemen ?? '',
+        steps: buildCombinedSteps(deptId),
+      };
+    });
 
     return { proposals, workflows: workflowSummaries };
   }

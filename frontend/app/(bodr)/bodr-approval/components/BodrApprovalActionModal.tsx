@@ -41,41 +41,41 @@ export default function BodrApprovalActionModal({
     const actorName = currentUser?.name || "Approver";
     const actorRole = currentUser?.role || "Approver";
 
-    // 100% Dynamic workflow steps from database / Admin Settings
-    const dynamicSteps = workflowSteps && workflowSteps.length > 0
-      ? workflowSteps
-      : (workflow?.list_approval || [])
-          .sort((a, b) => (a.order || 0) - (b.order || 0))
-          .map((s) => s.role)
-          .filter(Boolean);
-
-    // If no workflow steps found, fallback to current step
-    const steps = dynamicSteps.length > 0 ? dynamicSteps : [proposal.step];
+    // Resolve current pending step dari approval_history (100% dinamis dari DB \u2014 zero hardcode)
+    // Cari entry dengan status 'pending' dan step_order terkecil
+    const sortedHistory = [...(proposal.approvalHistory || [])].sort(
+      (a, b) => (a.step_order ?? 0) - (b.step_order ?? 0)
+    );
+    const pendingStep = sortedHistory.find(
+      (h) => (h.status || "").toLowerCase() === "pending"
+    );
+    const totalSteps = sortedHistory.length;
+    const isLastStep =
+      pendingStep?.step_order !== undefined &&
+      pendingStep.step_order === totalSteps;
 
     let nextStatus = proposal.status;
     let nextStep = proposal.step;
 
     if (action === "Approve") {
-      // Find current step position in the dynamic steps list
-      const currentIdx = steps.findIndex(
-        (s) => s.toLowerCase().trim() === (proposal.step || "").toLowerCase().trim()
-      );
-
-      if (currentIdx >= 0 && currentIdx < steps.length - 1) {
-        // Advance to next dynamic step
-        nextStep = steps[currentIdx + 1];
-        nextStatus = "Pending Review";
-      } else {
-        // Last step completed -> Approved
-        nextStep = steps[steps.length - 1] || proposal.step;
+      if (isLastStep) {
+        // Semua step selesai → full approved
         nextStatus = "Approved";
+        nextStep = pendingStep?.role || "Approved";
+      } else {
+        // Masih ada step berikutnya
+        const nextStepOrder = (pendingStep?.step_order ?? 0) + 1;
+        const nextStepItem = sortedHistory.find((h) => h.step_order === nextStepOrder);
+        nextStatus = "Pending Review";
+        nextStep = nextStepItem?.role || "Pending Review";
       }
     } else if (action === "Reject") {
       nextStatus = "Rejected";
+      nextStep = pendingStep?.role || proposal.step;
     } else if (action === "Revision") {
       nextStatus = "Revision Required";
-      // Return to the first step of this department's dynamic workflow
-      nextStep = steps[0] || "Draft";
+      const firstStep = sortedHistory[0];
+      nextStep = firstStep?.role || "Draft";
     }
 
     const newHistory = [
@@ -101,6 +101,12 @@ export default function BodrApprovalActionModal({
 
     try {
       await api.updateBodrProposal(proposal.id, {
+        // Field untuk backend update() — approval action via step_order (dinamis dari DB)
+        approval_action: action === "Approve" ? "approved" : action === "Reject" ? "rejected" : "revision",
+        step_order: pendingStep?.step_order,
+        approver_user_id: currentUser?.id ? parseInt(currentUser.id) : undefined,
+        comment: note || null,
+        // Field untuk sinkronisasi state frontend (backward compatible)
         step: nextStep,
         status: nextStatus,
         last_actor: actorName,

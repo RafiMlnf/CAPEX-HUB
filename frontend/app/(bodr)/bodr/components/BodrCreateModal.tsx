@@ -152,17 +152,6 @@ export default function BodrCreateModal({
         ? form.unbudgetRemark + (form.remarks ? ` | Remarks: ${form.remarks}` : "")
         : form.remarks;
 
-    // Dynamically resolve initial step from the department's active Approval Workflow
-    const deptWf = workflows.find(
-      (w) =>
-        (w.departemen_nama || "").toLowerCase().trim() ===
-        (form.department || "").toLowerCase().trim()
-    );
-    const sortedSteps = (deptWf?.list_approval || []).sort(
-      (a, b) => (a.order || 0) - (b.order || 0)
-    );
-    const initialStep = sortedSteps[0]?.role || "Approval Dept";
-
     try {
       let uploadedDocUrls: string[] = [];
       if (form.documents && form.documents.length > 0) {
@@ -177,7 +166,6 @@ export default function BodrCreateModal({
         category,
         department: form.department,
         amount,
-        step: initialStep,
         status: "Pending Review",
         date: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
         notes: combinedNotes,
@@ -185,36 +173,44 @@ export default function BodrCreateModal({
         benefit: form.benefit,
         capex_id: form.capexId || "-",
         no_asset: noAsset,
+        cost_center: form.costCenter,
+        start_date: form.startDate,
+        end_date: form.endDate,
+        budget_type: form.budgetType,
+        budget_remarks: form.unbudgetRemark,
+        nama_asset: form.namaAsset,
+        plan: form.plan,
+        location: form.location,
         documents: uploadedDocUrls,
       };
 
-      await api.createBodrProposal(newBodr);
+      const created = await api.createBodrProposal(newBodr);
 
       const nextProposal: BodrProposal = {
-        id: nextId,
-        bodrNo: nextBodrNo,
-        title: form.title,
-        category: category as BodrCategory,
-        department: form.department,
-        amount,
-        step: initialStep,
-        status: "Pending Review",
-        date: newBodr.date,
-        notes: combinedNotes,
-        proposer: form.user,
-        benefit: form.benefit,
-        capexId: form.capexId || "-",
-        noAsset,
-        costCenter: form.costCenter || "-",
-        startDate: form.startDate || "-",
-        endDate: form.endDate || "-",
-        budgetType: form.budgetType,
-        namaAsset: form.namaAsset || "-",
-        plan: form.plan || "-",
-        location: form.location || "-",
-        assetType: "",
-        approvalHistory: [],
-        documents: uploadedDocUrls,
+        id: created?.id || nextId,
+        bodrNo: created?.bodr_no || nextBodrNo,
+        title: created?.title || form.title,
+        category: (created?.category || category) as BodrCategory,
+        department: created?.department || form.department,
+        amount: Number(created?.amount) || amount,
+        step: created?.step || "Step 1",
+        status: created?.status || "Pending Review",
+        date: created?.date || newBodr.date,
+        notes: created?.notes || combinedNotes,
+        proposer: created?.proposer || form.user,
+        benefit: created?.benefit || form.benefit,
+        capexId: created?.capex_id || form.capexId || "-",
+        noAsset: created?.no_asset || noAsset,
+        costCenter: created?.cost_center || form.costCenter || "-",
+        startDate: created?.start_date || form.startDate || "-",
+        endDate: created?.end_date || form.endDate || "-",
+        budgetType: (created?.budget_type as "budget" | "unbudget") || form.budgetType,
+        namaAsset: created?.nama_asset || form.namaAsset || "-",
+        plan: created?.plan || form.plan || "-",
+        location: created?.location || form.location || "-",
+        assetType: created?.asset_type || "",
+        approvalHistory: created?.approval_history || [],
+        documents: created?.documents || uploadedDocUrls,
       };
 
       onSuccess(nextProposal);

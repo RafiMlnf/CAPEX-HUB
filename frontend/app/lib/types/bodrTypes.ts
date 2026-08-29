@@ -1,4 +1,6 @@
 export interface ApprovalHistory {
+  step_order?: number;        // untuk dynamic step resolution di modal (dari DB)
+  approver_user_id?: number;  // untuk validasi akses approver per step (dari DB)
   initials: string;
   role: string;
   name: string;

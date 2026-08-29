@@ -126,7 +126,7 @@ export default function BodrProgressLeadTimeModal({
       const days = calculateDaysBetween(prevTimestamp, h.timestamp);
       entries.push({
         id: `history-${idx}`,
-        stepLabel: h.role || `Step ${idx + 1}`,
+        stepLabel: h.role || (h.name ? `${h.name}` : "Approver"),
         role: h.role || "Approver",
         actorName: (h.name || h.initials || "—").toUpperCase(),
         status: h.status || "Review",
@@ -152,7 +152,7 @@ export default function BodrProgressLeadTimeModal({
       pendingSteps.forEach((s, idx) => {
         entries.push({
           id: `pending-${idx}`,
-          stepLabel: s.role || `Step ${idx + 1}`,
+          stepLabel: s.role || (s.user_name ? `${s.user_name}` : "Approver"),
           role: s.role || "Approver",
           actorName: (s.user_name || "—").toUpperCase(),
           status: "Waiting",
