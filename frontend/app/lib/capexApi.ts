@@ -37,4 +37,6 @@ export const capexApi = {
   getCapexProposals: () => request<CapexProposal[]>("/capex-proposals"),
   getCapexItems: () => request<ApiCapexItem[]>("/capex-items"),
   syncFromBodr: () => request<{ success: boolean; message: string }>("/sync/bodr", { method: "POST" }),
+  getCapexHistory: (capexId?: string) =>
+    request<any[]>(capexId ? `/capex-history?capex_id=${encodeURIComponent(capexId)}` : "/capex-history"),
 };

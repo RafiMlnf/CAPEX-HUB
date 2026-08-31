@@ -254,10 +254,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-x-hidden">
+    <div className="flex h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-h-screen ml-64 bg-slate-100 min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex flex-col h-screen ml-64 bg-slate-100 min-w-0 overflow-hidden">
         <Header
           title={
             isAccounting
@@ -630,8 +630,7 @@ export default function DashboardPage() {
           {/* CAPEX List Table with Separated Columns and Quick Filter Tabs */}
           <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-2xs space-y-3.5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-5 rounded-full bg-blue-600 inline-block" />
+              <div>
                 <h2 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
                   Daftar Usulan CAPEX Aktif
                 </h2>

@@ -138,7 +138,7 @@ export class SettingsService {
       list_approval: w.steps.map((s) => ({
         user_id: s.approver_user_id.toString(),
         user_name: s.approver?.nama_user ?? '',
-        role: s.approver?.role?.nama_role ?? '',
+        role: s.keterangan || s.approver?.role?.nama_role || 'Approver',
         order: s.step_order,
       })),
       status: w.status,

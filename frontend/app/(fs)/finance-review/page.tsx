@@ -172,10 +172,10 @@ export default function FinanceReviewPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-x-hidden">
+    <div className="flex h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-h-screen ml-64 bg-slate-100 min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex flex-col h-screen ml-64 bg-slate-100 min-w-0 overflow-hidden">
         <Header
           title="FinAcct Review & Feasibility Study"
           subtitle="Proses peninjauan proposal investasi dan perhitungan kelayakan (Feasibility Study) oleh Tim Finance"
@@ -190,8 +190,7 @@ export default function FinanceReviewPage() {
         <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4 w-full min-w-0 overflow-x-hidden">
           {/* List Table */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-xs w-full">
-            <div className="pb-2 border-b border-slate-200 flex items-center gap-2">
-              <span className="w-2 h-5 rounded-full bg-blue-600 inline-block" />
+            <div className="pb-2 border-b border-slate-200">
               <h2 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
                 Daftar Pengajuan Menunggu Finance Review ({pendingProposals.length})
               </h2>
@@ -287,16 +286,13 @@ export default function FinanceReviewPage() {
               <div className="bg-white border border-slate-200 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden animate-scale-in my-8">
                 {/* Modal Header */}
                 <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-2.5 h-6 rounded-full bg-blue-600 inline-block" />
-                    <div>
-                      <h2 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
-                        Ulasan & Keputusan Review: {selectedProposal.name}
-                      </h2>
-                      <p className="text-[11px] text-slate-500 font-normal mt-0.5">
-                        Tinjau kelayakan finansial dan tentukan status keputusan review
-                      </p>
-                    </div>
+                  <div>
+                    <h2 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+                      Ulasan & Keputusan Review: {selectedProposal.name}
+                    </h2>
+                    <p className="text-[11px] text-slate-500 font-normal mt-0.5">
+                      Tinjau kelayakan finansial dan tentukan status keputusan review
+                    </p>
                   </div>
                   <button
                     onClick={() => setSelectedProposalId(null)}

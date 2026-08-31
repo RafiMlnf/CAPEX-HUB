@@ -123,6 +123,16 @@ export class CapexService {
       if (u?.departemen_id) departemenId = u.departemen_id;
     }
 
+    const targetStatus =
+      data.gateStatus ??
+      data.status ??
+      (data.isDraft ? "Gate 0 - Idea" : "Gate 1 - Finance Review");
+
+    const isDraft =
+      targetStatus.toLowerCase().includes("idea") ||
+      targetStatus.toLowerCase().includes("draft") ||
+      Boolean(data.isDraft);
+
     const record = await this.prisma.capex.create({
       data: {
         kode_capex: data.kode_capex ?? `CAPEX-${Date.now()}`,
@@ -131,7 +141,7 @@ export class CapexService {
         departemen_id: departemenId,
         total_amount: data.estimatedCost ?? data.total_amount ?? 0,
         pic: data.pic ?? null,
-        status: 'Gate 0 - Idea',
+        status: targetStatus,
         purpose: data.purpose ?? null,
         investment_type: data.investmentType ?? null,
         start_date: data.startDate ?? null,
@@ -143,15 +153,15 @@ export class CapexService {
       include: { departemen: true, capexType: true, capexReference: true, capexHistory: { orderBy: { timestamp: 'asc' } } },
     });
 
-    const initialActor = data.actor || data.pic || 'Staff User';
+    const initialActor = data.actor || data.pic || 'Pemohon';
     await this.prisma.capexHistory.create({
       data: {
         capex_id: record.id,
-        gate: 0,
-        action: 'SUBMITTED',
+        gate: isDraft ? 0 : 1,
+        action: isDraft ? 'DRAFT_SAVED' : 'SUBMITTED',
         actor: initialActor,
         timestamp: new Date(),
-        notes: data.description ?? 'Pengajuan usulan CAPEX baru',
+        notes: data.description ?? (isDraft ? 'Draft usulan CAPEX disimpan' : 'Pengajuan usulan CAPEX baru diteruskan ke Finance Review'),
       },
     });
 
@@ -193,9 +203,17 @@ export class CapexService {
 
     let kodeCapexToUpdate: string | undefined = undefined;
     if (isApprovedNow) {
-      const deptName = existing.departemen?.nama_departemen || data.department || 'GENERAL';
+      let deptCode = existing.departemen?.kode_departemen;
+      if (!deptCode && departemenId) {
+        const d = await this.prisma.departemen.findUnique({ where: { id: departemenId } });
+        deptCode = d?.kode_departemen;
+      }
+      if (!deptCode) {
+        const rawDept = (existing.departemen?.nama_departemen || data.department || 'GEN').toUpperCase().trim();
+        deptCode = rawDept.slice(0, 3);
+      }
       const noUrut = String(existing.id).padStart(3, '0');
-      kodeCapexToUpdate = `CPX - ${deptName} - ${noUrut}`;
+      kodeCapexToUpdate = `CPX - ${(deptCode || 'GEN').toUpperCase()} - ${noUrut}`;
     }
 
     const record = await this.prisma.capex.update({
@@ -304,5 +322,39 @@ export class CapexService {
       });
     }
     return { success: true, message: 'Sync BODR ke Capex berhasil' };
+  }
+
+  // ── CAPEX History ────────────────────────────────────────────────────────
+  async getHistory(capexId?: string) {
+    const where: any = {};
+    if (capexId) where.capex_id = parseInt(capexId);
+
+    const records = await this.prisma.capexHistory.findMany({
+      where,
+      include: {
+        capex: {
+          select: {
+            kode_capex: true,
+            nama_capex: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { timestamp: 'desc' },
+    });
+
+    return records.map((h) => ({
+      id: h.id.toString(),
+      capex_id: h.capex_id.toString(),
+      kode_capex: h.capex?.kode_capex ?? '',
+      nama_capex: h.capex?.nama_capex ?? '',
+      capex_status: h.capex?.status ?? '',
+      gate: h.gate,
+      action: h.action,
+      actor: h.actor,
+      notes: h.notes ?? null,
+      timestamp: h.timestamp,
+      created_at: h.created_at,
+    }));
   }
 }

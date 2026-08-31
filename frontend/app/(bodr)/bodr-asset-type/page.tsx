@@ -58,9 +58,9 @@ export default function AssetTypePage() {
   const filtered = items.filter(i => i.class.toLowerCase().includes(search.toLowerCase()) || i.nama_type.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-slate-800">
+    <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-h-screen ml-64 bg-slate-100">
+      <div className="flex-1 flex flex-col h-screen ml-64 bg-slate-100 overflow-hidden">
         <Header title="Master Asset Type" subtitle="Kelola tipe-tipe aset untuk formulir pengajuan BODR" />
         <main className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
           <div className="flex items-center justify-between">

@@ -17,4 +17,6 @@ export const bodrApi = {
   getBodrProgress: () => request<BodrProgressApiResponse>("/bodr/progress"),
   requestOtorisasiHarga: (data: { bodr_id: number; no_pr: string; deskripsi: string; amount: number }) =>
     request<any>("/bodr/otorisasi-harga-request", { method: "POST", body: JSON.stringify(data) }),
+  getBodrHistory: (bodrId?: string) =>
+    request<any[]>(bodrId ? `/bodr/history?bodr_id=${encodeURIComponent(bodrId)}` : "/bodr/history"),
 };

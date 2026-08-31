@@ -1,315 +1,363 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Sidebar from "../../../components/sidebars/SidebarOtorisasi";
 import Header from "../../../components/Header";
-import { User, ApiOtorisasiHargaNonProduct, ApiOtorisasiHarga, ApprovalHistoryOH, api, getCurrentUser } from "../../../lib/api";
+import {
+  User,
+  ApiOtorisasiHargaNonProduct,
+  ApiOtorisasiHarga,
+  ApprovalHistoryOH,
+  api,
+  getCurrentUser,
+} from "../../../lib/api";
 
-const fmt = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
-
-const STEPS_NP = ["SH PURH", "DH PURH", "User DH", "User Div Head", "Admin Div Head", "Direktur", "Presiden Direktur"];
-const STEPS_P = ["SH PURH", "DH PURH", "Admin Div Head", "Direktur", "Presiden Direktur"];
-
-const getFullStepName = (step: string): string => {
-  const mapping: Record<string, string> = {
-    "SH PURH": "Section Head Purchasing",
-    "DH PURH": "Department Head Purchasing",
-    "DH Purch": "Department Head Purchasing",
-    "User DH": "User Dept Head",
-    "User Div Head": "User Div Head",
-    "Div Head": "User Div Head",
-    "Admin Div Head": "Admin Division Head",
-    "Direktur": "Direktur",
-    "Presiden Direktur": "Presiden Direktur"
-  };
-  return mapping[step] || step;
+const fmt = (n: number | string | undefined | null) => {
+  const num = typeof n === "number" ? n : Number(n || 0);
+  return `Rp ${num.toLocaleString("id-ID")}`;
 };
 
-const statusBadge = (s: string) => {
-  if (s === "Approved") return "bg-emerald-50 text-emerald-700 border border-emerald-300";
-  if (s === "Rejected") return "bg-red-50 text-red-700 border border-red-300";
-  return "bg-blue-50 text-blue-700 border border-blue-300";
-};
+// Status Pill Component
+function StatusPill({ status }: { status: string }) {
+  const s = (status || "").toLowerCase();
 
-// Check if user has permission to approve
-const isUserAuthorizedForStep = (user: User | null, step: string): boolean => {
-  if (!user) return false;
-  const userRole = (user.role as string || "").toUpperCase();
-  const userName = (user.username as string || "").toUpperCase();
-  
-  if (userRole === "ADMIN" || userName === "ADMIN") return true;
-  
-  const stepUpper = step.toUpperCase();
-  if (stepUpper === "SH PURH") {
-    return userRole.includes("PURCH") && (userRole.includes("SH") || userRole.includes("SECTION HEAD"));
+  if (s.includes("approved") || s.includes("selesai")) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+        Approved
+      </span>
+    );
   }
-  if (stepUpper === "DH PURH" || stepUpper === "DH PURCH") {
-    return userRole.includes("PURCH") && (userRole.includes("DH") || userRole.includes("DEPT HEAD"));
+  if (s.includes("rejected") || s.includes("tolak")) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200 whitespace-nowrap">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+        Rejected
+      </span>
+    );
   }
-  if (stepUpper === "USER DH") {
-    return userRole.includes("DH") || userRole.includes("DEPT HEAD") || user.department !== "PURCHASING";
-  }
-  if (stepUpper === "USER DIV HEAD" || stepUpper === "DIV HEAD") {
-    return userRole.includes("DIV HEAD") || userRole.includes("DIVISION HEAD");
-  }
-  if (stepUpper === "ADMIN DIV HEAD") {
-    return userRole.includes("ADMIN") || userRole.includes("SEC") || userRole.includes("STAFF") || userRole.includes("DIV HEAD");
-  }
-  if (stepUpper === "DIREKTUR") {
-    return userRole.includes("DIR") || userRole.includes("DIREKTUR") || userRole.includes("DIRECTOR");
-  }
-  if (stepUpper === "PRESIDEN DIREKTUR") {
-    return userRole.includes("PRESDIR") || userRole.includes("PRESIDEN DIREKTUR") || userRole.includes("PRESIDENT DIRECTOR");
-  }
-  
-  return false;
-};
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
+      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
+      Pending Review
+    </span>
+  );
+}
 
 export default function OtorisasiHargaApprovalPage() {
-  const [activeTab, setActiveTab] = useState<"non-product" | "product">("non-product");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // List States
   const [npItems, setNpItems] = useState<ApiOtorisasiHargaNonProduct[]>([]);
   const [pItems, setPItems] = useState<ApiOtorisasiHarga[]>([]);
-  
-  // Search & Role states
+  const [workflows, setWorkflows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Filter states
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeRoleTab, setActiveRoleTab] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState<"ALL" | "NP" | "P">("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
-  // Selection states (for Detail Modal)
+  // Selection states (for Detail / Verification Modal)
   const [selectedNP, setSelectedNP] = useState<ApiOtorisasiHargaNonProduct | null>(null);
   const [selectedP, setSelectedP] = useState<ApiOtorisasiHarga | null>(null);
 
   // Action states
   const [note, setNote] = useState("");
   const [processing, setProcessing] = useState(false);
-  const [bypassCheck, setBypassCheck] = useState(true); // Easy testing bypass
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
-  const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
 
-  // Advanced Filters
-  const [filterBuyer, setFilterBuyer] = useState("");
-  const [filterDate, setFilterDate] = useState("");
+  const refreshData = async () => {
+    setLoading(true);
+    try {
+      const [dataNP, dataP, wfList] = await Promise.all([
+        api.getOtorisasiHargaNPList().catch(() => []),
+        api.getOtorisasiHargaList().catch(() => []),
+        api.getApprovalPriceWorkflows().catch(() => []),
+      ]);
+      setNpItems(dataNP || []);
+      setPItems(dataP || []);
+      setWorkflows(wfList || []);
+    } catch (err) {
+      console.error("Failed to load otorisasi list:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Load data
   useEffect(() => {
     setCurrentUser(getCurrentUser());
     refreshData();
   }, []);
 
-  const refreshData = () => {
-    api.getOtorisasiHargaNPList()
-      .then(data => setNpItems(data || []))
-      .catch(err => {
-        console.error("Failed to load NP list:", err);
-        setNpItems([]);
+  // Dynamic workflow roles from Database Settings
+  const workflowStepNames: string[] = useMemo(() => {
+    if (workflows.length > 0) {
+      const stepMap = new Map<string, number>();
+      workflows.forEach((w: any) => {
+        (w.list_approval || []).forEach((s: any) => {
+          if (s.role) {
+            const rKey = s.role.trim();
+            const rOrder = s.order || 1;
+            if (!stepMap.has(rKey) || (stepMap.get(rKey) || 99) > rOrder) {
+              stepMap.set(rKey, rOrder);
+            }
+          }
+        });
       });
-
-    api.getOtorisasiHargaList()
-      .then(data => setPItems(data || []))
-      .catch(err => {
-        console.error("Failed to load Product list:", err);
-        setPItems([]);
-      });
-  };
-
-  // Filter Logic for Non-Product
-  const filteredNP = npItems.filter(i => {
-    if (i.status !== "Pending Review") return false;
-
-    // Dropdown Role Filter mapping
-    if (activeRoleTab !== "all" && i.step !== activeRoleTab) return false;
-
-    // Search query
-    if (searchQuery.trim()) {
-      const s = searchQuery.toLowerCase();
-      const matchSearch = i.no_doc.toLowerCase().includes(s) || i.buyer_nama.toLowerCase().includes(s) || i.no_pr.toLowerCase().includes(s) || i.no_bodr.toLowerCase().includes(s);
-      if (!matchSearch) return false;
+      const entries = Array.from(stepMap.entries()).sort((a, b) => a[1] - b[1]);
+      if (entries.length > 0) return entries.map(([role]) => role);
     }
 
-    // Advanced Filters
-    if (filterBuyer && !i.buyer_nama.toLowerCase().includes(filterBuyer.toLowerCase())) return false;
-    if (filterDate && !i.tanggal.includes(filterDate)) return false;
+    const historyRoles = new Set<string>();
+    [...npItems, ...pItems].forEach((item: any) => {
+      (item.approval_history || []).forEach((h: any) => {
+        if (h.role) historyRoles.add(h.role.trim());
+      });
+      if (item.step) historyRoles.add(item.step.trim());
+    });
+    return Array.from(historyRoles);
+  }, [workflows, npItems, pItems]);
 
-    return true;
-  });
+  // Map and unify all items from DB
+  interface UnifiedApprovalItem {
+    id: string;
+    no_doc: string;
+    no_pr: string;
+    no_bodr: string;
+    description: string;
+    type: "Non-Product" | "Product";
+    isProduct: boolean;
+    buyer: string;
+    amount: number;
+    step: string;
+    status: string;
+    created_at: string;
+    rawNP?: ApiOtorisasiHargaNonProduct;
+    rawP?: ApiOtorisasiHarga;
+  }
 
-  // Filter Logic for Product
-  const filteredP = pItems.filter(i => {
-    if (i.status !== "Pending Review") return false;
+  const unifiedList: UnifiedApprovalItem[] = useMemo(() => {
+    const list: UnifiedApprovalItem[] = [];
 
-    // Dropdown Role Filter mapping
-    if (activeRoleTab !== "all" && i.step !== activeRoleTab) return false;
+    // 1. Non-Product Items
+    npItems.forEach((item) => {
+      const recommendedSupplier = (item.suppliers || []).find((s) => s.recommended) || item.suppliers?.[0];
+      const desc = recommendedSupplier?.vendor_nama
+        ? `Pengadaan Supplier: ${recommendedSupplier.vendor_nama}`
+        : `Pengajuan Non-Product #${item.id}`;
+      const amount = Number(item.dana_bodr || recommendedSupplier?.total_final_price || recommendedSupplier?.harga || 0);
 
-    // Search query
-    if (searchQuery.trim()) {
-      const s = searchQuery.toLowerCase();
-      const matchSearch = (i.id || "").toLowerCase().includes(s) || (i.product || "").toLowerCase().includes(s) || (i.customer || "").toLowerCase().includes(s);
-      if (!matchSearch) return false;
-    }
+      list.push({
+        id: `np-${item.id}`,
+        no_doc: item.no_doc || `NP-${item.id}`,
+        no_pr: item.no_pr || "—",
+        no_bodr: item.no_bodr || "—",
+        description: desc,
+        type: "Non-Product",
+        isProduct: false,
+        buyer: item.buyer_nama || "Buyer",
+        amount,
+        step: item.step || "Step 1",
+        status: item.status || "Pending Review",
+        created_at: item.tanggal || item.created_at || "",
+        rawNP: item,
+      });
+    });
 
-    // Advanced Filters
-    if (filterBuyer && !(i.prepared_by || i.buyer || "").toLowerCase().includes(filterBuyer.toLowerCase())) return false;
+    // 2. Product Items
+    pItems.forEach((item) => {
+      const desc = `${item.product || "Barang Product"} ${item.part_number ? `(${item.part_number})` : ""}`;
+      const amount = Number(item.final_price || item.normal_price || item.dana_bodr || 0);
 
-    return true;
-  });
+      list.push({
+        id: `p-${item.id}`,
+        no_doc: item.no_doc || `PRD-${item.id}`,
+        no_pr: item.no_pr || "—",
+        no_bodr: item.bodr_no || "—",
+        description: desc,
+        type: "Product",
+        isProduct: true,
+        buyer: item.buyer || item.prepared_by || "Buyer",
+        amount,
+        step: item.step || "Step 1",
+        status: item.status || "Pending Review",
+        created_at: item.tanggal || item.date || item.created_at || "",
+        rawP: item,
+      });
+    });
 
-  // Pagination bounds
-  const totalNPPages = Math.ceil(filteredNP.length / pageSize) || 1;
-  const paginatedNP = filteredNP.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    // Sort newest first
+    list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return list;
+  }, [npItems, pItems]);
 
-  const totalPPages = Math.ceil(filteredP.length / pageSize) || 1;
-  const paginatedP = filteredP.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  // Filtered List based on Category, Status, and Search
+  const filteredList = useMemo(() => {
+    return unifiedList.filter((item) => {
+      // Category filter
+      if (categoryFilter === "NP" && item.isProduct) return false;
+      if (categoryFilter === "P" && !item.isProduct) return false;
 
-  // Stats Card values
-  const totalPendingNP = npItems.filter(i => i.status === "Pending Review").length;
-  const approvedNPCount = npItems.filter(i => i.status === "Approved").length;
-  const rejectedNPCount = npItems.filter(i => i.status === "Rejected").length;
+      // Status filter
+      if (statusFilter !== "ALL") {
+        if (statusFilter === "Pending Review") {
+          const st = item.status.toLowerCase();
+          if (!st.includes("pending") && !st.includes("draft")) return false;
+        } else if (statusFilter === "Approved") {
+          if (!item.status.toLowerCase().includes("approved")) return false;
+        } else if (statusFilter === "Rejected") {
+          if (!item.status.toLowerCase().includes("reject")) return false;
+        }
+      }
 
-  const totalPendingP = pItems.filter(i => i.status === "Pending Review").length;
-  const approvedPCount = pItems.filter(i => i.status === "Approved").length;
-  const rejectedPCount = pItems.filter(i => i.status === "Rejected").length;
+      // Search text
+      if (searchQuery.trim()) {
+        const s = searchQuery.toLowerCase();
+        const match =
+          item.no_doc.toLowerCase().includes(s) ||
+          item.no_pr.toLowerCase().includes(s) ||
+          item.no_bodr.toLowerCase().includes(s) ||
+          item.description.toLowerCase().includes(s) ||
+          item.buyer.toLowerCase().includes(s);
+        if (!match) return false;
+      }
 
-  // Handle Approval Action
+      return true;
+    });
+  }, [unifiedList, categoryFilter, statusFilter, searchQuery]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredList.length / pageSize) || 1;
+  const paginatedList = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredList.slice(start, start + pageSize);
+  }, [filteredList, currentPage]);
+
+  // Handle Approve Action
   const handleApprove = async () => {
-    if (activeTab === "non-product") {
-      if (!selectedNP) return;
-      const steps = STEPS_NP;
-      const currentStepIdx = steps.indexOf(selectedNP.step);
-      const nextStep = steps[currentStepIdx + 1];
-      const isLast = currentStepIdx === steps.length - 1;
-      
-      const nextStatus = isLast ? "Approved" : "Pending Review";
-      const nextStepVal = isLast ? selectedNP.step : nextStep;
+    setProcessing(true);
+    try {
+      if (selectedNP) {
+        const steps = workflowStepNames.length > 0 ? workflowStepNames : [selectedNP.step || "Approver"];
+        const currentStepIdx = steps.findIndex((s) => s.toLowerCase().trim() === (selectedNP.step || "").toLowerCase().trim());
+        const isLast = currentStepIdx === -1 || currentStepIdx >= steps.length - 1;
+        const nextStep = isLast ? selectedNP.step : steps[currentStepIdx + 1];
+        const nextStatus = isLast ? "Approved" : "Pending Review";
 
-      const newHistoryEntry: ApprovalHistoryOH = {
-        role: selectedNP.step,
-        name: currentUser?.name || "Current User",
-        status: "Approved",
-        note: note || "Disetujui",
-        timestamp: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) + " " + new Date().toLocaleTimeString("id-ID"),
-      };
+        const newHistoryEntry: ApprovalHistoryOH = {
+          role: selectedNP.step || "Approver",
+          name: currentUser?.name || "Approver",
+          status: "Approved",
+          note: note || "Disetujui",
+          timestamp: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) + " " + new Date().toLocaleTimeString("id-ID"),
+        };
 
-      const updated: ApiOtorisasiHargaNonProduct = {
-        ...selectedNP,
-        step: nextStepVal,
-        status: nextStatus as any,
-        approval_history: [...(selectedNP.approval_history || []), newHistoryEntry]
-      };
+        const updated: ApiOtorisasiHargaNonProduct = {
+          ...selectedNP,
+          step: nextStep,
+          status: nextStatus as any,
+          approval_history: [...(selectedNP.approval_history || []), newHistoryEntry],
+        };
 
-      try {
         await api.updateOtorisasiHargaNP(selectedNP.id, updated);
-        refreshData();
+        await refreshData();
         setSelectedNP(null);
         setNote("");
-        setProcessing(false);
         setAlertMessage("Otorisasi Non-Product berhasil disetujui!");
-      } catch (e) {
-        console.error(e);
-        setProcessing(false);
-      }
-    } else {
-      if (!selectedP) return;
-      const stepVal = selectedP.step || "SH PURH";
-      const steps = STEPS_P;
-      const currentStepIdx = steps.indexOf(stepVal);
-      const nextStep = steps[currentStepIdx + 1];
-      const isLast = currentStepIdx === steps.length - 1;
+      } else if (selectedP) {
+        const stepVal = selectedP.step || "Step 1";
+        const steps = workflowStepNames.length > 0 ? workflowStepNames : [stepVal];
+        const currentStepIdx = steps.findIndex((s) => s.toLowerCase().trim() === stepVal.toLowerCase().trim());
+        const isLast = currentStepIdx === -1 || currentStepIdx >= steps.length - 1;
+        const nextStep = isLast ? stepVal : steps[currentStepIdx + 1];
+        const nextStatus = isLast ? "Approved" : "Pending Review";
 
-      const nextStatus = isLast ? "Approved" : "Pending Review";
-      const nextStepVal = isLast ? stepVal : nextStep;
+        const newHistoryEntry: ApprovalHistoryOH = {
+          role: stepVal,
+          name: currentUser?.name || "Approver",
+          status: "Approved",
+          note: note || "Disetujui",
+          timestamp: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) + " " + new Date().toLocaleTimeString("id-ID"),
+        };
 
-      const newHistoryEntry: ApprovalHistoryOH = {
-        role: stepVal,
-        name: currentUser?.name || "Current User",
-        status: "Approved",
-        note: note || "Disetujui",
-        timestamp: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) + " " + new Date().toLocaleTimeString("id-ID"),
-      };
+        const updated: ApiOtorisasiHarga = {
+          ...selectedP,
+          step: nextStep,
+          status: nextStatus as any,
+          approval_history: [...(selectedP.approval_history || []), newHistoryEntry],
+        };
 
-      const updated: ApiOtorisasiHarga = {
-        ...selectedP,
-        step: nextStepVal,
-        status: nextStatus as any,
-        approval_history: [...(selectedP.approval_history || []), newHistoryEntry]
-      };
-
-      try {
         await api.updateOtorisasiHarga(selectedP.id, updated);
-        refreshData();
+        await refreshData();
         setSelectedP(null);
         setNote("");
-        setProcessing(false);
         setAlertMessage("Otorisasi Product berhasil disetujui!");
-      } catch (e) {
-        console.error(e);
-        setProcessing(false);
       }
+    } catch (e) {
+      console.error("Failed to approve:", e);
+    } finally {
+      setProcessing(false);
+      setTimeout(() => setAlertMessage(null), 4000);
     }
   };
 
-  // Handle Rejection
+  // Handle Reject Action
   const handleReject = async () => {
-    if (activeTab === "non-product") {
-      if (!selectedNP) return;
-      const newHistoryEntry: ApprovalHistoryOH = {
-        role: selectedNP.step,
-        name: currentUser?.name || "Current User",
-        status: "Rejected",
-        note: note || "Ditolak",
-        timestamp: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) + " " + new Date().toLocaleTimeString("id-ID"),
-      };
+    setProcessing(true);
+    try {
+      if (selectedNP) {
+        const newHistoryEntry: ApprovalHistoryOH = {
+          role: selectedNP.step || "Approver",
+          name: currentUser?.name || "Approver",
+          status: "Rejected",
+          note: note || "Ditolak",
+          timestamp: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) + " " + new Date().toLocaleTimeString("id-ID"),
+        };
 
-      const updated: ApiOtorisasiHargaNonProduct = {
-        ...selectedNP,
-        status: "Rejected",
-        approval_history: [...(selectedNP.approval_history || []), newHistoryEntry]
-      };
+        const updated: ApiOtorisasiHargaNonProduct = {
+          ...selectedNP,
+          status: "Rejected",
+          approval_history: [...(selectedNP.approval_history || []), newHistoryEntry],
+        };
 
-      try {
         await api.updateOtorisasiHargaNP(selectedNP.id, updated);
-        refreshData();
+        await refreshData();
         setSelectedNP(null);
         setNote("");
-        setProcessing(false);
         setAlertMessage("Otorisasi Non-Product ditolak!");
-      } catch (e) {
-        console.error(e);
-        setProcessing(false);
-      }
-    } else {
-      if (!selectedP) return;
-      const stepVal = selectedP.step || "SH PURH";
-      const newHistoryEntry: ApprovalHistoryOH = {
-        role: stepVal,
-        name: currentUser?.name || "Current User",
-        status: "Rejected",
-        note: note || "Ditolak",
-        timestamp: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) + " " + new Date().toLocaleTimeString("id-ID"),
-      };
+      } else if (selectedP) {
+        const stepVal = selectedP.step || "Step 1";
+        const newHistoryEntry: ApprovalHistoryOH = {
+          role: stepVal,
+          name: currentUser?.name || "Approver",
+          status: "Rejected",
+          note: note || "Ditolak",
+          timestamp: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) + " " + new Date().toLocaleTimeString("id-ID"),
+        };
 
-      const updated: ApiOtorisasiHarga = {
-        ...selectedP,
-        status: "Rejected",
-        approval_history: [...(selectedP.approval_history || []), newHistoryEntry]
-      };
+        const updated: ApiOtorisasiHarga = {
+          ...selectedP,
+          status: "Rejected",
+          approval_history: [...(selectedP.approval_history || []), newHistoryEntry],
+        };
 
-      try {
         await api.updateOtorisasiHarga(selectedP.id, updated);
-        refreshData();
+        await refreshData();
         setSelectedP(null);
         setNote("");
-        setProcessing(false);
         setAlertMessage("Otorisasi Product ditolak!");
-      } catch (e) {
-        console.error(e);
-        setProcessing(false);
       }
+    } catch (e) {
+      console.error("Failed to reject:", e);
+    } finally {
+      setProcessing(false);
+      setTimeout(() => setAlertMessage(null), 4000);
     }
   };
 
@@ -318,7 +366,7 @@ export default function OtorisasiHargaApprovalPage() {
     let minPrice = Infinity;
     item.suppliers?.forEach((s, idx) => {
       const price = s.total_final_price ?? s.harga ?? 0;
-      if (price < minPrice) {
+      if (price < minPrice && price > 0) {
         minPrice = price;
         cheapestIdx = idx;
       }
@@ -326,310 +374,257 @@ export default function OtorisasiHargaApprovalPage() {
     return cheapestIdx;
   };
 
-  // Dropdown list based on active tab steps
-  const ROLE_OPTIONS = activeTab === "non-product" 
-    ? [{ label: "ALL ROLE", value: "all" }, ...STEPS_NP.map(s => ({ label: getFullStepName(s), value: s }))]
-    : [{ label: "ALL ROLE", value: "all" }, ...STEPS_P.map(s => ({ label: getFullStepName(s), value: s }))]
-
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-xs text-slate-800">
+    <div className="flex h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-h-screen ml-64">
-        <Header 
-          title="Approval Harga" 
-          subtitle="Verifikasi dan review perbandingan supplier atau diskon penjualan" 
+
+      <div className="flex-1 flex flex-col h-screen ml-64 min-w-0 overflow-hidden">
+        <Header
+          title="Approval Harga"
+          subtitle="Pusat otorisasi dan verifikasi persetujuan perbandingan harga supplier & diskon penjualan"
         />
-        <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
-          
-          {/* Active Tab Switcher (Non-Product / Product) */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-1.5 flex gap-2 w-fit shadow-sm">
-            <button
-              onClick={() => { setActiveTab("non-product"); setSearchQuery(""); setNote(""); setProcessing(false); setCurrentPage(1); setActiveRoleTab("all"); }}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "non-product" ? "bg-blue-600 text-white shadow-xs" : "text-slate-500 hover:text-slate-850 hover:bg-slate-50"}`}
-            >
-              Otorisasi Non-Product ({filteredNP.length})
-            </button>
-            <button
-              onClick={() => { setActiveTab("product"); setSearchQuery(""); setNote(""); setProcessing(false); setCurrentPage(1); setActiveRoleTab("all"); }}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "product" ? "bg-blue-600 text-white shadow-xs" : "text-slate-500 hover:text-slate-850 hover:bg-slate-50"}`}
-            >
-              Otorisasi Product ({filteredP.length})
-            </button>
-          </div>
 
-          {/* Stats KPI Cards */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-              <p className="text-2xl font-semibold text-blue-600 font-mono">
-                {activeTab === "non-product" ? totalPendingNP : totalPendingP}
-              </p>
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">Menunggu Review</p>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-              <p className="text-2xl font-semibold text-emerald-600 font-mono">
-                {activeTab === "non-product" ? approvedNPCount : approvedPCount}
-              </p>
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">Approved</p>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-              <p className="text-2xl font-semibold text-red-600 font-mono">
-                {activeTab === "non-product" ? rejectedNPCount : rejectedPCount}
-              </p>
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">Rejected / Ditolak</p>
-            </div>
-          </div>
-
-          {/* Filters Bar — MATCHES BODR STYLE */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            
-            {/* PILIH ROLE select filter dropdown */}
-            <div className="relative flex items-center w-full lg:w-64">
-              <span className="absolute left-3.5 text-[9px] font-semibold text-slate-500 uppercase tracking-widest pointer-events-none">
-                Pilih Role:
-              </span>
-              <select
-                value={activeRoleTab}
-                onChange={(e) => {
-                  setActiveRoleTab(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full appearance-none pl-20 pr-9 py-2 rounded-xl border outline-none bg-slate-50 border-slate-200 text-slate-900 font-semibold focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-600/10 transition-all text-xs cursor-pointer shadow-xs"
-              >
-                {ROLE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <span className="absolute right-3.5 text-slate-400 pointer-events-none">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        <main className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
+          {/* Toast Alert */}
+          {alertMessage && (
+            <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 px-4 py-3 rounded-2xl flex items-center justify-between shadow-xs animate-fade-in text-xs">
+              <div className="flex items-center gap-2 font-semibold">
+                <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-              </span>
-            </div>
-
-            {/* Quick Actions and toggles */}
-            <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end">
-              {/* Simulation Mode Toggle Button */}
-              <button
-                onClick={() => setBypassCheck(!bypassCheck)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-xs ${
-                  bypassCheck
-                    ? "bg-amber-500 text-white border-amber-600 ring-2 ring-amber-400/30"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                }`}
-                title="Aktifkan simulasi untuk menguji approval dari sudut pandang peran apa pun tanpa logout"
-              >
-                <span className={`w-2 h-2 rounded-full ${bypassCheck ? "bg-white animate-pulse" : "bg-slate-400"}`} />
-                {bypassCheck ? "Mode Simulasi: AKTIF" : "Mode Simulasi: Nonaktif"}
-              </button>
-
-              {/* Advanced Filter Drawer Trigger */}
-              <button
-                onClick={() => setShowFiltersDrawer(!showFiltersDrawer)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-xs ${
-                  showFiltersDrawer || filterBuyer || filterDate
-                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                Filter Lanjutan
-                {(filterBuyer || filterDate) && (
-                  <span className="w-2 h-2 rounded-full bg-blue-600" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Advanced Drawer Filter */}
-          {showFiltersDrawer && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4 animate-fadeIn">
-              <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">
-                Pencarian Lanjutan
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Buyer (Nama Pengaju)</label>
-                  <input
-                    type="text"
-                    placeholder="Nama buyer..."
-                    value={filterBuyer}
-                    onChange={(e) => { setFilterBuyer(e.target.value); setCurrentPage(1); }}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none bg-white text-slate-800 placeholder-slate-400 focus:border-blue-600 font-medium h-[40px] text-xs"
-                  />
-                </div>
-                {activeTab === "non-product" && (
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Tanggal Laporan</label>
-                    <input
-                      type="text"
-                      placeholder="YYYY-MM-DD..."
-                      value={filterDate}
-                      onChange={(e) => { setFilterDate(e.target.value); setCurrentPage(1); }}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 outline-none bg-white text-slate-800 placeholder-slate-400 focus:border-blue-600 font-medium h-[40px] text-xs"
-                    />
-                  </div>
-                )}
+                {alertMessage}
               </div>
+              <button onClick={() => setAlertMessage(null)} className="text-slate-400 hover:text-slate-600 font-bold">
+                ✕
+              </button>
             </div>
           )}
 
-          {/* Sub Bar search box */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-            <div className="text-slate-500 font-semibold text-xs">
-              Menampilkan {activeTab === "non-product" ? paginatedNP.length : paginatedP.length} dari {activeTab === "non-product" ? filteredNP.length : filteredP.length} item pending
-            </div>
-            
-            <div className="relative w-full md:w-96">
-              <svg className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder={activeTab === "non-product" ? "Cari nomor dokumen, buyer, PR..." : "Cari product, customer..."}
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 font-medium focus:outline-none focus:border-blue-600 shadow-xs"
-              />
+          {/* Banner Header Card */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-bold text-slate-800 tracking-tight">Price Authorization Approval</h2>
+                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-[10px] font-semibold">
+                      Approval Queue
+                    </span>
+                  </div>
+                  <p className="text-slate-500 text-xs mt-0.5">
+                    Verifikasi dan persetujuan bertingkat perbandingan harga supplier & diskon penjualan secara realtime.
+                  </p>
+                </div>
+              </div>
+
+              {/* Controls: Search, Category, Status & Refresh */}
+              <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+                <div className="relative flex-1 sm:w-64">
+                  <input
+                    type="text"
+                    placeholder="Cari No Doc, PR, BODR, Buyer..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 transition-colors"
+                  />
+                  <svg className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+
+                {/* Category Filter Dropdown */}
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => {
+                    setCategoryFilter(e.target.value as any);
+                    setCurrentPage(1);
+                  }}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-semibold focus:outline-none focus:bg-white focus:border-blue-500 cursor-pointer"
+                >
+                  <option value="ALL">Semua Kategori</option>
+                  <option value="NP">Otorisasi Non-Product</option>
+                  <option value="P">Otorisasi Product</option>
+                </select>
+
+                {/* Status Filter Dropdown (Menggantikan Semua Role) */}
+                <select
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-semibold focus:outline-none focus:bg-white focus:border-blue-500 cursor-pointer"
+                >
+                  <option value="ALL">Semua Status</option>
+                  <option value="Pending Review">Pending Review</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+
+                <span className="px-3 py-2 rounded-xl bg-blue-50 text-blue-700 font-bold border border-blue-200 text-xs">
+                  {filteredList.length} Dokumen
+                </span>
+
+                <button
+                  onClick={refreshData}
+                  className="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                  title="Segarkan data"
+                >
+                  <svg className={`w-4 h-4 ${loading ? "animate-spin text-blue-600" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Tabular List Representation */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-            <div className="overflow-hidden rounded-xl border border-slate-200">
-              <table className="w-full border-collapse text-left">
+          {/* Unified Modern Table Representation (Tanpa Kolom Tahap Approval) */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+            <div className="p-4 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+              <span className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                DAFTAR PENGAJUAN OTORISASI HARGA
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Menampilkan {paginatedList.length} dari {filteredList.length} pengajuan
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[900px]">
                 <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-800 text-[11px] font-semibold uppercase tracking-wider">
-                    {activeTab === "non-product" ? (
-                      <>
-                        <th className="py-3.5 px-4 text-center border-r border-slate-200 w-32">NOMOR DOKUMEN</th>
-                        <th className="py-3.5 px-4 text-center border-r border-slate-200">NO. PR / NO. BODR</th>
-                        <th className="py-3.5 px-4 border-r border-slate-200">BUYER (PENGUSUL)</th>
-                        <th className="py-3.5 px-4 text-right border-r border-slate-200 w-44">DANA BODR</th>
-                        <th className="py-3.5 px-4 text-center border-r border-slate-200 w-40">STATUS VERIFIKASI</th>
-                        <th className="py-3.5 px-4 text-center w-32">AKSI</th>
-                      </>
-                    ) : (
-                      <>
-                        <th className="py-3.5 px-4 text-center border-r border-slate-200 w-32">NOMOR OTORISASI</th>
-                        <th className="py-3.5 px-4 border-r border-slate-200">NAMA PRODUCT / COMPONENT</th>
-                        <th className="py-3.5 px-4 border-r border-slate-200">CUSTOMER</th>
-                        <th className="py-3.5 px-4 text-right border-r border-slate-200 w-44">HARGA FINAL</th>
-                        <th className="py-3.5 px-4 text-center border-r border-slate-200 w-40">STATUS VERIFIKASI</th>
-                        <th className="py-3.5 px-4 text-center w-32">AKSI</th>
-                      </>
-                    )}
+                  <tr className="border-b border-slate-200 bg-slate-100/70 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
+                    <th className="py-3 px-4 w-12 text-center">No</th>
+                    <th className="py-3 px-4 w-36">No Dokumen</th>
+                    <th className="py-3 px-4 w-40 text-center">No. PR / No. BODR</th>
+                    <th className="py-3 px-4 min-w-[180px]">Deskripsi Pengajuan</th>
+                    <th className="py-3 px-4 w-28 text-center">Kategori</th>
+                    <th className="py-3 px-4 w-36">Buyer</th>
+                    <th className="py-3 px-4 w-36 text-right">Dana BODR / Total</th>
+                    <th className="py-3 px-4 w-32 text-center">Status</th>
+                    <th className="py-3 px-4 w-28 text-center">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 text-slate-800 text-xs bg-white">
-                  {activeTab === "non-product" ? (
-                    paginatedNP.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="py-12 text-center text-slate-400 italic font-normal">
-                          Tidak ada item pengajuan Non-Product pending review.
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedNP.map(item => (
-                        <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                          <td className="py-4 px-4 text-center font-semibold text-blue-700 font-mono border-r border-slate-200">
+
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={9} className="py-16 text-center text-slate-500 font-bold">
+                        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                        Memuat data pengajuan approval harga...
+                      </td>
+                    </tr>
+                  ) : paginatedList.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-16 text-center text-slate-400 italic">
+                        Tidak ada pengajuan otorisasi harga yang sesuai dengan filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedList.map((item, idx) => {
+                      const globalIndex = (currentPage - 1) * pageSize + idx + 1;
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3.5 px-4 text-center font-mono text-slate-400">
+                            {globalIndex}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-bold text-blue-600 whitespace-nowrap">
                             {item.no_doc}
                           </td>
-                          <td className="py-4 px-4 text-center font-medium text-slate-700 font-mono border-r border-slate-200">
-                            <div className="text-[10px] text-slate-400">PR: {item.no_pr || "—"}</div>
-                            <div className="text-[10px] text-slate-600 font-semibold">BODR: {item.no_bodr || "—"}</div>
+                          <td className="py-3.5 px-4 text-center font-mono text-slate-700">
+                            <div className="text-[10px] text-slate-500">PR: {item.no_pr}</div>
+                            <div className="text-[10px] text-blue-700 font-bold">BODR: {item.no_bodr}</div>
                           </td>
-                          <td className="py-4 px-4 border-r border-slate-200 font-semibold text-slate-800">
-                            {item.buyer_nama}
+                          <td className="py-3.5 px-4">
+                            <div className="font-semibold text-slate-800">{item.description}</div>
+                            <div className="text-[10px] text-slate-400 mt-0.5 font-mono">{item.created_at || "—"}</div>
                           </td>
-                          <td className="py-4 px-4 text-right font-semibold text-slate-900 font-mono border-r border-slate-200">
-                            {fmt(item.dana_bodr)}
-                          </td>
-                          <td className="py-4 px-4 text-center border-r border-slate-200">
-                            <div className="flex items-center gap-2 justify-center">
-                              <span className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0 animate-pulse" />
-                              <span className="font-semibold text-blue-600 text-[10px] uppercase">
-                                Menunggu {getFullStepName(item.step)}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 text-center">
-                            <button
-                              onClick={() => { setSelectedNP(item); setNote(""); setProcessing(false); }}
-                              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer"
+                          <td className="py-3.5 px-4 text-center">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                                item.type === "Non-Product"
+                                  ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                  : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                              }`}
                             >
-                              Review
+                              {item.type}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 font-medium text-slate-700">
+                            {item.buyer}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                            {fmt(item.amount)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            <StatusPill status={item.status} />
+                          </td>
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            <button
+                              onClick={() => {
+                                if (item.rawNP) {
+                                  setSelectedNP(item.rawNP);
+                                  setSelectedP(null);
+                                } else if (item.rawP) {
+                                  setSelectedP(item.rawP);
+                                  setSelectedNP(null);
+                                }
+                                setNote("");
+                                setProcessing(false);
+                              }}
+                              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all shadow-2xs cursor-pointer"
+                            >
+                              {item.status.toLowerCase().includes("approved") ? "Detail" : "Verifikasi"}
                             </button>
                           </td>
                         </tr>
-                      ))
-                    )
-                  ) : (
-                    paginatedP.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="py-12 text-center text-slate-400 italic font-normal">
-                          Tidak ada item pengajuan Product pending review.
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedP.map(item => (
-                        <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                          <td className="py-4 px-4 text-center font-semibold text-blue-700 font-mono border-r border-slate-200">
-                            {item.id}
-                          </td>
-                          <td className="py-4 px-4 border-r border-slate-200 font-semibold text-slate-800">
-                            {item.product || item.no_doc || "Product"}
-                          </td>
-                          <td className="py-4 px-4 border-r border-slate-200 font-medium text-slate-700">
-                            {item.customer || item.buyer || "-"}
-                          </td>
-                          <td className="py-4 px-4 text-right font-semibold text-slate-900 font-mono border-r border-slate-200">
-                            {fmt((item.normal_price || item.final_price || 0) * (1 - (item.discount_pct || 0)/100))}
-                          </td>
-                          <td className="py-4 px-4 text-center border-r border-slate-200">
-                            <div className="flex items-center gap-2 justify-center">
-                              <span className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0 animate-pulse" />
-                              <span className="font-semibold text-blue-600 text-[10px] uppercase">
-                                Menunggu {getFullStepName(item.step || "SH PURH")}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 text-center">
-                            <button
-                              onClick={() => { setSelectedP(item); setNote(""); setProcessing(false); }}
-                              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer"
-                            >
-                              Review
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
 
-            {/* Pagination controls */}
-            <div className="flex justify-between items-center pt-2">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Halaman {currentPage} dari {activeTab === "non-product" ? totalNPPages : totalPPages}
+            {/* Pagination Footer */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <span className="text-slate-600">
+                Halaman {currentPage} dari {totalPages} ({filteredList.length} total pengajuan)
               </span>
-              <div className="flex gap-2">
+
+              <div className="flex items-center gap-1.5">
                 <button
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  className="px-4 py-2 border border-slate-250 rounded-xl font-bold bg-white text-slate-700 hover:bg-slate-50 hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xs cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                      currentPage === pageNum
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+
                 <button
-                  disabled={currentPage === (activeTab === "non-product" ? totalNPPages : totalPPages)}
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, activeTab === "non-product" ? totalNPPages : totalPPages))}
-                  className="px-4 py-2 border border-slate-250 rounded-xl font-bold bg-white text-slate-700 hover:bg-slate-50 hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xs cursor-pointer"
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
@@ -639,312 +634,377 @@ export default function OtorisasiHargaApprovalPage() {
         </main>
       </div>
 
-      {/* ────────────────── Detail Modals ────────────────── */}
-
-      {/* Non-Product Detail Modal */}
+      {/* ── Modal Verifikasi Non-Product (Comparison of Vendors) ──────────── */}
       {selectedNP && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs transition-opacity duration-300">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-[720px] max-h-[90vh] overflow-y-auto shadow-2xl space-y-5 animate-scaleUp transform transition-all duration-300 relative">
-            <button 
-              onClick={() => setSelectedNP(null)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 p-1.5 rounded-full transition-all cursor-pointer"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            <div>
-              <div className="flex items-center gap-3.5">
-                <h3 className="font-semibold text-slate-900 tracking-wide text-sm">{selectedNP.no_doc}</h3>
-                <span className={`text-[10px] font-semibold uppercase px-2.5 py-0.5 rounded border ${statusBadge(selectedNP.status)}`}>{selectedNP.status}</span>
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1 font-medium">Detail Otorisasi Harga Non-Product</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
-              <div><p className="text-slate-400 font-medium uppercase text-[9px]">No. PR</p><p className="font-semibold text-slate-700 font-mono">{selectedNP.no_pr || "—"}</p></div>
-              <div><p className="text-slate-400 font-medium uppercase text-[9px]">No. BODR</p><p className="font-semibold text-slate-700 font-mono">{selectedNP.no_bodr || "—"}</p></div>
-              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Buyer</p><p className="font-semibold text-slate-700">{selectedNP.buyer_nama}</p></div>
-              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Dana BODR</p><p className="font-semibold text-emerald-700 font-mono">{fmt(selectedNP.dana_bodr)}</p></div>
-              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Tahap Approval</p><p className="font-semibold text-blue-700">{getFullStepName(selectedNP.step)}</p></div>
-              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Tanggal</p><p className="font-semibold text-slate-700">{selectedNP.tanggal}</p></div>
-            </div>
-
-            {/* Stepper progress */}
-            <div>
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3">Progress Persetujuan</p>
-              <div className="grid grid-cols-7 gap-1 bg-slate-50/50 p-3 rounded-xl border border-slate-150">
-                {STEPS_NP.map((st, sIdx) => {
-                  const currentIdx = STEPS_NP.indexOf(selectedNP.step);
-                  const isCompleted = sIdx < currentIdx;
-                  const isCurrent = sIdx === currentIdx;
-                  return (
-                    <div key={st} className="text-center space-y-1">
-                      <div className={`h-1.5 rounded-full ${isCompleted ? 'bg-emerald-500' : isCurrent ? 'bg-blue-600 animate-pulse' : 'bg-slate-200'}`} />
-                      <p className={`text-[8.5px] font-semibold truncate px-0.5 ${isCurrent ? 'text-blue-700 font-semibold' : isCompleted ? 'text-emerald-600' : 'text-slate-400'}`}>
-                        {getFullStepName(st)}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Supplier comparison list */}
-            {selectedNP.suppliers && selectedNP.suppliers.length > 0 && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white border border-slate-200 w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl p-6 text-slate-800 space-y-5 overflow-y-auto animate-scale-in">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-slate-200 pb-4">
               <div>
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Perbandingan Supplier</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {selectedNP.suppliers.map((s, i) => {
-                    const isCheapest = i === getCheapestNPIndex(selectedNP);
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-base text-slate-800 font-mono">{selectedNP.no_doc}</h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                    Otorisasi Non-Product
+                  </span>
+                  <StatusPill status={selectedNP.status} />
+                </div>
+                <p className="text-xs text-slate-500 mt-1 font-medium">
+                  Verifikasi dan komparasi penawaran harga supplier non-product
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedNP(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center font-bold text-sm cursor-pointer transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick Summary Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs">
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold block">Buyer (Pengaju)</span>
+                <span className="font-bold text-slate-800">{selectedNP.buyer_nama}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold block">No PR / BODR</span>
+                <span className="font-bold text-slate-800 font-mono">PR: {selectedNP.no_pr || "—"} / {selectedNP.no_bodr || "—"}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold block">Tanggal</span>
+                <span className="font-bold text-slate-800">{selectedNP.tanggal || selectedNP.created_at || "—"}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold block">Dana BODR</span>
+                <span className="font-bold text-blue-700 font-mono">{fmt(selectedNP.dana_bodr)}</span>
+              </div>
+            </div>
+
+            {/* Comparison of Suppliers Table */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Komparasi Penawaran Vendor Supplier
+              </h4>
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200">
+                      <th className="py-2.5 px-3">Nama Vendor</th>
+                      <th className="py-2.5 px-3 text-right">Target Price</th>
+                      <th className="py-2.5 px-3 text-right">Price Quotation</th>
+                      <th className="py-2.5 px-3 text-right">Final Price</th>
+                      <th className="py-2.5 px-3 text-center">Status Pilihan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(selectedNP.suppliers || []).map((s, sIdx) => {
+                      const isCheapest = sIdx === getCheapestNPIndex(selectedNP);
+                      const isRecommended = s.recommended;
+                      return (
+                        <tr
+                          key={sIdx}
+                          className={isRecommended ? "bg-blue-50/50 font-semibold" : "hover:bg-slate-50"}
+                        >
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-slate-800">{s.vendor_nama}</div>
+                            {isCheapest && (
+                              <span className="text-[9px] text-emerald-600 font-bold">★ Harga Terendah</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono text-slate-600">
+                            {fmt(s.items?.[0]?.target_price || 0)}
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono text-slate-600">
+                            {fmt(s.items?.[0]?.price_quot || 0)}
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                            {fmt(s.total_final_price || s.harga || 0)}
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            {isRecommended ? (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300">
+                                Direkomendasikan
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400">Pembanding</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Approval Stepper History */}
+            <div className="space-y-2.5">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                <span>Riwayat Persetujuan Bertingkat</span>
+              </h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {(selectedNP.approval_history || []).length === 0 ? (
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center text-slate-400 italic text-xs">
+                    Belum ada riwayat approval tercatat.
+                  </div>
+                ) : (
+                  (selectedNP.approval_history || []).map((h, hIdx) => {
+                    const s = (h.status || "").toLowerCase();
+                    const isAppr = s.includes("approved");
+                    const isRej = s.includes("rejected");
+                    const isRev = s.includes("revision") || s.includes("revise");
+
                     return (
-                      <div key={i} className={`p-4 rounded-xl border flex flex-col justify-between ${isCheapest ? 'border-emerald-500 bg-emerald-50/30 font-medium' : 'border-slate-200 bg-slate-50/50'}`}>
-                        <div>
-                          <p className="font-semibold text-slate-900 leading-snug">
-                            {s.vendor_nama}
-                            {isCheapest && <span className="text-emerald-600 font-semibold ml-1.5 block md:inline text-[9px] uppercase tracking-wider">Termurah</span>}
-                          </p>
-                          <p className="text-[10px] text-slate-500 mt-0.5 font-normal">{s.jenis_otorisasi_nama || "-"}</p>
+                      <div key={hIdx} className="p-3 bg-white border border-slate-200 hover:border-blue-300 rounded-xl space-y-1.5 shadow-2xs transition-all">
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-600 font-bold text-[9px] flex items-center justify-center">
+                              {hIdx + 1}
+                            </span>
+                            <div>
+                              <span className="font-bold text-slate-800 text-xs block leading-tight">
+                                {h.name || "Approver"}
+                              </span>
+                              <span className="text-[9.5px] text-slate-500 font-medium block leading-tight">
+                                {h.role || `Step ${hIdx + 1}`}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9.5px] font-mono text-slate-400 whitespace-nowrap">
+                              {h.timestamp || "—"}
+                            </span>
+                            <span
+                              className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${
+                                isAppr
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                                  : isRej
+                                  ? "bg-red-50 text-red-700 border-red-300"
+                                  : isRev
+                                  ? "bg-amber-50 text-amber-700 border-amber-300"
+                                  : "bg-blue-50 text-blue-700 border-blue-300"
+                              }`}
+                            >
+                              {h.status}
+                            </span>
+                          </div>
                         </div>
-                        <p className="font-semibold text-slate-900 text-xs font-mono mt-3 pt-2 border-t border-slate-100 flex justify-between">
-                          <span className="text-slate-400 font-semibold uppercase text-[9px]">Total Penawaran:</span>
-                          {fmt(s.harga ?? s.total_final_price ?? 0)}
-                        </p>
+                        {h.note && (
+                          <div className="bg-slate-50 border border-slate-100 rounded-lg p-2 text-[10px] text-slate-700 italic font-normal">
+                            &quot;{h.note}&quot;
+                          </div>
+                        )}
                       </div>
                     );
-                  })}
-                </div>
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Note Input */}
+            {selectedNP.status !== "Approved" && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">
+                  Catatan / Komentar Verifikasi (Opsional)
+                </label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Tuliskan alasan persetujuan atau catatan revisi..."
+                  rows={2}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-500"
+                />
               </div>
             )}
 
-            {/* Approval history log */}
-            {selectedNP.approval_history && selectedNP.approval_history.length > 0 && (
-              <div>
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Catatan Persetujuan Sebelumnya</p>
-                <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-150 max-h-40 overflow-y-auto">
-                  {selectedNP.approval_history.map((h, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs">
-                      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${h.status === "Approved" ? "bg-emerald-500" : "bg-red-500"}`} />
-                      <div className="flex-1">
-                        <p className="font-semibold text-slate-700 text-[11px]">{getFullStepName(h.role)} — <span className={h.status === "Approved" ? "text-emerald-600 font-semibold" : "text-red-600 font-semibold"}>{h.status}</span></p>
-                        <p className="text-[10px] text-slate-500 font-normal">Oleh: {h.name} · {h.timestamp}</p>
-                        <p className="text-[10px] text-slate-400 italic mt-0.5 font-normal">Note: "{h.note || "—"}"</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Decision panel */}
-            <ApprovalActionBox
-              step={selectedNP.step}
-              currentUser={currentUser}
-              bypassCheck={bypassCheck}
-              processing={processing}
-              note={note}
-              setNote={setNote}
-              setProcessing={setProcessing}
-              handleReject={handleReject}
-              handleApprove={handleApprove}
-            />
-
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                onClick={() => setSelectedNP(null)}
+                disabled={processing}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-xs hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+              >
+                Tutup
+              </button>
+              {selectedNP.status !== "Approved" && (
+                <>
+                  <button
+                    onClick={handleReject}
+                    disabled={processing}
+                    className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                  >
+                    {processing ? "Memproses..." : "Tolak Pengajuan"}
+                  </button>
+                  <button
+                    onClick={handleApprove}
+                    disabled={processing}
+                    className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                  >
+                    {processing ? "Memproses..." : "Setujui Pengajuan"}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Product Detail Modal */}
+      {/* ── Modal Verifikasi Product ────────────────────────────────────── */}
       {selectedP && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs transition-opacity duration-300">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 w-[720px] max-h-[90vh] overflow-y-auto shadow-2xl space-y-5 animate-scaleUp transform transition-all duration-300 relative">
-            <button 
-              onClick={() => setSelectedP(null)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 p-1.5 rounded-full transition-all cursor-pointer"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            <div>
-              <div className="flex items-center gap-3.5">
-                <h3 className="font-semibold text-slate-900 tracking-wide text-sm">{selectedP.id}</h3>
-                <span className={`text-[10px] font-semibold uppercase px-2.5 py-0.5 rounded border ${statusBadge(selectedP.status)}`}>{selectedP.status}</span>
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1 font-medium">Detail Otorisasi Harga Product</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
-              <div className="col-span-2">
-                <p className="text-slate-400 font-medium uppercase text-[9px]">Nama Product / Component</p>
-                <p className="font-semibold text-slate-800 text-sm">{selectedP.product || selectedP.no_doc || "Product"}</p>
-              </div>
-              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Customer</p><p className="font-semibold text-slate-700">{selectedP.customer || selectedP.buyer || "-"}</p></div>
-              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Prepared By</p><p className="font-semibold text-slate-700">{selectedP.prepared_by || selectedP.buyer || "-"}</p></div>
-              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Normal Price</p><p className="font-semibold text-slate-500 line-through font-mono">{fmt(selectedP.normal_price || selectedP.final_price || 0)}</p></div>
-              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Discount (%)</p><p className="font-semibold text-red-600 font-mono">{selectedP.discount_pct || 0}%</p></div>
-              <div className="col-span-2"><p className="text-slate-400 font-medium uppercase text-[9px]">Final Price Proposal</p><p className="font-semibold text-emerald-700 text-sm font-mono">{fmt((selectedP.normal_price || selectedP.final_price || 0) * (1 - (selectedP.discount_pct || 0)/100))}</p></div>
-              <div><p className="text-slate-400 font-medium uppercase text-[9px]">Tahap Approval</p><p className="font-semibold text-blue-700">{getFullStepName(selectedP.step || "SH PURH")}</p></div>
-            </div>
-
-            {/* Stepper progress */}
-            <div>
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3">Progress Persetujuan</p>
-              <div className="grid grid-cols-5 gap-1.5 bg-slate-50/50 p-3 rounded-xl border border-slate-150">
-                {STEPS_P.map((st, sIdx) => {
-                  const currentIdx = STEPS_P.indexOf(selectedP.step || "SH PURH");
-                  const isCompleted = sIdx < currentIdx;
-                  const isCurrent = sIdx === currentIdx;
-                  return (
-                    <div key={st} className="text-center space-y-1">
-                      <div className={`h-1.5 rounded-full ${isCompleted ? 'bg-emerald-500' : isCurrent ? 'bg-blue-600 animate-pulse' : 'bg-slate-200'}`} />
-                      <p className={`text-[8.5px] font-semibold truncate px-0.5 ${isCurrent ? 'text-blue-700 font-semibold' : isCompleted ? 'text-emerald-600' : 'text-slate-400'}`}>
-                        {getFullStepName(st)}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Notes */}
-            {selectedP.notes && (
-              <div className="bg-blue-50/50 border border-blue-100 p-3.5 rounded-xl text-xs">
-                <p className="font-semibold text-blue-800 text-[10px] uppercase tracking-wider mb-0.5">Catatan Pengaju</p>
-                <p className="text-slate-650 italic font-normal">"{selectedP.notes}"</p>
-              </div>
-            )}
-
-            {/* Approval history log */}
-            {selectedP.approval_history && selectedP.approval_history.length > 0 && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white border border-slate-200 w-full max-w-2xl max-h-[90vh] rounded-3xl shadow-2xl p-6 text-slate-800 space-y-5 overflow-y-auto animate-scale-in">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-slate-200 pb-4">
               <div>
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Catatan Persetujuan Sebelumnya</p>
-                <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-150 max-h-40 overflow-y-auto">
-                  {selectedP.approval_history.map((h, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs">
-                      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${h.status === "Approved" ? "bg-emerald-500" : "bg-red-500"}`} />
-                      <div className="flex-1">
-                        <p className="font-semibold text-slate-700 text-[11px]">{getFullStepName(h.role)} — <span className={h.status === "Approved" ? "text-emerald-600 font-semibold" : "text-red-600 font-semibold"}>{h.status}</span></p>
-                        <p className="text-[10px] text-slate-500 font-normal">Oleh: {h.name} · {h.timestamp}</p>
-                        <p className="text-[10px] text-slate-400 italic mt-0.5 font-normal">Note: "{h.note || "—"}"</p>
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-base text-slate-800 font-mono">{selectedP.no_doc || `PRD-${selectedP.id}`}</h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    Otorisasi Product
+                  </span>
+                  <StatusPill status={selectedP.status} />
                 </div>
+                <p className="text-xs text-slate-500 mt-1 font-medium">
+                  {selectedP.product || "Barang Product"} {selectedP.part_number ? `(${selectedP.part_number})` : ""}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedP(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center font-bold text-sm cursor-pointer transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick Summary Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs">
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold block">Buyer</span>
+                <span className="font-bold text-slate-800">{selectedP.buyer || selectedP.prepared_by || "Buyer"}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold block">Customer / Vendor</span>
+                <span className="font-bold text-slate-800">{selectedP.customer || selectedP.vendor || "—"}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold block">Tanggal</span>
+                <span className="font-bold text-slate-800">{selectedP.tanggal || selectedP.date || selectedP.created_at || "—"}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold block">Harga Final</span>
+                <span className="font-bold text-blue-700 font-mono">{fmt(selectedP.final_price || selectedP.normal_price)}</span>
+              </div>
+            </div>
+
+            {/* Approval Stepper History */}
+            <div className="space-y-2.5">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                <span>Riwayat Persetujuan Bertingkat</span>
+              </h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {(selectedP.approval_history || []).length === 0 ? (
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center text-slate-400 italic text-xs">
+                    Belum ada riwayat approval tercatat.
+                  </div>
+                ) : (
+                  (selectedP.approval_history || []).map((h, hIdx) => {
+                    const s = (h.status || "").toLowerCase();
+                    const isAppr = s.includes("approved");
+                    const isRej = s.includes("rejected");
+                    const isRev = s.includes("revision") || s.includes("revise");
+
+                    return (
+                      <div key={hIdx} className="p-3 bg-white border border-slate-200 hover:border-blue-300 rounded-xl space-y-1.5 shadow-2xs transition-all">
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-600 font-bold text-[9px] flex items-center justify-center">
+                              {hIdx + 1}
+                            </span>
+                            <div>
+                              <span className="font-bold text-slate-800 text-xs block leading-tight">
+                                {h.name || "Approver"}
+                              </span>
+                              <span className="text-[9.5px] text-slate-500 font-medium block leading-tight">
+                                {h.role || `Step ${hIdx + 1}`}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9.5px] font-mono text-slate-400 whitespace-nowrap">
+                              {h.timestamp || "—"}
+                            </span>
+                            <span
+                              className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${
+                                isAppr
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                                  : isRej
+                                  ? "bg-red-50 text-red-700 border-red-300"
+                                  : isRev
+                                  ? "bg-amber-50 text-amber-700 border-amber-300"
+                                  : "bg-blue-50 text-blue-700 border-blue-300"
+                              }`}
+                            >
+                              {h.status}
+                            </span>
+                          </div>
+                        </div>
+                        {h.note && (
+                          <div className="bg-slate-50 border border-slate-100 rounded-lg p-2 text-[10px] text-slate-700 italic font-normal">
+                            &quot;{h.note}&quot;
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Note Input */}
+            {selectedP.status !== "Approved" && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">
+                  Catatan / Komentar Verifikasi (Opsional)
+                </label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Tuliskan alasan persetujuan atau catatan revisi..."
+                  rows={2}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-500"
+                />
               </div>
             )}
 
-            {/* Decision panel */}
-            <ApprovalActionBox
-              step={selectedP.step || "SH PURH"}
-              currentUser={currentUser}
-              bypassCheck={bypassCheck}
-              processing={processing}
-              note={note}
-              setNote={setNote}
-              setProcessing={setProcessing}
-              handleReject={handleReject}
-              handleApprove={handleApprove}
-            />
-
-          </div>
-        </div>
-      )}
-
-      {/* ────────────────── Centered Premium Notification Modal ────────────────── */}
-      {alertMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 backdrop-blur-xs transition-opacity duration-300">
-          <div className="bg-white border border-slate-200 rounded-3xl p-7 w-96 max-w-[90%] shadow-2xl text-center space-y-4 animate-scaleUp transform transition-all duration-300">
-            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner text-2xl font-semibold">
-              ✓
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                onClick={() => setSelectedP(null)}
+                disabled={processing}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-xs hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+              >
+                Tutup
+              </button>
+              {selectedP.status !== "Approved" && (
+                <>
+                  <button
+                    onClick={handleReject}
+                    disabled={processing}
+                    className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                  >
+                    {processing ? "Memproses..." : "Tolak Pengajuan"}
+                  </button>
+                  <button
+                    onClick={handleApprove}
+                    disabled={processing}
+                    className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                  >
+                    {processing ? "Memproses..." : "Setujui Pengajuan"}
+                  </button>
+                </>
+              )}
             </div>
-            <div className="space-y-1">
-              <h4 className="font-semibold text-slate-800 text-sm tracking-wide uppercase">Notifikasi</h4>
-              <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{alertMessage}</p>
-            </div>
-            <button
-              onClick={() => setAlertMessage(null)}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer w-full shadow-md"
-            >
-              Selesai (OK)
-            </button>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-// Action Box sub-component
-interface ActionBoxProps {
-  step: string;
-  currentUser: User | null;
-  bypassCheck: boolean;
-  processing: boolean;
-  note: string;
-  setNote: (s: string) => void;
-  setProcessing: (b: boolean) => void;
-  handleReject: () => void;
-  handleApprove: () => void;
-}
-
-function ApprovalActionBox({
-  step,
-  currentUser,
-  bypassCheck,
-  processing,
-  note,
-  setNote,
-  setProcessing,
-  handleReject,
-  handleApprove
-}: ActionBoxProps) {
-  const isAuthorized = bypassCheck || isUserAuthorizedForStep(currentUser, step);
-
-  return (
-    <div className="border-t border-slate-100 pt-4 space-y-3">
-      {!isAuthorized && (
-        <div className="bg-amber-50 border border-amber-250 rounded-xl p-3 text-xs text-amber-800 font-semibold leading-relaxed">
-          Peran login Anda ({currentUser?.role || "Tidak Ada"}) tidak diatur untuk menyetujui langkah <strong>"{step}"</strong> saat ini.
-          <p className="text-[10px] text-amber-600 mt-1 font-normal">Gunakan 'Mode Simulasi' di atas untuk menyetujui secara langsung.</p>
-        </div>
-      )}
-
-      {!processing ? (
-        <button 
-          onClick={() => setProcessing(true)} 
-          disabled={!isAuthorized}
-          className={`w-full py-3 font-semibold rounded-xl text-xs transition-all shadow-sm ${isAuthorized ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer' : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'}`}
-        >
-          Proses Approval / Keputusan →
-        </button>
-      ) : (
-        <div className="space-y-3 animate-fadeIn">
-          <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Catatan Keputusan</label>
-            <textarea 
-              value={note} 
-              onChange={e => setNote(e.target.value)} 
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 text-xs focus:outline-none focus:border-blue-500 font-medium" 
-              rows={2} 
-              placeholder="Berikan catatan keputusan..."
-            />
-          </div>
-          <div className="flex gap-3">
-            <button 
-              onClick={handleReject} 
-              className="flex-1 py-2.5 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 text-xs transition-all shadow-xs cursor-pointer"
-            >
-              Tolak (Reject)
-            </button>
-            <button 
-              onClick={handleApprove} 
-              className="flex-1 py-2.5 bg-emerald-500 text-white font-semibold rounded-xl hover:bg-emerald-600 text-xs transition-all shadow-xs cursor-pointer"
-            >
-              Setujui (Approve)
-            </button>
           </div>
         </div>
       )}

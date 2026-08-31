@@ -325,56 +325,64 @@ export default function PortalPage() {
       className="min-h-screen w-full flex items-center justify-center bg-cover bg-center relative p-4 font-sans text-slate-800"
       style={{ backgroundImage: "url('/assets/img/bgmtm.jpg')" }}
     >
-      <div className="absolute inset-0 bg-slate-950/45 backdrop-blur-[3px] z-0" />
+      <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-[4px] z-0" />
 
       <div
-        className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-8 relative z-10"
-        style={{ boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)" }}
+        className="w-full max-w-4xl bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-slate-200/80 p-8 sm:p-10 relative z-10 animate-in fade-in zoom-in-95 duration-200"
+        style={{ boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.25)" }}
       >
         {/* Header */}
         <div className="flex flex-col items-center mb-8">
-          <img src="/assets/img/logowide.jpeg" alt="MTM Logo" className="h-14 w-auto object-contain mb-3 select-none" />
-          <hr className="w-full border-t border-slate-200 my-4" />
-          <h2 className="text-2xl font-semibold tracking-wider text-blue-600 text-center uppercase">PORTAL</h2>
-          <p className="text-xs text-slate-500 mt-1.5 font-normal">
-            Welcome, <span className="font-semibold text-slate-700">{currentUser.name}</span>
+          <img src="/assets/img/logowide.jpeg" alt="MTM Logo" className="h-14 w-auto object-contain mb-2 select-none" />
+          <hr className="w-full border-t border-slate-200/80 my-4" />
+          <h2 className="text-xl font-bold tracking-wider text-slate-900 uppercase">
+            Capital Management Portal Hub
+          </h2>
+          <p className="text-xs text-slate-500 mt-1 font-medium">
+            Selamat datang, <span className="font-bold text-blue-600">{currentUser.name}</span> ({currentUser.role} &bull; {currentUser.department})
           </p>
         </div>
 
         {/* Portal Grid */}
         {allowedPortals.length > 0 ? (
           <div
-            className={`grid gap-5 w-full mb-6 ${
+            className={`grid gap-5 w-full mb-8 ${
               allowedPortals.length === 1
                 ? "grid-cols-1 max-w-sm mx-auto"
                 : allowedPortals.length === 2
                 ? "grid-cols-1 sm:grid-cols-2 max-w-xl mx-auto"
-                : "grid-cols-1 sm:grid-cols-3"
+                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
             }`}
           >
             {allowedPortals.map((portal) => (
               <Link
                 key={portal.id}
                 href={portal.href}
-                className="group bg-white border-2 border-blue-600 rounded-2xl p-6 flex flex-col items-center text-center transition-all shadow-xs hover:bg-blue-600 hover:shadow-xl hover:-translate-y-1 active:scale-[0.97] cursor-pointer"
+                className="group relative bg-gradient-to-b from-white to-slate-50 border border-slate-200 hover:border-blue-500 rounded-2xl p-6 flex flex-col items-center text-center transition-all duration-300 shadow-2xs hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] cursor-pointer overflow-hidden"
               >
-                <span className="text-blue-600 group-hover:text-white mb-3 transition-colors">
+                <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center mb-4 transition-all duration-300 shadow-xs group-hover:scale-110">
                   {portal.icon}
-                </span>
-                <span className="font-semibold text-blue-600 group-hover:text-white text-lg uppercase tracking-wider">
+                </div>
+                <span className="font-bold text-slate-900 group-hover:text-blue-600 text-base uppercase tracking-wider transition-colors">
                   {portal.title}
                 </span>
-                <span className="text-xs text-slate-500 group-hover:text-blue-100 mt-1 font-normal">
+                <span className="text-xs text-slate-500 mt-1.5 font-normal leading-relaxed">
                   {portal.desc}
                 </span>
+                <div className="mt-4 flex items-center gap-1 text-[11px] font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-all translate-y-1 group-hover:translate-y-0">
+                  <span>Buka Portal</span>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </div>
               </Link>
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 px-4 bg-slate-50 border border-slate-200 rounded-xl mb-6 space-y-2">
-            <p className="text-sm font-semibold text-slate-700">No Accessible Portals</p>
-            <p className="text-xs text-slate-500 font-normal">
-              Your account does not have access permissions to any portal module. Please contact the system Administrator to grant your access.
+          <div className="text-center py-10 px-4 bg-slate-50 border border-slate-200 rounded-2xl mb-8 space-y-2">
+            <p className="text-sm font-bold text-slate-700">Tidak Ada Akses Portal</p>
+            <p className="text-xs text-slate-500 font-normal max-w-md mx-auto">
+              Akun Anda belum memiliki izin akses ke modul portal manapun. Silakan hubungi Administrator untuk meminta akses.
             </p>
           </div>
         )}
@@ -383,17 +391,17 @@ export default function PortalPage() {
         <div className="flex justify-center items-center">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 text-xs text-red-500 hover:text-red-700 font-medium transition-all border border-red-200 hover:border-red-300 rounded-xl px-4 py-2 hover:bg-red-50/50 cursor-pointer"
+            className="flex items-center gap-2 text-xs text-rose-600 hover:text-rose-700 font-semibold transition-all border border-rose-200 hover:border-rose-300 rounded-xl px-5 py-2.5 hover:bg-rose-50/50 cursor-pointer shadow-2xs"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            Logout
+            Keluar (Logout)
           </button>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-slate-200 text-center text-xs text-slate-400 select-none font-normal">
-          <span>© {new Date().getFullYear()} PT Menara Terus Makmur</span>
+        <div className="mt-8 pt-4 border-t border-slate-200 text-center text-xs text-slate-400 select-none font-normal">
+          <span>© {new Date().getFullYear()} PT Menara Terus Makmur — All rights reserved.</span>
         </div>
       </div>
     </div>

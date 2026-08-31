@@ -109,9 +109,9 @@ export default function VendorPage() {
   });
 
   return (
-    <div className="flex min-h-screen bg-white font-sans text-slate-900">
+    <div className="flex h-screen bg-white font-sans text-slate-900 overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-h-screen ml-64">
+      <div className="flex-1 flex flex-col h-screen ml-64 overflow-hidden">
         <Header
           title="Master Data Vendor"
           subtitle="Kelola master data vendor / supplier untuk otorisasi harga"

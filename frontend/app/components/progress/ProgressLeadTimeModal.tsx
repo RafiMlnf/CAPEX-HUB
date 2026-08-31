@@ -77,15 +77,7 @@ export default function ProgressLeadTimeModal({
     dateStr?: string,
     daysVal: number = 1
   ): ActivityLogItem => {
-    const rawPicCandidate = (picIdentifier || "").trim();
-    const isTestCandidate =
-      !rawPicCandidate ||
-      rawPicCandidate.toLowerCase() === "test user" ||
-      rawPicCandidate.toLowerCase() === "pemohon" ||
-      rawPicCandidate.toLowerCase() === "staff user";
-    const resolvedIdentifier = isTestCandidate
-      ? (proposal?.pic || raw?.pic || getCurrentUser()?.name || "")
-      : rawPicCandidate;
+    const resolvedIdentifier = (picIdentifier || "").trim() || proposal?.pic || raw?.pic || getCurrentUser()?.name || "Pemohon";
 
     const found =
       findUserByIdentifier(resolvedIdentifier) ||
@@ -95,7 +87,7 @@ export default function ProgressLeadTimeModal({
       ? (found.department ? `${found.role} (${found.department})` : found.role)
       : (deptFallback ? `Proposer / Pemohon (${deptFallback})` : "Proposer / Pemohon");
 
-    const submitByName = (found?.name || resolvedIdentifier || getCurrentUser()?.name || "Pemohon").toUpperCase();
+    const submitByName = (found?.name || resolvedIdentifier).toUpperCase();
 
     return {
       id: 1,
@@ -119,15 +111,7 @@ export default function ProgressLeadTimeModal({
     dateStr?: string,
     id: number = 4
   ): ActivityLogItem => {
-    const rawUploaderCandidate = (uploaderIdentifier || "").trim();
-    const isTestCandidate =
-      !rawUploaderCandidate ||
-      rawUploaderCandidate.toLowerCase() === "test user" ||
-      rawUploaderCandidate.toLowerCase() === "pemohon" ||
-      rawUploaderCandidate.toLowerCase() === "staff user";
-    const resolvedIdentifier = isTestCandidate
-      ? (proposal?.pic || raw?.pic || getCurrentUser()?.name || "")
-      : rawUploaderCandidate;
+    const resolvedIdentifier = (uploaderIdentifier || "").trim() || proposal?.pic || raw?.pic || getCurrentUser()?.name || "Pemohon";
 
     const found =
       findUserByIdentifier(resolvedIdentifier) ||
@@ -252,8 +236,8 @@ export default function ProgressLeadTimeModal({
     if (!proposal) return [];
 
     const logs: ActivityLogItem[] = [];
-    const dept = proposal.department || "DEPT";
-    const pic = proposal.pic || raw.pic || getCurrentUser()?.name || "STAFF USER";
+    const dept = proposal.department || raw.department || "Departemen";
+    const pic = proposal.pic || raw.pic || getCurrentUser()?.name || "Pemohon";
     const createdAt = proposal.createdAt || raw.createdAt || new Date().toISOString();
     const gs = (proposal.gateStatus || raw.gateStatus || "Idea").toLowerCase();
 
@@ -276,6 +260,37 @@ export default function ProgressLeadTimeModal({
 
         // Skip test verification entries
         if (actLower.startsWith("test") || notesLower.includes("entry ini harus tersimpan")) return;
+
+        // Skip duplicate initial submit/draft entry if it matches initial creation
+        const isInitialSubmit =
+          idx === 0 &&
+          (actLower.includes("submit") ||
+            actLower.includes("draft") ||
+            actLower.includes("diajukan") ||
+            actLower.includes("create") ||
+            h.gate === 0);
+
+        if (isInitialSubmit) {
+          if (logs.length > 0) {
+            if (h.actor) {
+              const foundActor = findUserByIdentifier(h.actor);
+              logs[0].submitBy = (foundActor?.name || h.actor).toUpperCase();
+              if (foundActor?.role) {
+                logs[0].roleName = foundActor.department
+                  ? `${foundActor.role} (${foundActor.department})`
+                  : foundActor.role;
+              }
+            }
+            if (h.notes && h.notes !== "-" && h.notes.trim()) {
+              logs[0].description = h.notes;
+            }
+            if (h.timestamp) {
+              logs[0].date = formatDateWIB(h.timestamp);
+              logs[0].rawTimestamp = new Date(h.timestamp).getTime() || logs[0].rawTimestamp;
+            }
+          }
+          return;
+        }
 
         const isFin = actorLower.includes("finan") || actorLower.includes("account") || h.gate === 1;
         const isComm = actorLower.includes("komite") || actorLower.includes("committee") || actorLower.includes("division") || actorLower.includes("direksi") || h.gate === 2;
@@ -392,6 +407,7 @@ export default function ProgressLeadTimeModal({
 
     // Recalculate step-by-step lead time (in days/hours) based on elapsed time from previous activity
     for (let i = 0; i < logs.length; i++) {
+      logs[i].id = `act-${i + 1}-${logs[i].rawTimestamp || Date.now()}`;
       if (i === 0) {
         logs[i].days = "0 Day";
       } else {
@@ -565,7 +581,7 @@ export default function ProgressLeadTimeModal({
                   {paginatedLogs.map((log, index) => {
                     const rowNumber = (currentPage - 1) * itemsPerPage + index + 1;
                     return (
-                      <tr key={log.id} className="hover:bg-blue-50/20 transition-colors">
+                      <tr key={`lead-act-${log.id || index}`} className="hover:bg-blue-50/20 transition-colors">
                         <td className="py-3 px-2.5 text-center text-slate-400 font-mono border-r border-slate-100">
                           {rowNumber}
                         </td>

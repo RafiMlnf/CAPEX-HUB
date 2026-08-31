@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query } from '@nestjs/common';
 import { CapexService } from './capex.service';
 
 @Controller()
@@ -33,6 +33,12 @@ export class CapexController {
   @Get('capex-items')
   getCapexItems() {
     return this.capexService.getCapexItems();
+  }
+
+  // GET /capex-history
+  @Get('capex-history')
+  getCapexHistory(@Query('capex_id') capexId?: string) {
+    return this.capexService.getHistory(capexId);
   }
 
   // POST /sync/bodr

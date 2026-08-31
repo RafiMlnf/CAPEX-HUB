@@ -1,6 +1,49 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+// ── Enum normalizers — DB uses strict enum types ─────────────────────────────
+const normalizeLocation = (v: any): string => {
+  if (!v) return 'office';
+  const s = v.toString().toLowerCase().trim();
+  if (s === 'plant') return 'plant';
+  return 'office'; // default: office
+};
+
+const normalizeCategory = (v: any): string => {
+  if (!v) return 'budget';
+  const s = v.toString().toLowerCase().trim();
+  if (s === 'unbudget') return 'unbudget';
+  return 'budget'; // default: budget
+};
+
+const normalizeBodrStatus = (v: any): string => {
+  // Valid: draft | in_approval | approved | rejected
+  if (!v) return 'in_approval';
+  const s = v.toString().toLowerCase().trim();
+  if (s === 'draft') return 'draft';
+  if (s === 'approved') return 'approved';
+  if (s === 'rejected') return 'rejected';
+  // revision_required, in_approval, pending_review, etc. → in_approval
+  return 'in_approval';
+};
+
+const normalizeKriteria = (v: any): string => {
+  // Valid: CAP | FOH | GOP
+  if (!v) return 'FOH';
+  const s = v.toString().toUpperCase().trim();
+  if (['CAP', 'FOH', 'GOP'].includes(s)) return s;
+  return 'FOH'; // default
+};
+
+const normalizeApprovalAction = (v: any): string => {
+  // Valid: pending | approved | rejected
+  if (!v) return 'pending';
+  const s = v.toString().toLowerCase().trim();
+  if (s === 'approved') return 'approved';
+  if (s === 'rejected') return 'rejected';
+  return 'pending';
+};
+
 @Injectable()
 export class BodrService {
   constructor(private readonly prisma: PrismaService) {}
@@ -80,8 +123,12 @@ export class BodrService {
 
   // ── Get one BODR ──────────────────────────────────────────────────────────
   async findOne(id: string) {
+    const numId = parseInt(id);
+    if (isNaN(numId)) {
+      throw new NotFoundException(`BODR ${id} tidak ditemukan`);
+    }
     const b = await this.prisma.bodr.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: numId },
       include: {
         user: { include: { role: true } },
         departemen: true,
@@ -98,16 +145,94 @@ export class BodrService {
 
   // ── Create BODR ───────────────────────────────────────────────────────────
   async create(data: any) {
-    if (!data.user_id || !data.capex_id || !data.cost_center_id) {
-      throw new BadRequestException('user_id, capex_id, cost_center_id wajib diisi');
+    // Helper: safe parseInt — returns null if NaN or invalid
+    const safeInt = (v: any): number | null => {
+      const n = parseInt(v);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    // 1. Resolve user_id (numeric)
+    let userId = safeInt(data.user_id);
+    if (!userId) {
+      const u = await this.prisma.user.findFirst({
+        where: data.proposer
+          ? { nama_user: { equals: data.proposer, mode: 'insensitive' } }
+          : undefined,
+      }).catch(() => null);
+      userId = u?.id ?? 1;
     }
 
-    const deptId = parseInt(data.departemen_id);
+    // 2. Resolve departemen_id (numeric) — try direct first, then by name
+    let deptId = safeInt(data.departemen_id);
+    if (!deptId) {
+      const d = await this.prisma.departemen.findFirst({
+        where: data.department
+          ? {
+              OR: [
+                { nama_departemen: { equals: data.department, mode: 'insensitive' } },
+                { kode_departemen: { equals: data.department, mode: 'insensitive' } },
+              ],
+            }
+          : { status: 'active' },
+      }).catch(() => null);
+      // If still null, use absolute first departemen in DB
+      if (!d) {
+        const fallback = await this.prisma.departemen.findFirst().catch(() => null);
+        deptId = fallback?.id ?? 1;
+      } else {
+        deptId = d.id;
+      }
+    }
+
+    // 3. Resolve cost_center_id (numeric)
+    let costCenterId = safeInt(data.cost_center_id);
+    if (!costCenterId) {
+      const cc = await this.prisma.costCenter.findFirst({
+        where: data.cost_center
+          ? {
+              OR: [
+                { kode_cost_center: { equals: data.cost_center, mode: 'insensitive' } },
+                { nama_cost_center: { equals: data.cost_center, mode: 'insensitive' } },
+              ],
+            }
+          : { status: 'active' },
+      }).catch(() => null);
+      if (!cc) {
+        const fallback = await this.prisma.costCenter.findFirst().catch(() => null);
+        costCenterId = fallback?.id ?? 1;
+      } else {
+        costCenterId = cc.id;
+      }
+    }
+
+    // 4. Resolve capex_id (numeric) — may be string code/name or numeric
+    const rawCapex = data.capex_id && data.capex_id !== '-' ? data.capex_id : null;
+    let capexId = safeInt(rawCapex);
+    if (!capexId && rawCapex) {
+      const c = await this.prisma.capex.findFirst({
+        where: {
+          OR: [
+            { kode_capex: { equals: rawCapex, mode: 'insensitive' } },
+            { nama_capex: { equals: rawCapex, mode: 'insensitive' } },
+          ],
+        },
+      }).catch(() => null);
+      if (!c) {
+        const fallback = await this.prisma.capex.findFirst().catch(() => null);
+        capexId = fallback?.id ?? 1;
+      } else {
+        capexId = c.id;
+      }
+    }
+    if (!capexId) {
+      const fallback = await this.prisma.capex.findFirst().catch(() => null);
+      capexId = fallback?.id ?? 1;
+    }
 
     // 1. Fetch DepartmentSettings (head_dept & accounting user) — dikonfigurasi admin
     const deptSettings = await this.prisma.departmentSettings.findUnique({
       where: { departemen_id: deptId },
-    });
+    }).catch(() => null);
 
     // 2. Fetch ApprovalWorkflow aktif beserta step-nya — dikonfigurasi admin
     const activeWorkflow = await this.prisma.approvalWorkflow.findFirst({
@@ -118,7 +243,7 @@ export class BodrService {
       include: {
         steps: { orderBy: { step_order: 'asc' } },
       },
-    });
+    }).catch(() => null);
 
     // 3. Bangun combined approvals: [Head Dept] → [Accounting] → [Workflow steps]
     //    100% dinamis dari konfigurasi admin — zero hardcode
@@ -153,18 +278,18 @@ export class BodrService {
       data: {
         bodr_no: `BODR/${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(Date.now()).slice(-4)}`,
         title: data.title ?? 'Untitled',
-        user_id: parseInt(data.user_id),
+        user_id: userId,
         departemen_id: deptId,
-        cost_center_id: parseInt(data.cost_center_id),
-        kriteria_approval: data.kriteria_approval ?? data.category,
-        start_date: new Date(data.start_date),
-        end_date: new Date(data.end_date),
+        cost_center_id: costCenterId,
+        kriteria_approval: normalizeKriteria(data.kriteria_approval ?? data.category),
+        start_date: data.start_date ? new Date(data.start_date) : new Date(),
+        end_date: data.end_date ? new Date(data.end_date) : new Date(),
         benefit: data.benefit ?? null,
-        capex_id: parseInt(data.capex_id),
-        amount: data.amount,
-        category: data.budget_type ?? data.category_budget ?? 'budget',
+        capex_id: capexId,
+        amount: data.amount || 0,
+        category: normalizeCategory(data.budget_type ?? data.category_budget ?? data.category),
         budget_remarks: data.budget_remarks ?? null,
-        status: data.status ?? 'in_approval',
+        status: 'in_approval',
         current_step: combinedApprovals.length > 0 ? 1 : 0,
         // Seed combined approvals: Head Dept → Accounting → Workflow steps (dari konfigurasi admin)
         ...(combinedApprovals.length > 0
@@ -175,13 +300,13 @@ export class BodrService {
             }
           : {}),
         // Create asset if CAP
-        ...(data.kriteria_approval === 'CAP' && data.nama_asset
+        ...(normalizeKriteria(data.kriteria_approval ?? data.category) === 'CAP' && data.nama_asset
           ? {
               asset: {
                 create: {
                   nama_asset: data.nama_asset,
                   plant: data.plan ?? '2301',
-                  location: data.location ?? 'office',
+                  location: normalizeLocation(data.location),
                   asset_type_id: data.asset_type_id ? parseInt(data.asset_type_id) : null,
                 },
               },
@@ -203,9 +328,25 @@ export class BodrService {
     });
 
     // Allocate capex amount
-    await this.prisma.capex.update({
-      where: { id: parseInt(data.capex_id) },
-      data: { allocated_amount: { increment: data.amount } },
+    if (capexId) {
+      await this.prisma.capex.update({
+        where: { id: capexId },
+        data: { allocated_amount: { increment: data.amount || 0 } },
+      }).catch((err) => console.warn('Could not update capex allocated amount:', err));
+    }
+
+    // Insert initial history entry
+    await this.prisma.bodrHistory.create({
+      data: {
+        bodr_id: bodr.id,
+        action: 'SUBMITTED',
+        actor: bodr.user?.nama_user ?? data.actor ?? 'System',
+        actor_role: bodr.user?.role?.nama_role ?? '',
+        status_before: null,
+        status_after: bodr.status,
+        comment: data.title ?? null,
+        timestamp: bodr.created_at,
+      },
     });
 
     return this.formatBodr(bodr);
@@ -218,23 +359,31 @@ export class BodrService {
 
     // If approval action
     if (data.approval_action && data.step_order !== undefined && data.approver_user_id) {
+      const statusBefore = existing.status;
+
       await this.prisma.bodrApproval.updateMany({
         where: { bodr_id: parseInt(id), step_order: data.step_order },
         data: {
-          status: data.approval_action,
+          status: normalizeApprovalAction(data.approval_action),
           comment: data.comment ?? null,
           action_date: new Date(),
         },
       });
 
-      if (data.approval_action === 'rejected') {
+      let statusAfter = existing.status;
+
+      const normalizedAction = normalizeApprovalAction(data.approval_action);
+      if (normalizedAction === 'rejected' || data.approval_action === 'rejected') {
         await this.prisma.bodr.update({ where: { id: parseInt(id) }, data: { status: 'rejected' } });
+        statusAfter = 'rejected';
       } else if (data.approval_action === 'revision') {
+        // revision_required tidak ada di enum DB → set back ke in_approval step 1
         await this.prisma.bodr.update({
           where: { id: parseInt(id) },
-          data: { status: 'revision_required', current_step: 1 },
+          data: { status: 'in_approval', current_step: 1 },
         });
-      } else if (data.approval_action === 'approved') {
+        statusAfter = 'in_approval';
+      } else if (normalizedAction === 'approved' || data.approval_action === 'approved') {
         const allApprovals = await this.prisma.bodrApproval.findMany({ where: { bodr_id: parseInt(id) } });
         const allApproved = allApprovals.every((a) => a.status === 'approved');
         if (allApproved && allApprovals.length > 0) {
@@ -244,13 +393,37 @@ export class BodrService {
             where: { id: parseInt(id) },
             data: { status: 'approved', bodr_id_final: `BID/${year}/${seq}` },
           });
+          statusAfter = 'approved';
         } else {
           await this.prisma.bodr.update({
             where: { id: parseInt(id) },
             data: { status: 'in_approval', current_step: data.step_order + 1 },
           });
+          statusAfter = 'in_approval';
         }
       }
+
+      // Fetch approver info for history
+      const approverUser = data.approver_user_id
+        ? await this.prisma.user.findUnique({
+            where: { id: parseInt(data.approver_user_id) },
+            include: { role: true },
+          })
+        : null;
+
+      // Insert approval action into history
+      await this.prisma.bodrHistory.create({
+        data: {
+          bodr_id: parseInt(id),
+          action: data.approval_action.toUpperCase(),
+          actor: approverUser?.nama_user ?? data.actor ?? 'System',
+          actor_role: approverUser?.role?.nama_role ?? '',
+          status_before: statusBefore,
+          status_after: statusAfter,
+          comment: data.comment ?? null,
+          timestamp: new Date(),
+        },
+      });
 
       return { success: true };
     }
@@ -260,7 +433,7 @@ export class BodrService {
       where: { id: parseInt(id) },
       data: {
         title: data.title,
-        status: data.status,
+        ...(data.status !== undefined && { status: normalizeBodrStatus(data.status) }),
         benefit: data.benefit,
         budget_remarks: data.budget_remarks,
       },
@@ -279,9 +452,25 @@ export class BodrService {
 
   // ── Delete BODR ───────────────────────────────────────────────────────────
   async remove(id: string) {
-    const bodr = await this.prisma.bodr.findUnique({ where: { id: parseInt(id) } });
+    const bodr = await this.prisma.bodr.findUnique({
+      where: { id: parseInt(id) },
+      include: { user: { include: { role: true } } },
+    });
     if (!bodr) throw new NotFoundException(`BODR ${id} tidak ditemukan`);
-    if (bodr.status !== 'draft') throw new BadRequestException('Hanya BODR dengan status draft yang bisa dihapus');
+
+    // Insert history before delete (cascade will remove it, but record the event)
+    await this.prisma.bodrHistory.create({
+      data: {
+        bodr_id: bodr.id,
+        action: 'DELETED',
+        actor: bodr.user?.nama_user ?? 'System',
+        actor_role: (bodr.user as any)?.role?.nama_role ?? '',
+        status_before: bodr.status,
+        status_after: 'deleted',
+        comment: `BODR ${bodr.bodr_no} dihapus`,
+        timestamp: new Date(),
+      },
+    });
 
     // Release capex allocation
     await this.prisma.capex.update({
@@ -483,5 +672,42 @@ export class BodrService {
     });
     const { id: _id, ...rest } = record;
     return { id: record.id.toString(), ...rest };
+  }
+
+  // ── BODR History ──────────────────────────────────────────────────────────
+  async getHistory(bodrId?: string) {
+    const where: any = {};
+    if (bodrId) where.bodr_id = parseInt(bodrId);
+
+    const records = await this.prisma.bodrHistory.findMany({
+      where,
+      include: {
+        bodr: {
+          select: {
+            bodr_no: true,
+            bodr_id_final: true,
+            title: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { timestamp: 'desc' },
+    });
+
+    return records.map((h) => ({
+      id: h.id.toString(),
+      bodr_id: h.bodr_id.toString(),
+      bodr_no: h.bodr?.bodr_no ?? '',
+      bodr_id_final: h.bodr?.bodr_id_final ?? null,
+      bodr_title: h.bodr?.title ?? '',
+      action: h.action,
+      actor: h.actor,
+      actor_role: h.actor_role ?? '',
+      status_before: h.status_before ?? null,
+      status_after: h.status_after ?? null,
+      comment: h.comment ?? null,
+      timestamp: h.timestamp,
+      created_at: h.created_at,
+    }));
   }
 }

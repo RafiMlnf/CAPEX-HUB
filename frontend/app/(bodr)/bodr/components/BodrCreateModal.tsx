@@ -159,6 +159,21 @@ export default function BodrCreateModal({
         uploadedDocUrls = uploadRes.map((r) => r.url);
       }
 
+      const selectedCostCenter = costCenters.find(
+        (c) => (c.kode || c.kode_cost_center || c.nama_cost_center) === form.costCenter
+      );
+      const selectedCapex =
+        approvedCapexProposals.find(
+          (c) =>
+            String(c.id) === String(form.capexId) ||
+            c.nomor_capex === form.capexId ||
+            c.capexId === form.capexId ||
+            c.nama_project === form.capexId
+        ) ||
+        capexItems.find(
+          (c) => String(c.id) === String(form.capexId) || c.kode_capex === form.capexId
+        );
+
       const newBodr = {
         id: nextId,
         bodr_no: nextBodrNo,
@@ -170,14 +185,18 @@ export default function BodrCreateModal({
         date: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
         notes: combinedNotes,
         proposer: form.user,
-        benefit: form.benefit,
-        capex_id: form.capexId || "-",
-        no_asset: noAsset,
+        user_id: currentUser?.id,
+        departemen_id: (currentUser as any)?.departemen_id,
         cost_center: form.costCenter,
+        cost_center_id: selectedCostCenter?.id,
+        capex_id: selectedCapex?.id || form.capexId || "-",
+        benefit: form.benefit,
+        no_asset: noAsset,
         start_date: form.startDate,
         end_date: form.endDate,
         budget_type: form.budgetType,
         budget_remarks: form.unbudgetRemark,
+        kriteria_approval: form.kriteria,
         nama_asset: form.namaAsset,
         plan: form.plan,
         location: form.location,
@@ -228,18 +247,26 @@ export default function BodrCreateModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-white border border-slate-200 w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden my-6 text-slate-800 flex flex-col max-h-[90vh]">
         {/* Header Modal */}
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
-          <div>
-            <h3 className="text-base font-bold text-slate-800 uppercase tracking-wider">BODR Resolution</h3>
-            <p className="text-[11px] text-slate-500 font-normal">Formulir Pengajuan Usulan Anggaran Budget Over Design Review</p>
+        <div className="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold shadow-xs">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Formulir Pengajuan BODR</h3>
+              <p className="text-[11px] text-slate-500 font-medium">Budget Over Design Review — Pengajuan Usulan Anggaran</p>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer p-1.5 rounded-full hover:bg-slate-200"
+            className="text-slate-400 hover:text-slate-700 transition-all cursor-pointer p-1.5 rounded-xl hover:bg-slate-100 border border-transparent hover:border-slate-200"
+            title="Tutup Formulir"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -248,26 +275,29 @@ export default function BodrCreateModal({
         </div>
 
         {/* Form Container (2-Column Grid Layout) */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 p-6 space-y-6 bg-white">
+        <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 p-6 space-y-6 bg-slate-50/30">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* ── KOLOM KIRI: INFORMASI PENGAJU & DETAIL INVESTASI ────────────── */}
             <div className="lg:col-span-6 space-y-4">
               {/* Card 1: Informasi Pengaju */}
-              <div className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-3">
-                <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200">
-                  <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Informasi Pengaju</p>
+              <div className="p-4 bg-white border border-slate-200/90 rounded-xl space-y-3 shadow-2xs">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                  <p className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">1. Informasi Pengaju</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">User</label>
-                    <div className="px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs font-semibold">
-                      {form.user || "-"}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Pengusul (User)</label>
+                    <div className="px-3.5 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 text-xs font-semibold flex items-center gap-2 shadow-2xs">
+                      <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[9px] uppercase shrink-0">
+                        {form.user?.charAt(0) || "U"}
+                      </span>
+                      <span className="truncate">{form.user || "-"}</span>
                     </div>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Department</label>
-                    <div className="px-3.5 py-2.5 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs font-semibold">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Departemen</label>
+                    <div className="px-3.5 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold shadow-2xs">
                       {form.department || "-"}
                     </div>
                   </div>
@@ -275,20 +305,20 @@ export default function BodrCreateModal({
               </div>
 
               {/* Card 2: Informasi Umum Investasi */}
-              <div className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-3">
-                <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200">
-                  <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Informasi Investasi</p>
+              <div className="p-4 bg-white border border-slate-200/90 rounded-xl space-y-3.5 shadow-2xs">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                  <p className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">2. Rincian Usulan Investasi</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Cost Center *</label>
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">Cost Center *</label>
                     <select
                       required
                       value={form.costCenter}
                       onChange={(e) => setForm({ ...form, costCenter: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 text-xs font-normal shadow-2xs transition-all"
                     >
                       <option value="">Pilih Cost Center...</option>
                       {costCenters.map((cc) => (
@@ -299,14 +329,14 @@ export default function BodrCreateModal({
                     </select>
                   </div>
 
-                  {/* Kriteria BODR (Dropdown Select Standard Sesuai Permintaan) */}
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Kriteria BODR *</label>
+                  {/* Kriteria BODR */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">Kriteria BODR *</label>
                     <select
                       required
                       value={form.kriteria}
                       onChange={(e) => setForm({ ...form, kriteria: e.target.value as "FOH" | "CAP" | "GOP" })}
-                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-semibold"
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 text-xs font-semibold shadow-2xs transition-all"
                     >
                       <option value="FOH">FOH</option>
                       <option value="CAP">CAPEX (CAP)</option>
@@ -314,50 +344,53 @@ export default function BodrCreateModal({
                     </select>
                   </div>
 
-                  <div className="col-span-2">
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Judul Investasi *</label>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">Judul Investasi *</label>
                     <input
                       type="text"
                       required
                       value={form.title}
                       onChange={(e) => setForm({ ...form, title: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 text-xs font-medium shadow-2xs transition-all"
                       placeholder="Contoh: Pengadaan Mesin CNC Milling Baru"
                     />
                   </div>
 
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Start Date *</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">Tanggal Mulai (Start) *</label>
                     <input
                       type="date"
                       required
                       value={form.startDate}
                       onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 text-xs font-normal shadow-2xs transition-all"
                     />
                   </div>
 
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">End Date *</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">Tanggal Selesai (End) *</label>
                     <input
                       type="date"
                       required
                       value={form.endDate}
                       onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 text-xs font-normal shadow-2xs transition-all"
                     />
                   </div>
 
-                  {/* Benefit / Manfaat (Penomoran Otomatis saat Enter & Poin Terstruktur) */}
-                  <div className="col-span-2 space-y-1">
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">Benefit / Manfaat *</label>
+                  {/* Benefit / Manfaat */}
+                  <div className="col-span-2 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">Benefit / Manfaat yang Diharapkan *</label>
+                      <span className="text-[9px] text-blue-600 font-medium">Auto Numbering (Enter)</span>
+                    </div>
                     <textarea
                       required
                       rows={4}
                       value={form.benefit}
                       onChange={(e) => setForm({ ...form, benefit: e.target.value })}
                       onKeyDown={handleBenefitKeyDown}
-                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal resize-none leading-relaxed"
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 text-xs font-normal resize-none leading-relaxed shadow-2xs transition-all"
                       placeholder={`1. Meningkatkan kapasitas dan efisiensi produksi\n2. Mengurangi tingkat downtime operasional mesin\n3. Penghematan biaya perawatan tahunan`}
                     />
                     <p className="text-[9px] text-slate-400">
@@ -371,25 +404,25 @@ export default function BodrCreateModal({
             {/* ── KOLOM KANAN: DETAIL ANGGARAN, MASTER ASET & DOKUMEN ──────────── */}
             <div className="lg:col-span-6 space-y-4">
               {/* Card 3: Detail Anggaran */}
-              <div className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-3">
-                <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Detail Anggaran</p>
+              <div className="p-4 bg-white border border-slate-200/90 rounded-xl space-y-3.5 shadow-2xs">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  <p className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">3. Anggaran & Kategori</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3.5">
                   {/* Kondisional Khusus CAPEX Box */}
                   {form.kriteria === "CAP" && (
-                    <div className="col-span-2 space-y-3 p-3 bg-blue-50/70 rounded-xl border border-blue-200">
-                      <div>
-                        <label className="text-[10px] font-semibold text-blue-900 uppercase tracking-wider block mb-1">
-                          ID Capex (Data Master CAPEX Approved) *
+                    <div className="col-span-2 space-y-3 p-3.5 bg-blue-50/60 rounded-xl border border-blue-200 shadow-2xs">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-blue-900 uppercase tracking-wider block">
+                          ID Capex Terkait (Approved) *
                         </label>
                         <select
                           required={form.kriteria === "CAP"}
                           value={form.capexId}
                           onChange={(e) => setForm({ ...form, capexId: e.target.value })}
-                          className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-blue-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                          className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-blue-200 text-slate-800 focus:border-blue-600 text-xs font-normal shadow-2xs"
                         >
                           <option value="">Pilih ID Capex Terkait...</option>
                           {approvedCapexProposals.map((cp) => (
@@ -400,11 +433,11 @@ export default function BodrCreateModal({
                         </select>
                       </div>
 
-                      <div>
-                        <label className="text-[10px] font-semibold text-blue-900 uppercase tracking-wider block mb-1">
-                          Amount Available (Sisa Dana Capex)
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-blue-900 uppercase tracking-wider block">
+                          Sisa Dana Pagu Capex
                         </label>
-                        <div className="px-3.5 py-2 rounded-lg bg-white border border-blue-200 text-emerald-700 text-xs font-mono font-bold">
+                        <div className="px-3.5 py-2 rounded-lg bg-white border border-blue-200 text-emerald-700 text-xs font-mono font-bold shadow-2xs">
                           {(() => {
                             const selected = approvedCapexProposals.find((c) => c.id === form.capexId);
                             if (!selected) return "Pilih Capex untuk melihat sisa dana";
@@ -416,43 +449,46 @@ export default function BodrCreateModal({
                     </div>
                   )}
 
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
-                      Nilai Investasi (Amount IDR) *
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">
+                      Nilai Investasi (IDR) *
                     </label>
-                    <input
-                      type="text"
-                      required
-                      value={form.amountRp}
-                      onChange={(e) => {
-                        const num = e.target.value.replace(/\D/g, "");
-                        setForm({ ...form, amountRp: num ? Number(num).toLocaleString("id-ID") : "" });
-                      }}
-                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-mono font-bold"
-                      placeholder="Contoh: 50.000.000"
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 font-mono">Rp</span>
+                      <input
+                        type="text"
+                        required
+                        value={form.amountRp}
+                        onChange={(e) => {
+                          const num = e.target.value.replace(/\D/g, "");
+                          setForm({ ...form, amountRp: num ? Number(num).toLocaleString("id-ID") : "" });
+                        }}
+                        className="w-full pl-9 pr-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-blue-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 text-xs font-mono font-bold shadow-2xs transition-all"
+                        placeholder="50.000.000"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
-                      Category *
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">
+                      Kategori Budget *
                     </label>
                     <select
                       value={form.budgetType}
                       onChange={(e) => setForm({ ...form, budgetType: e.target.value as "budget" | "unbudget" })}
-                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 text-xs font-normal shadow-2xs transition-all"
                     >
                       <option value="budget">Budget</option>
                       <option value="unbudget">Unbudget</option>
                     </select>
                   </div>
 
-                  {/* Pengisian Keterangan Alokasi Budget (Unbudget) dengan Format Penomoran / Enter Otomatis */}
+                  {/* Pengisian Keterangan Alokasi Budget (Unbudget) */}
                   {form.budgetType === "unbudget" && (
-                    <div className="col-span-2 space-y-1.5 p-3.5 bg-amber-50/70 border border-amber-300 rounded-xl">
+                    <div className="col-span-2 space-y-1.5 p-3.5 bg-amber-50/70 border border-amber-300 rounded-xl shadow-2xs">
                       <label className="text-[10px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
-                        Pengisian Keterangan Alokasi Budget (Unbudget) *
+                        <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                        Keterangan Alokasi Usulan (Unbudget) *
                       </label>
                       <textarea
                         required={form.budgetType === "unbudget"}
@@ -460,7 +496,7 @@ export default function BodrCreateModal({
                         value={form.unbudgetRemark}
                         onChange={(e) => setForm({ ...form, unbudgetRemark: e.target.value })}
                         onKeyDown={handleUnbudgetKeyDown}
-                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-amber-300 text-slate-800 focus:border-amber-600 text-xs font-normal resize-none leading-relaxed"
+                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-amber-300 text-slate-800 focus:border-amber-600 text-xs font-normal resize-none leading-relaxed shadow-2xs"
                         placeholder={`1. Alasan kebutuhan investasi di luar pagu alokasi (Unbudget)\n2. Penjelasan sumber pergeseran / pos anggaran terkait (jika ada)\n3. Dampak operasional apabila usulan tidak direalisasikan`}
                       />
                       <p className="text-[9px] text-amber-800 font-medium">
@@ -469,15 +505,15 @@ export default function BodrCreateModal({
                     </div>
                   )}
 
-                  <div className="col-span-2">
-                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">
                       Remarks (Catatan Tambahan)
                     </label>
                     <input
                       type="text"
                       value={form.remarks}
                       onChange={(e) => setForm({ ...form, remarks: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                      className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 text-xs font-normal shadow-2xs transition-all"
                       placeholder="Catatan tambahan bila ada..."
                     />
                   </div>
@@ -486,17 +522,17 @@ export default function BodrCreateModal({
 
               {/* Card 4: Asset Master Data (Khusus jika Kriteria CAP) */}
               {form.kriteria === "CAP" && (
-                <div className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-3">
-                  <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                      Asset Master Data (Khusus Kriteria CAP)
+                <div className="p-4 bg-white border border-slate-200/90 rounded-xl space-y-3.5 shadow-2xs">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />
+                    <p className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                      4. Spesifikasi Aset (Khusus CAPEX)
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="md:col-span-3">
-                      <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                    <div className="md:col-span-3 space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">
                         Nama Asset *
                       </label>
                       <input
@@ -504,31 +540,31 @@ export default function BodrCreateModal({
                         required={form.kriteria === "CAP"}
                         value={form.namaAsset}
                         onChange={(e) => setForm({ ...form, namaAsset: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal shadow-2xs"
                         placeholder="Contoh: Mesin Press 200 Ton Line 3"
                       />
                     </div>
 
-                    <div>
-                      <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">
                         Plan (Terkunci)
                       </label>
                       <input
                         type="text"
                         value="2301"
                         readOnly
-                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-slate-100 border-slate-200 text-slate-600 text-xs font-mono font-semibold cursor-not-allowed"
+                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-slate-100 border-slate-200 text-slate-600 text-xs font-mono font-semibold cursor-not-allowed shadow-2xs"
                       />
                     </div>
 
-                    <div className="md:col-span-2">
-                      <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block mb-1">
-                        Location *
+                    <div className="md:col-span-2 space-y-1">
+                      <label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">
+                        Lokasi Penempatan *
                       </label>
                       <select
                         value={form.location}
                         onChange={(e) => setForm({ ...form, location: e.target.value as "Office" | "Plant" })}
-                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal"
+                        className="w-full px-3.5 py-2.5 rounded-lg border outline-none bg-white border-slate-200 text-slate-800 focus:border-blue-600 text-xs font-normal shadow-2xs"
                       >
                         <option value="Office">Office</option>
                         <option value="Plant">Plant / Pabrik</option>
@@ -539,15 +575,15 @@ export default function BodrCreateModal({
               )}
 
               {/* Card 5: Dokumen Lampiran */}
-              <div className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-2.5">
-                <div className="flex justify-between items-center pb-1.5 border-b border-slate-200">
+              <div className="p-4 bg-white border border-slate-200/90 rounded-xl space-y-3 shadow-2xs">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                      Dokumen Lampiran
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                    <p className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                      5. Dokumen Lampiran Pendukung
                     </p>
                   </div>
-                  <span className="text-[10px] text-slate-500 font-mono font-semibold">
+                  <span className="text-[10px] text-slate-500 font-mono font-semibold px-2 py-0.5 bg-slate-100 rounded-md">
                     {form.documents.length}/50 file
                   </span>
                 </div>
@@ -560,23 +596,23 @@ export default function BodrCreateModal({
                     const files = Array.from(e.target.files ?? []);
                     setForm((prev) => ({ ...prev, documents: [...prev.documents, ...files].slice(0, 50) }));
                   }}
-                  className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer shadow-2xs transition-all"
                 />
                 <p className="text-[9px] text-slate-400">
-                  Format didukung: PDF, Excel (.xls/.xlsx), PowerPoint (.ppt/.pptx), Gambar
+                  Format didukung: PDF, Excel (.xls/.xlsx), PowerPoint (.ppt/.pptx), Gambar (Maks 50 File)
                 </p>
 
                 {form.documents.length > 0 && (
-                  <div className="mt-1.5 space-y-1 max-h-28 overflow-y-auto">
+                  <div className="mt-2 space-y-1.5 max-h-28 overflow-y-auto pr-1">
                     {form.documents.map((f, idx) => (
-                      <div key={idx} className="flex justify-between items-center bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs">
+                      <div key={idx} className="flex justify-between items-center bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg text-xs shadow-2xs">
                         <span className="truncate max-w-xs text-[11px] font-medium text-slate-700">
                           {idx + 1}. {f.name}
                         </span>
                         <button
                           type="button"
                           onClick={() => setForm((p) => ({ ...p, documents: p.documents.filter((_, i) => i !== idx) }))}
-                          className="text-red-500 hover:text-red-700 font-bold text-xs cursor-pointer ml-2"
+                          className="text-rose-500 hover:text-rose-700 font-bold text-xs cursor-pointer ml-2 p-0.5 rounded hover:bg-rose-50"
                         >
                           ✕
                         </button>
@@ -589,20 +625,35 @@ export default function BodrCreateModal({
           </div>
 
           {/* Footer Action Buttons */}
-          <div className="pt-4 border-t border-slate-200 flex justify-end gap-3 shrink-0">
+          <div className="pt-4 border-t border-slate-200 flex justify-end items-center gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-colors shadow-2xs"
+              className="px-5 py-2.5 border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-all shadow-2xs"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider shadow-2xs disabled:opacity-50 cursor-pointer active:scale-95 transition-all"
+              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl text-xs uppercase tracking-wider shadow-xs disabled:opacity-50 cursor-pointer active:scale-95 transition-all"
             >
-              {submitting ? "Menyimpan..." : "Simpan Pengajuan"}
+              {submitting ? (
+                <>
+                  <svg className="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  <span>Menyimpan...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Simpan Pengajuan</span>
+                </>
+              )}
             </button>
           </div>
         </form>

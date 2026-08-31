@@ -12,6 +12,18 @@ import BodrDetailModal from "./components/BodrDetailModal";
 import BodrOtorisasiModal from "./components/BodrOtorisasiModal";
 import { exportBodrToExcel } from "./components/bodrExport";
 
+// ── Map DB enum status → display label ───────────────────────────────────────
+const mapBodrStatus = (s: string): string => {
+  switch ((s || "").toLowerCase()) {
+    case "in_approval":      return "Pending Review";
+    case "approved":         return "Approved";
+    case "rejected":         return "Rejected";
+    case "revision_required":return "Revision Required";
+    case "draft":            return "Draft";
+    default:                 return s;
+  }
+};
+
 export default function BodrPage() {
   const router = useRouter();
   const { currentUser: authUser, hasPermission } = useCapex();
@@ -62,13 +74,13 @@ export default function BodrPage() {
       .then(([bList, cList, ciList, cpList, wfs]) => {
         const mapped: BodrProposal[] = (bList || []).map((b: any) => ({
           id: b.id,
-          bodrNo: b.bodr_no,
+          bodrNo: b.bodr_id_final ?? "—",
           title: b.title,
           category: b.category as BodrCategory,
           department: b.department,
           amount: b.amount,
           step: b.step,
-          status: b.status,
+          status: mapBodrStatus(b.status),
           date: b.date,
           notes: b.notes,
           proposer: b.proposer,
@@ -138,9 +150,9 @@ export default function BodrPage() {
   });
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-xs text-slate-800">
+    <div className="flex h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-h-screen ml-64">
+      <div className="flex-1 flex flex-col h-screen ml-64 overflow-hidden">
         <Header title="BODR Application" subtitle="Daftar dan pengajuan Budget Over Design Review" />
 
         {/* Export Notification Toast */}

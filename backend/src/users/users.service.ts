@@ -27,6 +27,7 @@ export class UsersService {
       email: user.email,
       role: user.role?.nama_role ?? '',
       department: user.departemen?.nama_departemen ?? '',
+      departemen_id: user.departemen_id ?? null,
       status: user.status,
       can_capex: user.portalAccess?.can_capex ?? true,
       can_bodr: user.portalAccess?.can_bodr ?? true,

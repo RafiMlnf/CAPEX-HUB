@@ -102,10 +102,10 @@ function DraftsPageContent() {
   const rejectedProposals = userProposals.filter((p: any) => p.gateStatus === "Gate 2 - Rejected" || p.gateStatus === "Rejected");
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-xs text-slate-800">
+    <div className="flex h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-hidden">
       <Sidebar />
       
-      <div className="flex-1 flex flex-col min-w-0 pl-64">
+      <div className="flex-1 flex flex-col h-screen ml-64 min-w-0 overflow-hidden">
         <Header title="DRAFT & TINDAKAN CAPEX" />
 
         {/* Toast */}

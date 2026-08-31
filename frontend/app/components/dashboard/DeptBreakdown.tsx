@@ -130,7 +130,7 @@ export default function DeptBreakdown({ deptData, totalBudget, proposals }: Dept
                                 : item.gateStatus === "Gate 0 - Idea" ? "bg-slate-50 text-slate-700 border-slate-200"
                                 : "bg-blue-50 text-blue-800 border-blue-200"
                             }`}>
-                              {item.gateStatus}
+                              {item.gateStatus.replace(/^gate\s*\d+\s*[-–:]\s*/i, "")}
                             </span>
                           </td>
                         </tr>

@@ -11,21 +11,6 @@ import { useCapex } from "../../context/CapexContext";
 
 const fmt = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
-const getFullStepName = (step: string): string => {
-  const mapping: Record<string, string> = {
-    "SH PURH": "Section Head Purchasing",
-    "DH PURH": "Department Head Purchasing",
-    "DH Purch": "Department Head Purchasing",
-    "User DH": "User Dept Head",
-    "User Div Head": "User Div Head",
-    "Div Head": "User Div Head",
-    "Admin Div Head": "Admin Division Head",
-    "Direktur": "Direktur",
-    "Presiden Direktur": "Presiden Direktur"
-  };
-  return mapping[step] || step;
-};
-
 const statusBadge = (s: string) => {
   if (s === "Approved") return "bg-emerald-50 text-emerald-700 border border-emerald-300";
   if (s === "Rejected") return "bg-red-50 text-red-700 border border-red-300";
@@ -166,9 +151,9 @@ export default function OtorisasiHargaDashboard() {
   });
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-xs text-slate-800">
+    <div className="flex h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-h-screen ml-64">
+      <div className="flex-1 flex flex-col h-screen ml-64 overflow-hidden">
         <Header
           title="Price Authorization"
           subtitle="Overview pengajuan otorisasi harga Non-Product & Product — PT Menara Terus Makmur"
@@ -483,7 +468,7 @@ export default function OtorisasiHargaDashboard() {
                       </tr>
                     ) : (
                       filteredNP.map((item, idx) => (
-                        <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                        <tr key={`np-${item.id}`} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3.5 text-center text-slate-400 font-medium font-mono border-r border-slate-150">{idx + 1}</td>
                           <td className="px-4 py-3.5 font-mono font-semibold text-blue-600 border-r border-slate-150">{item.no_doc}</td>
                           <td className="px-4 py-3.5 font-mono text-slate-600 border-r border-slate-150">
@@ -517,7 +502,7 @@ export default function OtorisasiHargaDashboard() {
                       </tr>
                     ) : (
                       filteredP.map((item, idx) => (
-                        <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                        <tr key={`p-${item.id}`} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3.5 text-center text-slate-400 font-medium font-mono border-r border-slate-150">{idx + 1}</td>
                           <td className="px-4 py-3.5 font-mono font-semibold text-blue-600 border-r border-slate-150">{item.id}</td>
                           <td className="px-4 py-3.5 font-semibold text-slate-800 border-r border-slate-150">{item.product}</td>
@@ -580,7 +565,7 @@ export default function OtorisasiHargaDashboard() {
                 <div><p className="text-slate-500 font-medium uppercase text-[9px]">Normal Price</p><p className="font-medium text-slate-500 line-through font-mono">{fmt(selectedP.normal_price)}</p></div>
                 <div><p className="text-slate-500 font-medium uppercase text-[9px]">Discount (%)</p><p className="font-semibold text-red-600 font-mono">{selectedP.discount_pct}%</p></div>
                 <div className="col-span-2"><p className="text-slate-500 font-medium uppercase text-[9px]">Final Price Proposal</p><p className="font-semibold text-emerald-700 text-sm font-mono">{fmt(selectedP.normal_price * (1 - selectedP.discount_pct/100))}</p></div>
-                <div><p className="text-slate-500 font-medium uppercase text-[9px]">Tahap Approval</p><p className="font-semibold text-blue-700">{getFullStepName(selectedP.step)}</p></div>
+                <div><p className="text-slate-500 font-medium uppercase text-[9px]">Tahap Approval</p><p className="font-semibold text-blue-700">{selectedP.step || "—"}</p></div>
               </div>
               
               {selectedP.notes && (
@@ -598,7 +583,7 @@ export default function OtorisasiHargaDashboard() {
                       <div key={i} className="flex items-start gap-2 text-xs">
                         <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${h.status === "Approved" ? "bg-emerald-500" : "bg-red-500"}`} />
                         <div className="flex-1">
-                          <p className="font-semibold text-slate-700 text-[11px]">{getFullStepName(h.role)} — <span className={h.status === "Approved" ? "text-emerald-600 font-semibold" : "text-red-600 font-semibold"}>{h.status}</span></p>
+                          <p className="font-semibold text-slate-700 text-[11px]">{h.role || "Approver"} — <span className={h.status === "Approved" ? "text-emerald-600 font-semibold" : "text-red-600 font-semibold"}>{h.status}</span></p>
                           <p className="text-[10px] text-slate-500 font-normal">Oleh: {h.name} · {h.timestamp}</p>
                           <p className="text-[10px] text-slate-500 italic mt-0.5 font-normal">Note: "{h.note || "—"}"</p>
                         </div>

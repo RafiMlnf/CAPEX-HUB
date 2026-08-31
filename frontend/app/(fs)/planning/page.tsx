@@ -7,6 +7,7 @@ import Sidebar from "../../components/sidebars/SidebarFS";
 import Header from "../../components/Header";
 import StatusBadge from "../../components/StatusBadge";
 import IdeaForm from "../../components/planning/IdeaForm";
+import PlanningLeadTimeSection from "../../components/planning/PlanningLeadTimeSection";
 import Modal from "../../components/shared/Modal";
 import { useCapex } from "../../context/CapexContext";
 import { CapexProposal, api } from "../../lib/api";
@@ -219,29 +220,41 @@ function PlanningPageContent() {
   }, [filteredProposals, currentPage, itemsPerPage]);
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-x-hidden">
+    <div className="flex h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-h-screen ml-64 bg-slate-100 min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex flex-col h-screen ml-64 min-w-0 overflow-hidden">
         <Header
           title="Perencanaan Capex"
           subtitle="Daftar usulan perencanaan anggaran belanja modal dan manajemen inisiasi proyek"
         />
 
-        <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4 w-full min-w-0 overflow-x-hidden">
-          {/* Main Table Card (Tema Putih-Biru) */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs w-full min-w-0 space-y-4">
-            {/* Header Controls: Title, Search, Filter & Add Planning Button */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">
-                  Daftar Perencanaan Budget Planning
-                </h3>
+        <main className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
+          {/* Banner Header Card */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-bold text-slate-800 tracking-tight">CAPEX Budget Planning Management</h2>
+                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-[10px] font-semibold">
+                      Perencanaan Anggaran
+                    </span>
+                  </div>
+                  <p className="text-slate-500 text-xs mt-0.5">
+                    Manajemen inisiasi proyek, penyusunan anggaran belanja modal (CAPEX), serta monitoring proses telaah kelayakan investasi.
+                  </p>
+                </div>
               </div>
 
-              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
-                {/* Search Bar */}
-                <div className="relative w-48 sm:w-56">
+              {/* Controls: Search, Status & Add Planning */}
+              <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+                <div className="relative flex-1 sm:w-60">
                   <input
                     type="text"
                     placeholder="Cari ID, Proyek, PIC..."
@@ -250,44 +263,40 @@ function PlanningPageContent() {
                       setSearchQuery(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-normal text-slate-700 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all shadow-2xs"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 transition-colors"
                   />
-                  <svg
-                    className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
+                  <svg className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
 
-                {/* Status Filter */}
                 <select
                   value={statusFilter}
                   onChange={(e) => {
                     setStatusFilter(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs shrink-0"
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-semibold focus:outline-none focus:bg-white focus:border-blue-500 cursor-pointer"
                 >
                   <option value="all">Semua Status</option>
                   <option value="review">Review</option>
                   <option value="draft">Draft</option>
                   <option value="reject">Reject</option>
                   <option value="revisi">Revisi</option>
-                  <option value="close">Close</option>
+                  <option value="close">Close / Approved</option>
                 </select>
 
-                {/* Add Planning Button */}
+                <span className="px-3 py-2 rounded-xl bg-blue-50 text-blue-700 font-bold border border-blue-200 text-xs">
+                  {filteredProposals.length} Usulan Terdaftar
+                </span>
+
                 {canCreate && (
                   <button
                     onClick={() => {
                       setEditingProposal(null);
                       setShowModal(true);
                     }}
-                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3.5 py-2 rounded-xl transition-all cursor-pointer text-xs shadow-xs active:scale-95 whitespace-nowrap shrink-0"
+                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl transition-all cursor-pointer text-xs shadow-xs active:scale-95 whitespace-nowrap"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -297,107 +306,102 @@ function PlanningPageContent() {
                 )}
               </div>
             </div>
+          </div>
 
-            {/* Table View */}
-            <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
-              <table className="w-full min-w-[1300px] text-left border-collapse">
+          {/* Unified Modern Table */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+            <div className="p-4 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+              <span className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                DAFTAR USULAN PERENCANAAN BUDGET CAPEX
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Menampilkan {paginatedProposals.length} dari {filteredProposals.length} usulan
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[1100px]">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-                    <th className="py-3.5 px-4 text-center w-14 border-r border-slate-100">
-                      No
-                    </th>
-                    <th className="py-3.5 px-4 w-36 border-r border-slate-100 whitespace-nowrap">
-                      ID Capex
-                    </th>
-                    <th className="py-3.5 px-4 min-w-[240px] border-r border-slate-100">
-                      Nama Proyek
-                    </th>
-                    <th className="py-3.5 px-4 w-36 border-r border-slate-100 whitespace-nowrap">
-                      Departemen
-                    </th>
-                    <th className="py-3.5 px-4 w-36 border-r border-slate-100 whitespace-nowrap">
-                      Purpose
-                    </th>
-                    <th className="py-3.5 px-4 w-36 border-r border-slate-100 whitespace-nowrap">
-                      Investment Type
-                    </th>
-                    <th className="py-3.5 px-4 w-32 border-r border-slate-100 whitespace-nowrap">
-                      PIC
-                    </th>
-                    <th className="py-3.5 px-4 text-right w-44 border-r border-slate-100 whitespace-nowrap">
-                      Estimasi Biaya
-                    </th>
-                    <th className="py-3.5 px-4 text-center w-32 border-r border-slate-100 whitespace-nowrap">
-                      Start Date
-                    </th>
-                    <th className="py-3.5 px-4 text-center w-32 border-r border-slate-100 whitespace-nowrap">
-                      End Date
-                    </th>
-                    <th className="py-3.5 px-4 text-center w-44 border-r border-slate-100 whitespace-nowrap">
-                      Status
-                    </th>
-                    <th className="py-3.5 px-4 text-right w-28 whitespace-nowrap">
-                      Aksi
-                    </th>
+                  <tr className="border-b border-slate-200 bg-slate-100/70 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
+                    <th className="py-3 px-4 w-12 text-center">No</th>
+                    <th className="py-3 px-4 w-36">ID Capex</th>
+                    <th className="py-3 px-4 min-w-[200px]">Nama Proyek</th>
+                    <th className="py-3 px-4 w-32">Departemen</th>
+                    <th className="py-3 px-4 w-32">Purpose</th>
+                    <th className="py-3 px-4 w-36">Investment Type</th>
+                    <th className="py-3 px-4 w-32">PIC</th>
+                    <th className="py-3 px-4 w-36 text-right">Estimasi Biaya</th>
+                    <th className="py-3 px-4 w-40 text-center">Periode Pelaksanaan</th>
+                    <th className="py-3 px-4 w-36 text-center">Status</th>
+                    <th className="py-3 px-4 w-24 text-center">Aksi</th>
                   </tr>
                 </thead>
+
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {loadingProposals ? (
                     <tr>
-                      <td colSpan={12} className="text-center text-slate-400 font-normal py-12">
-                        Memuat daftar perencanaan budget...
+                      <td colSpan={11} className="py-16 text-center text-slate-500 font-bold">
+                        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                        Memuat data perencanaan budget...
                       </td>
                     </tr>
-                  ) : paginatedProposals.map((p, idx) => {
-                    const rowNumber = (currentPage - 1) * itemsPerPage + idx + 1;
-                    const rowStatus = (p.gateStatus || "").toLowerCase();
-                    const canEditRow = canCreate && (rowStatus.includes("idea") || rowStatus.includes("draft") || rowStatus.includes("revis"));
-                    const isPendingFeedback = rowStatus.includes("pending");
+                  ) : paginatedProposals.length === 0 ? (
+                    <tr>
+                      <td colSpan={11} className="py-16 text-center text-slate-400 italic">
+                        {searchQuery
+                          ? `Tidak ada perencanaan yang cocok dengan pencarian "${searchQuery}"`
+                          : "Belum ada usulan perencanaan budget planning."}
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedProposals.map((p, idx) => {
+                      const rowNumber = (currentPage - 1) * itemsPerPage + idx + 1;
 
-                    return (
-                      <tr key={p.id} className="hover:bg-blue-50/30 transition-colors duration-150">
-                        <td className="py-3.5 px-4 text-center text-slate-400 font-normal border-r border-slate-100">
-                          {rowNumber}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono font-medium text-blue-600 border-r border-slate-100 whitespace-nowrap">
-                          {p.capexId && p.capexId !== "-" ? p.capexId : "-"}
-                        </td>
-                        <td className="py-3.5 px-4 border-r border-slate-100">
-                          <p className="font-semibold text-slate-800 text-xs">{p.name}</p>
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-600 font-medium border-r border-slate-100 whitespace-nowrap">
-                          {p.department}
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-800 font-medium border-r border-slate-100 whitespace-nowrap">
-                          {p.purpose || "-"}
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-600 font-normal border-r border-slate-100 whitespace-nowrap">
-                          {p.investmentType || "-"}
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-600 font-normal border-r border-slate-100 whitespace-nowrap">
-                          {p.pic}
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-semibold text-blue-700 border-r border-slate-100 whitespace-nowrap">
-                          Rp {p.estimatedCost ? Number(p.estimatedCost).toLocaleString("id-ID") : "0"}
-                        </td>
-                        <td className="py-3.5 px-4 text-center text-slate-600 font-mono text-[11px] font-normal border-r border-slate-100 whitespace-nowrap">
-                          {formatDateDisplay(p.startDate)}
-                        </td>
-                        <td className="py-3.5 px-4 text-center text-slate-600 font-mono text-[11px] font-normal border-r border-slate-100 whitespace-nowrap">
-                          {formatDateDisplay(p.endDate)}
-                        </td>
-                        <td className="py-3.5 px-4 text-center border-r border-slate-100 whitespace-nowrap">
-                          <div className="inline-flex justify-center">
-                            <StatusBadge status={p.gateStatus} size="sm" noBackground />
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {/* Tombol Lihat Detail (View Only) */}
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3.5 px-4 text-center font-mono text-slate-400">
+                            {rowNumber}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-bold text-blue-600 whitespace-nowrap">
+                            {p.capexId && p.capexId !== "-" ? p.capexId : "—"}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <p className="font-semibold text-slate-800 text-xs">{p.name}</p>
+                          </td>
+                          <td className="py-3.5 px-4 font-medium text-slate-700 whitespace-nowrap">
+                            {p.department}
+                          </td>
+                          <td className="py-3.5 px-4 font-medium text-slate-800 whitespace-nowrap">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                              {p.purpose || "—"}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600 font-normal whitespace-nowrap">
+                            {p.investmentType || "—"}
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-700 font-medium whitespace-nowrap">
+                            {p.pic}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                            Rp {p.estimatedCost ? Number(p.estimatedCost).toLocaleString("id-ID") : "0"}
+                          </td>
+                          <td className="py-3.5 px-4 text-center text-slate-600 font-mono text-[10px] font-normal whitespace-nowrap">
+                            {p.startDate && p.endDate && p.startDate !== "-" && p.endDate !== "-"
+                              ? `${formatDateDisplay(p.startDate)} s/d ${formatDateDisplay(p.endDate)}`
+                              : p.startDate && p.startDate !== "-"
+                              ? formatDateDisplay(p.startDate)
+                              : "—"}
+                          </td>
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            <div className="inline-flex justify-center">
+                              <StatusBadge status={p.gateStatus} size="sm" noBackground />
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             <button
                               type="button"
                               onClick={() => setViewingProposal(p)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-slate-700 hover:text-white bg-slate-100 hover:bg-blue-600 border border-slate-300 hover:border-blue-600 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+                              className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all shadow-2xs cursor-pointer"
                               title="Lihat Detail Usulan Perencanaan"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -406,31 +410,21 @@ function PlanningPageContent() {
                               </svg>
                               Lihat
                             </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {!loadingProposals && filteredProposals.length === 0 && (
-                    <tr>
-                      <td colSpan={12} className="text-center text-slate-400 font-normal py-12">
-                        {searchQuery
-                          ? `Tidak ada perencanaan yang cocok dengan pencarian "${searchQuery}"`
-                          : "Belum ada usulan perencanaan budget planning."}
-                      </td>
-                    </tr>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
 
-            {/* Pagination */}
+            {/* Pagination Footer */}
             {!loadingProposals && filteredProposals.length > 0 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100 text-xs">
+              <div className="p-4 border-t border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-500 font-normal">
-                    Menampilkan <span className="font-medium text-slate-700">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredProposals.length)}</span> - <span className="font-medium text-slate-700">{Math.min(currentPage * itemsPerPage, filteredProposals.length)}</span> dari <span className="font-medium text-slate-700">{filteredProposals.length}</span> entri
+                  <span className="text-slate-600">
+                    Menampilkan <span className="font-semibold text-slate-800">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredProposals.length)}</span> - <span className="font-semibold text-slate-800">{Math.min(currentPage * itemsPerPage, filteredProposals.length)}</span> dari <span className="font-semibold text-slate-800">{filteredProposals.length}</span> entri
                   </span>
                   <div className="flex items-center gap-1.5 ml-2">
                     <span className="text-slate-400">|</span>
@@ -441,7 +435,7 @@ function PlanningPageContent() {
                         setItemsPerPage(Number(e.target.value));
                         setCurrentPage(1);
                       }}
-                      className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                      className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 font-semibold focus:outline-none focus:border-blue-500 cursor-pointer"
                     >
                       <option value={10}>10</option>
                       <option value={25}>25</option>
@@ -455,7 +449,7 @@ function PlanningPageContent() {
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
                   >
                     Sebelumnya
                   </button>
@@ -467,7 +461,7 @@ function PlanningPageContent() {
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
                         currentPage === pageNum
                           ? "bg-blue-600 text-white shadow-xs"
-                          : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                       }`}
                     >
                       {pageNum}
@@ -477,7 +471,7 @@ function PlanningPageContent() {
                   <button
                     onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
                   >
                     Selanjutnya
                   </button>
@@ -648,7 +642,7 @@ function PlanningPageContent() {
             ? `Detail Usulan Perencanaan: ${viewingProposal.capexId}`
             : `Detail Usulan Perencanaan: ${viewingProposal?.name || ""}`
         }
-        maxWidth="max-w-6xl"
+        maxWidth="max-w-7xl"
       >
         {viewingProposal && (
           <div className="space-y-3.5 text-xs text-slate-800">
@@ -745,162 +739,162 @@ function PlanningPageContent() {
               })()}
             </div>
 
-            {/* 2-Column Side-by-Side: Attachments & Project Notes */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 items-start">
-              {/* Left Column: Lampiran Dokumen Usulan */}
-              <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-3.5 space-y-2.5 h-full">
-                <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider block">
-                  Lampiran Dokumen Usulan
-                </span>
+            {/* 2-Column Responsive Layout: Left Details & Notes | Right Integrated Progress Lead Time */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+              {/* Left Column (lg:col-span-6): Lampiran Dokumen, Deskripsi & Catatan Review */}
+              <div className="lg:col-span-6 space-y-3.5">
+                {/* Lampiran Dokumen Usulan */}
+                <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+                  <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider block">
+                    Lampiran Dokumen Usulan
+                  </span>
 
-                {(() => {
-                  const initialDocs = (viewingProposal.initialAttachmentName || "")
-                    .split(", ")
-                    .map((s) => s.trim())
-                    .filter(Boolean);
-                  const revisedDocs = (viewingProposal.revisedAttachmentName || "")
-                    .split(", ")
-                    .map((s) => s.trim())
-                    .filter(Boolean);
-                  const allDocs = (viewingProposal.attachmentName || "")
-                    .split(", ")
-                    .map((s) => s.trim())
-                    .filter(Boolean);
+                  {(() => {
+                    const initialDocs = (viewingProposal.initialAttachmentName || "")
+                      .split(", ")
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    const revisedDocs = (viewingProposal.revisedAttachmentName || "")
+                      .split(", ")
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    const allDocs = (viewingProposal.attachmentName || "")
+                      .split(", ")
+                      .map((s) => s.trim())
+                      .filter(Boolean);
 
-                  // Baca semua batch revisi dari history (JSON array of arrays)
-                  let revisionBatches: string[][] = [];
-                  if (viewingProposal.revisedAttachmentHistory) {
-                    try {
-                      const rawBatches = JSON.parse(viewingProposal.revisedAttachmentHistory);
-                      if (Array.isArray(rawBatches)) {
-                        const seenFiles = new Set<string>();
-                        revisionBatches = rawBatches
-                          .map((batch: string[]) => {
-                            const clean = batch.filter((f) => {
-                              if (seenFiles.has(f)) return false;
-                              seenFiles.add(f);
-                              return true;
-                            });
-                            return clean;
-                          })
-                          .filter((b: string[]) => b.length > 0);
-                      }
-                    } catch { revisionBatches = []; }
-                  }
-                  // Fallback: jika history belum ada tapi revisedDocs ada, tampilkan sebagai batch tunggal
-                  if (revisionBatches.length === 0 && revisedDocs.length > 0) {
-                    revisionBatches = [revisedDocs];
-                  }
+                    // Baca semua batch revisi dari history (JSON array of arrays)
+                    let revisionBatches: string[][] = [];
+                    if (viewingProposal.revisedAttachmentHistory) {
+                      try {
+                        const rawBatches = JSON.parse(viewingProposal.revisedAttachmentHistory);
+                        if (Array.isArray(rawBatches)) {
+                          const seenFiles = new Set<string>();
+                          revisionBatches = rawBatches
+                            .map((batch: string[]) => {
+                              const clean = batch.filter((f) => {
+                                if (seenFiles.has(f)) return false;
+                                seenFiles.add(f);
+                                return true;
+                              });
+                              return clean;
+                            })
+                            .filter((b: string[]) => b.length > 0);
+                        }
+                      } catch { revisionBatches = []; }
+                    }
+                    // Fallback: jika history belum ada tapi revisedDocs ada, tampilkan sebagai batch tunggal
+                    if (revisionBatches.length === 0 && revisedDocs.length > 0) {
+                      revisionBatches = [revisedDocs];
+                    }
 
-                  const hasSeparateRevisions =
-                    initialDocs.length > 0 &&
-                    (revisionBatches.length > 0 ||
-                      (allDocs.length > 0 &&
-                        JSON.stringify(initialDocs) !== JSON.stringify(allDocs)));
+                    const hasSeparateRevisions =
+                      initialDocs.length > 0 &&
+                      (revisionBatches.length > 0 ||
+                        (allDocs.length > 0 &&
+                          JSON.stringify(initialDocs) !== JSON.stringify(allDocs)));
 
-                  if (hasSeparateRevisions && initialDocs.length > 0) {
-                    return (
-                      <div className="space-y-2">
-                        {/* Dokumen Awal */}
-                        <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] uppercase font-semibold text-slate-600 tracking-wider flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                              Dokumen Awal
-                            </span>
-                            <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">
-                              {initialDocs.length} File
-                            </span>
-                          </div>
-                          <div className="flex flex-col gap-1 max-h-28 overflow-y-auto">
-                            {initialDocs.map((filename, i) => (
-                              <a
-                                key={i}
-                                href={api.getUploadFileUrl(filename)}
-                                download={filename}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center justify-between text-slate-700 hover:text-blue-600 font-mono font-medium text-[11px] bg-slate-50 hover:bg-blue-50/60 border border-slate-200 rounded px-2 py-1 transition-all shadow-2xs group"
-                                title={`Unduh Dokumen Awal: ${filename}`}
-                              >
-                                <span className="truncate underline max-w-[180px]">{filename}</span>
-                                <svg className="w-3 h-3 text-slate-400 group-hover:text-blue-500 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Semua batch Dokumen Revisi */}
-                        {revisionBatches.map((batch, batchIdx) => (
-                          <div key={batchIdx} className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-1.5">
+                    if (hasSeparateRevisions && initialDocs.length > 0) {
+                      return (
+                        <div className="space-y-2">
+                          {/* Dokumen Awal */}
+                          <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <span className="text-[9px] uppercase font-semibold text-emerald-700 tracking-wider flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                Dokumen Revisi {revisionBatches.length > 1 ? `#${batchIdx + 1}` : ""}
+                              <span className="text-[9px] uppercase font-semibold text-slate-600 tracking-wider flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                Dokumen Awal
                               </span>
-                              <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-mono font-semibold">
-                                {batch.length} File
+                              <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                                {initialDocs.length} File
                               </span>
                             </div>
                             <div className="flex flex-col gap-1 max-h-28 overflow-y-auto">
-                              {batch.map((filename, i) => (
+                              {initialDocs.map((filename, i) => (
                                 <a
                                   key={i}
                                   href={api.getUploadFileUrl(filename)}
                                   download={filename}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center justify-between text-emerald-800 hover:text-emerald-900 font-mono font-medium text-[11px] bg-emerald-50/50 hover:bg-emerald-100/70 border border-emerald-200 rounded px-2 py-1 transition-all shadow-2xs group"
-                                  title={`Unduh Dokumen Revisi #${batchIdx + 1}: ${filename}`}
+                                  className="inline-flex items-center justify-between text-slate-700 hover:text-blue-600 font-mono font-medium text-[11px] bg-slate-50 hover:bg-blue-50/60 border border-slate-200 rounded px-2 py-1 transition-all shadow-2xs group"
+                                  title={`Unduh Dokumen Awal: ${filename}`}
                                 >
                                   <span className="truncate underline max-w-[180px]">{filename}</span>
-                                  <svg className="w-3 h-3 text-emerald-600 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <svg className="w-3 h-3 text-slate-400 group-hover:text-blue-500 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                   </svg>
                                 </a>
                               ))}
                             </div>
                           </div>
-                        ))}
+
+                          {/* Semua batch Dokumen Revisi */}
+                          {revisionBatches.map((batch, batchIdx) => (
+                            <div key={batchIdx} className="bg-white border border-emerald-200 rounded-lg p-2.5 space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[9px] uppercase font-semibold text-emerald-700 tracking-wider flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                  Dokumen Revisi {revisionBatches.length > 1 ? `#${batchIdx + 1}` : ""}
+                                </span>
+                                <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-mono font-semibold">
+                                  {batch.length} File
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1 max-h-28 overflow-y-auto">
+                                {batch.map((filename, i) => (
+                                  <a
+                                    key={i}
+                                    href={api.getUploadFileUrl(filename)}
+                                    download={filename}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-between text-emerald-800 hover:text-emerald-900 font-mono font-medium text-[11px] bg-emerald-50/50 hover:bg-emerald-100/70 border border-emerald-200 rounded px-2 py-1 transition-all shadow-2xs group"
+                                    title={`Unduh Dokumen Revisi #${batchIdx + 1}: ${filename}`}
+                                  >
+                                    <span className="truncate underline max-w-[180px]">{filename}</span>
+                                    <svg className="w-3 h-3 text-emerald-600 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto">
+                        {allDocs.length > 0 ? (
+                          allDocs.map((filename, i) => {
+                            const cleanName = filename.trim();
+                            const downloadUrl = api.getUploadFileUrl(cleanName);
+                            return (
+                              <a
+                                key={i}
+                                href={downloadUrl}
+                                download={cleanName}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 font-mono font-medium text-[11px] bg-white border border-blue-200 rounded-lg px-2.5 py-1.5 transition-all shadow-2xs cursor-pointer"
+                                title={`Klik untuk mengunduh: ${cleanName}`}
+                              >
+                                <svg className="w-3.5 h-3.5 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                <span className="truncate max-w-[200px]">{cleanName}</span>
+                              </a>
+                            );
+                          })
+                        ) : (
+                          <span className="text-slate-400 italic text-xs">Tidak ada lampiran dokumen.</span>
+                        )}
                       </div>
                     );
-                  }
+                  })()}
+                </div>
 
-                  return (
-                    <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto">
-                      {allDocs.length > 0 ? (
-                        allDocs.map((filename, i) => {
-                          const cleanName = filename.trim();
-                          const downloadUrl = api.getUploadFileUrl(cleanName);
-                          return (
-                            <a
-                              key={i}
-                              href={downloadUrl}
-                              download={cleanName}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 font-mono font-medium text-[11px] bg-white border border-blue-200 rounded-lg px-2.5 py-1.5 transition-all shadow-2xs cursor-pointer"
-                              title={`Klik untuk mengunduh: ${cleanName}`}
-                            >
-                              <svg className="w-3.5 h-3.5 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                              </svg>
-                              <span className="truncate max-w-[200px]">{cleanName}</span>
-                            </a>
-                          );
-                        })
-                      ) : (
-                        <span className="text-slate-400 italic text-xs">Tidak ada lampiran dokumen.</span>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Right Column: Deskripsi & Catatan Review */}
-              <div className="space-y-3">
                 {/* Description */}
                 <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-3.5 space-y-1">
                   <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider block">
@@ -911,14 +905,13 @@ function PlanningPageContent() {
                   </p>
                 </div>
 
-                {/* Finance Notes — baca dari history gate 1 (hanya catatan ulasan Finance, bukan log upload pemohon) */}
+                {/* Finance Notes */}
                 {(() => {
                   const financeEntries = (viewingProposal.history || [])
                     .filter((h) => {
                       if (h.gate !== 1 || !h.notes || !h.notes.trim()) return false;
                       const actLower = (h.action || "").toLowerCase();
                       const notesLower = (h.notes || "").toLowerCase();
-                      // Exclude requester document upload logs
                       if (
                         actLower.includes("unggah") ||
                         actLower.includes("upload") ||
@@ -931,34 +924,96 @@ function PlanningPageContent() {
                     })
                     .map((h) => ({ notes: h.notes!, actor: h.actor, timestamp: h.timestamp }));
 
-                  // Fallback ke financeNotes jika history belum ada
                   const fallbackNote = financeEntries.length === 0 && viewingProposal.financeNotes
                     ? [{ notes: viewingProposal.financeNotes, actor: "Finance", timestamp: viewingProposal.financeApprovedAt || "" }]
                     : [];
                   const allFinanceNotes = [...financeEntries, ...fallbackNote];
 
-                  return allFinanceNotes.length > 0 ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
-                      <span className="text-[9px] uppercase font-semibold text-amber-800 tracking-wider block">
-                        Catatan Finance:
-                      </span>
-                      {allFinanceNotes.map((entry, i) => (
-                        <div key={i} className={`${i > 0 ? "border-t border-amber-200/70 pt-2" : ""}`}>
-                          <p className="text-amber-900 italic font-normal text-xs leading-relaxed">
-                            &quot;{entry.notes}&quot;
-                          </p>
-                          {allFinanceNotes.length > 1 && (
-                            <p className="text-[10px] text-amber-600 font-medium mt-0.5 not-italic">
-                              {entry.actor}
-                            </p>
+                  if (allFinanceNotes.length === 0) return null;
+
+                  if (allFinanceNotes.length === 1) {
+                    const single = allFinanceNotes[0];
+                    return (
+                      <div className="bg-amber-50/90 border border-amber-300 rounded-xl p-3.5 space-y-1.5 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-amber-900 tracking-wider flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                            Catatan Finance
+                          </span>
+                          {single.timestamp && (
+                            <span className="text-[9px] text-amber-700 font-mono">
+                              {formatDateDisplay(single.timestamp)}
+                            </span>
                           )}
                         </div>
-                      ))}
+                        <p className="text-amber-950 italic font-medium text-xs leading-relaxed">
+                          &quot;{single.notes}&quot;
+                        </p>
+                        <p className="text-[10px] text-amber-700 font-semibold mt-1">
+                          Pengulas: {single.actor}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  const latestNote = allFinanceNotes[allFinanceNotes.length - 1];
+                  const olderNotes = allFinanceNotes.slice(0, -1);
+
+                  return (
+                    <div className="space-y-2.5">
+                      <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-3.5 space-y-1.5 shadow-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] uppercase font-bold text-amber-900 tracking-wider flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                            Catatan Finance (Terkini)
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white font-bold text-[9px] uppercase tracking-wider shadow-2xs">
+                            ⚡ Terbaru
+                          </span>
+                        </div>
+                        <p className="text-amber-950 italic font-semibold text-xs leading-relaxed">
+                          &quot;{latestNote.notes}&quot;
+                        </p>
+                        <div className="flex items-center justify-between text-[10px] text-amber-800 font-medium pt-1 border-t border-amber-200">
+                          <span>Pengulas: <strong>{latestNote.actor}</strong></span>
+                          {latestNote.timestamp && (
+                            <span className="font-mono text-[9px]">{formatDateDisplay(latestNote.timestamp)}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                        <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider flex items-center justify-between">
+                          <span>Riwayat Catatan Sebelumnya ({olderNotes.length} Komentar Lama)</span>
+                        </span>
+                        <div className="space-y-2 max-h-36 overflow-y-auto pr-1 divide-y divide-slate-200/80">
+                          {olderNotes.map((entry, idx) => (
+                            <div key={idx} className={`${idx > 0 ? "pt-2" : ""} space-y-1`}>
+                              <div className="flex items-center justify-between">
+                                <span className="px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 text-[9px] font-mono font-semibold">
+                                  Revisi #{idx + 1} (Lama)
+                                </span>
+                                {entry.timestamp && (
+                                  <span className="text-[9px] text-slate-400 font-mono">
+                                    {formatDateDisplay(entry.timestamp)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-slate-700 italic font-normal text-xs leading-relaxed">
+                                &quot;{entry.notes}&quot;
+                              </p>
+                              <p className="text-[10px] text-slate-500 font-medium">
+                                Pengulas: {entry.actor}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  ) : null;
+                  );
                 })()}
 
-                {/* Committee Notes — baca dari history gate 2 (hanya catatan ulasan Komite) */}
+                {/* Committee Notes */}
                 {(() => {
                   const committeeEntries = (viewingProposal.history || [])
                     .filter((h) => {
@@ -976,32 +1031,99 @@ function PlanningPageContent() {
                     })
                     .map((h) => ({ notes: h.notes!, actor: h.actor, timestamp: h.timestamp }));
 
-                  // Fallback ke committeeNotes jika history belum ada
                   const fallbackNote = committeeEntries.length === 0 && viewingProposal.committeeNotes
                     ? [{ notes: viewingProposal.committeeNotes, actor: "Komite Investasi", timestamp: viewingProposal.committeeApprovedAt || "" }]
                     : [];
                   const allCommitteeNotes = [...committeeEntries, ...fallbackNote];
 
-                  return allCommitteeNotes.length > 0 ? (
-                    <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 space-y-2">
-                      <span className="text-[9px] uppercase font-semibold text-purple-800 tracking-wider block">
-                        Catatan Sidang Komite Investasi:
-                      </span>
-                      {allCommitteeNotes.map((entry, i) => (
-                        <div key={i} className={`${i > 0 ? "border-t border-purple-200/70 pt-2" : ""}`}>
-                          <p className="text-purple-900 italic font-normal text-xs leading-relaxed">
-                            &quot;{entry.notes}&quot;
-                          </p>
-                          {allCommitteeNotes.length > 1 && (
-                            <p className="text-[10px] text-purple-600 font-medium mt-0.5 not-italic">
-                              {entry.actor}
-                            </p>
+                  if (allCommitteeNotes.length === 0) return null;
+
+                  if (allCommitteeNotes.length === 1) {
+                    const single = allCommitteeNotes[0];
+                    return (
+                      <div className="bg-purple-50/90 border border-purple-300 rounded-xl p-3.5 space-y-1.5 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-purple-900 tracking-wider flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                            Catatan Sidang Komite Investasi
+                          </span>
+                          {single.timestamp && (
+                            <span className="text-[9px] text-purple-700 font-mono">
+                              {formatDateDisplay(single.timestamp)}
+                            </span>
                           )}
                         </div>
-                      ))}
+                        <p className="text-purple-950 italic font-medium text-xs leading-relaxed">
+                          &quot;{single.notes}&quot;
+                        </p>
+                        <p className="text-[10px] text-purple-700 font-semibold mt-1">
+                          Pengulas: {single.actor}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  const latestComm = allCommitteeNotes[allCommitteeNotes.length - 1];
+                  const olderComm = allCommitteeNotes.slice(0, -1);
+
+                  return (
+                    <div className="space-y-2.5">
+                      <div className="bg-purple-50 border-2 border-purple-400 rounded-xl p-3.5 space-y-1.5 shadow-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] uppercase font-bold text-purple-900 tracking-wider flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
+                            Catatan Sidang Komite (Terkini)
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-purple-600 text-white font-bold text-[9px] uppercase tracking-wider shadow-2xs">
+                            ⚡ Terbaru
+                          </span>
+                        </div>
+                        <p className="text-purple-950 italic font-semibold text-xs leading-relaxed">
+                          &quot;{latestComm.notes}&quot;
+                        </p>
+                        <div className="flex items-center justify-between text-[10px] text-purple-800 font-medium pt-1 border-t border-purple-200">
+                          <span>Pengulas: <strong>{latestComm.actor}</strong></span>
+                          {latestComm.timestamp && (
+                            <span className="font-mono text-[9px]">{formatDateDisplay(latestComm.timestamp)}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                        <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider flex items-center justify-between">
+                          <span>Riwayat Catatan Sidang Sebelumnya ({olderComm.length} Komentar Lama)</span>
+                        </span>
+                        <div className="space-y-2 max-h-36 overflow-y-auto pr-1 divide-y divide-slate-200/80">
+                          {olderComm.map((entry, idx) => (
+                            <div key={idx} className={`${idx > 0 ? "pt-2" : ""} space-y-1`}>
+                              <div className="flex items-center justify-between">
+                                <span className="px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 text-[9px] font-mono font-semibold">
+                                  Sidang #{idx + 1} (Lama)
+                                </span>
+                                {entry.timestamp && (
+                                  <span className="text-[9px] text-slate-400 font-mono">
+                                    {formatDateDisplay(entry.timestamp)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-slate-700 italic font-normal text-xs leading-relaxed">
+                                &quot;{entry.notes}&quot;
+                              </p>
+                              <p className="text-[10px] text-slate-500 font-medium">
+                                Pengulas: {entry.actor}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  ) : null;
+                  );
                 })()}
+              </div>
+
+              {/* Right Column (lg:col-span-6): Integrated Progress Stages & Lead Time */}
+              <div className="lg:col-span-6 h-full">
+                <PlanningLeadTimeSection proposal={viewingProposal} />
               </div>
             </div>
 

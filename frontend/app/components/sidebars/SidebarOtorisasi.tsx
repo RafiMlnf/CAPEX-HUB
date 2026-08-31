@@ -8,7 +8,7 @@ import { useCapex } from "../../context/CapexContext";
 const mainMenu = [
   { href: "/otorisasi-harga", label: "Dashboard", perm: "perm_view_dashboard", icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> },
   { href: "/otorisasi-harga/approval", label: "Approval", perm: "perm_approve_price", icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-  { href: "/otorisasi-harga/progress", label: "Authorization Progress", perm: "perm_view_dashboard", icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg> },
+  { href: "/otorisasi-harga/history", label: "History", perm: "perm_view_dashboard", icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
 ];
 
 const otorisasiMenu = {
@@ -40,7 +40,7 @@ const masterDataMenu = {
   ]
 };
 
-// Module-level persistent state across page transitions to completely prevent re-render flicker
+// Module-level persistent state across page transitions
 const sidebarStateCache: Record<string, boolean> = {
   otorisasi: true,
   masterdata: true,
@@ -56,13 +56,8 @@ export default function SidebarOtorisasi() {
                          pathname.startsWith("/otorisasi-harga/jenis-otorisasi") ||
                          pathname.startsWith("/otorisasi-harga/jenis-barang");
 
-  // Keep active section open synchronously
-  if (isOtorisasiActive) {
-    sidebarStateCache.otorisasi = true;
-  }
-  if (isMasterActive) {
-    sidebarStateCache.masterdata = true;
-  }
+  if (isOtorisasiActive) sidebarStateCache.otorisasi = true;
+  if (isMasterActive) sidebarStateCache.masterdata = true;
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ ...sidebarStateCache });
 
@@ -75,7 +70,6 @@ export default function SidebarOtorisasi() {
     }));
   };
 
-  // Check if user has access to multiple portals or is admin
   const role = (currentUser?.role || "").toLowerCase();
   const username = (currentUser?.username || "").toLowerCase();
   const isAdmin = role === "admin" || username === "admin";
@@ -99,30 +93,56 @@ export default function SidebarOtorisasi() {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 flex flex-col overflow-hidden shadow-xs">
-      <div className="relative z-10 h-18 flex items-center justify-center px-4 border-b border-slate-200">
-        <img src="/assets/img/logowide.jpeg" alt="Logo" className="w-full h-auto object-contain max-h-11" onError={(e) => { e.currentTarget.style.display = "none"; }}/>
+      {/* Logo Container */}
+      <div className="relative z-10 h-18 flex items-center justify-center px-5 border-b border-slate-200/80 bg-gradient-to-b from-slate-50/50 to-white">
+        <img
+          src="/assets/img/logowide.jpeg"
+          alt="Logo"
+          className="w-full h-auto object-contain max-h-11 select-none"
+          onError={(e) => { e.currentTarget.style.display = "none"; }}
+        />
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-3 overflow-y-auto relative z-10">
+      <nav className="flex-1 px-3.5 py-4 space-y-3.5 overflow-y-auto relative z-10">
         {/* Main Menu */}
         <div>
-          <p className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Main Menu</p>
-          <div className="space-y-0.5">
+          <p className="px-3 text-[10.5px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+            <span className="w-1 h-3 rounded-full bg-blue-600" />
+            Main Menu
+          </p>
+          <div className="space-y-1">
             {mainMenu.map((item) => {
-              if (item.perm && !hasPermission(item.perm)) return null;
+              if (item.href === "/otorisasi-harga/history") {
+                const canSeeHistory =
+                  hasPermission("perm_view_dashboard") ||
+                  hasPermission("perm_create_price") ||
+                  hasPermission("perm_approve_price") ||
+                  hasPermission("perm_view_reports") ||
+                  isAdmin;
+                if (!canSeeHistory) return null;
+              } else if (item.perm && !hasPermission(item.perm) && !isAdmin) {
+                return null;
+              }
               const isActive = pathname === item.href || (item.href !== "/otorisasi-harga" && pathname.startsWith(item.href));
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors group ${
-                    isActive ? "bg-blue-600 text-white shadow-2xs" : "text-slate-700 hover:text-blue-600 hover:bg-blue-50"
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group ${
+                    isActive
+                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs"
+                      : "text-slate-700 hover:text-blue-600 hover:bg-blue-50/70"
                   }`}
                 >
                   <span className="flex items-center gap-2.5">
-                    <span className={isActive ? "text-white" : "text-slate-500 group-hover:text-blue-600 transition-colors"}>{item.icon}</span>
-                    {item.label}
+                    <span className={isActive ? "text-white" : "text-slate-400 group-hover:text-blue-600 transition-colors"}>
+                      {item.icon}
+                    </span>
+                    <span className="tracking-wide">{item.label}</span>
                   </span>
+                  {isActive && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  )}
                 </Link>
               );
             })}
@@ -135,17 +155,17 @@ export default function SidebarOtorisasi() {
             <button
               type="button"
               onClick={() => toggleSection("otorisasi")}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
                 isOtorisasiActive
-                  ? "bg-blue-50/80 text-blue-600"
-                  : "text-slate-700 hover:text-blue-600 hover:bg-blue-50"
+                  ? "bg-blue-50/90 text-blue-700 border border-blue-200/80 shadow-2xs"
+                  : "text-slate-700 hover:text-blue-600 hover:bg-blue-50/70 border border-transparent"
               }`}
             >
               <span className="flex items-center gap-2.5">
-                <span className={isOtorisasiActive ? "text-blue-600" : "text-slate-500"}>
+                <span className={isOtorisasiActive ? "text-blue-600" : "text-slate-400"}>
                   {otorisasiMenu.icon}
                 </span>
-                <span>{otorisasiMenu.label}</span>
+                <span className="tracking-wide">{otorisasiMenu.label}</span>
               </span>
               <svg
                 className={`w-4 h-4 transition-transform duration-200 ease-in-out ${
@@ -163,27 +183,27 @@ export default function SidebarOtorisasi() {
             {/* Submenu Price Authorization */}
             <div
               className={`grid transition-all duration-200 ease-in-out overflow-hidden ${
-                openSections.otorisasi ? "grid-rows-[1fr] opacity-100 mt-1" : "grid-rows-[0fr] opacity-0"
+                openSections.otorisasi ? "grid-rows-[1fr] opacity-100 mt-1.5" : "grid-rows-[0fr] opacity-0"
               }`}
             >
-              <div className="overflow-hidden ml-3.5 pl-2.5 border-l-2 border-slate-100 space-y-0.5">
+              <div className="overflow-hidden ml-4 pl-2.5 border-l-2 border-slate-200/70 space-y-1">
                 {otorisasiMenu.items.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group ${
+                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group ${
                         isActive
-                          ? "bg-blue-600 text-white shadow-2xs"
-                          : "text-slate-600 hover:text-blue-600 hover:bg-blue-50"
+                          ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-blue-600 hover:bg-blue-50/70"
                       }`}
                     >
                       <span className="flex items-center gap-2">
                         <span className={isActive ? "text-white" : "text-slate-400 group-hover:text-blue-600 transition-colors"}>
                           {item.icon}
                         </span>
-                        {item.label}
+                        <span>{item.label}</span>
                       </span>
                     </Link>
                   );
@@ -199,17 +219,17 @@ export default function SidebarOtorisasi() {
             <button
               type="button"
               onClick={() => toggleSection("masterdata")}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
                 isMasterActive
-                  ? "bg-blue-50/80 text-blue-600"
-                  : "text-slate-700 hover:text-blue-600 hover:bg-blue-50"
+                  ? "bg-blue-50/90 text-blue-700 border border-blue-200/80 shadow-2xs"
+                  : "text-slate-700 hover:text-blue-600 hover:bg-blue-50/70 border border-transparent"
               }`}
             >
               <span className="flex items-center gap-2.5">
-                <span className={isMasterActive ? "text-blue-600" : "text-slate-500"}>
+                <span className={isMasterActive ? "text-blue-600" : "text-slate-400"}>
                   {masterDataMenu.icon}
                 </span>
-                <span>{masterDataMenu.label}</span>
+                <span className="tracking-wide">{masterDataMenu.label}</span>
               </span>
               <svg
                 className={`w-4 h-4 transition-transform duration-200 ease-in-out ${
@@ -227,27 +247,27 @@ export default function SidebarOtorisasi() {
             {/* Submenu Master Data */}
             <div
               className={`grid transition-all duration-200 ease-in-out overflow-hidden ${
-                openSections.masterdata ? "grid-rows-[1fr] opacity-100 mt-1" : "grid-rows-[0fr] opacity-0"
+                openSections.masterdata ? "grid-rows-[1fr] opacity-100 mt-1.5" : "grid-rows-[0fr] opacity-0"
               }`}
             >
-              <div className="overflow-hidden ml-3.5 pl-2.5 border-l-2 border-slate-100 space-y-0.5">
+              <div className="overflow-hidden ml-4 pl-2.5 border-l-2 border-slate-200/70 space-y-1">
                 {masterDataMenu.items.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group ${
+                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group ${
                         isActive
-                          ? "bg-blue-600 text-white shadow-2xs"
-                          : "text-slate-600 hover:text-blue-600 hover:bg-blue-50"
+                          ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-blue-600 hover:bg-blue-50/70"
                       }`}
                     >
                       <span className="flex items-center gap-2">
                         <span className={isActive ? "text-white" : "text-slate-400 group-hover:text-blue-600 transition-colors"}>
                           {item.icon}
                         </span>
-                        {item.label}
+                        <span>{item.label}</span>
                       </span>
                     </Link>
                   );
@@ -259,10 +279,15 @@ export default function SidebarOtorisasi() {
       </nav>
 
       {showBackToPortal && (
-        <div className="px-3 py-4 border-t border-slate-200 relative z-10">
-          <Link href="/" className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:text-blue-600 hover:bg-blue-50 transition-colors group">
-            <svg className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z" /></svg>
-            Back to Portals
+        <div className="p-3.5 border-t border-slate-200/80 bg-slate-50/50 relative z-10">
+          <Link
+            href="/"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:text-blue-700 hover:bg-blue-50/80 border border-slate-200/90 transition-all duration-150 group shadow-2xs"
+          >
+            <svg className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
+            </svg>
+            <span className="truncate">Kembali ke Portal Hub</span>
           </Link>
         </div>
       )}

@@ -44,6 +44,12 @@ export class BodrController {
     return this.bodrService.findAll({ user_id: userId, status });
   }
 
+  // GET /bodr/history
+  @Get('bodr/history')
+  getHistory(@Query('bodr_id') bodrId?: string) {
+    return this.bodrService.getHistory(bodrId);
+  }
+
   // GET /bodr/:id
   @Get('bodr/:id')
   findOne(@Param('id') id: string) {

@@ -253,12 +253,9 @@ export default function BodrApproverDashboard({
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-3.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
             <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" />
-                <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
-                  Grafik BODR Per Bulan
-                </h3>
-              </div>
+              <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+                Grafik BODR Per Bulan
+              </h3>
               <p className="text-[10px] text-slate-500">
                 Tren volume dokumen BODR sepanjang 12 bulan periode berjalan
               </p>

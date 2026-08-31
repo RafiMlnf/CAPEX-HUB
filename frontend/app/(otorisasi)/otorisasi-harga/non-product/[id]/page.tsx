@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useMemo, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "../../../../components/sidebars/SidebarOtorisasi";
@@ -10,31 +10,6 @@ import { useCapex } from "../../../../context/CapexContext";
 
 const fmt = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
-const OH_STEPS = [
-  "SH PURH",
-  "DH Purch",
-  "User DH",
-  "Div Head",
-  "Admin Div Head",
-  "Direktur",
-  "Presiden Direktur"
-];
-
-const getFullStepName = (step: string): string => {
-  const mapping: Record<string, string> = {
-    "SH PURH": "Section Head Purchasing",
-    "DH PURH": "Department Head Purchasing",
-    "DH Purch": "Department Head Purchasing",
-    "User DH": "User Dept Head",
-    "User Div Head": "User Div Head",
-    "Div Head": "User Div Head",
-    "Admin Div Head": "Admin Division Head",
-    "Direktur": "Direktur",
-    "Presiden Direktur": "Presiden Direktur"
-  };
-  return mapping[step] || step;
-};
-
 export default function OtorisasiNPDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { currentUser } = useCapex();
@@ -43,19 +18,50 @@ export default function OtorisasiNPDetailPage({ params }: { params: Promise<{ id
 
   const [item, setItem] = useState<ApiOtorisasiHargaNonProduct | null>(null);
   const [loading, setLoading] = useState(true);
+  const [workflows, setWorkflows] = useState<any[]>([]);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getOtorisasiHargaNP(id)
-      .then(data => setItem(data || null))
+    Promise.all([
+      api.getOtorisasiHargaNP(id),
+      api.getApprovalPriceWorkflows().catch(() => [])
+    ])
+      .then(([data, wfData]) => {
+        setItem(data || null);
+        setWorkflows(Array.isArray(wfData) ? wfData : []);
+      })
       .catch(err => {
         console.error(err);
         setItem(null);
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Dynamic workflow step names from database settings
+  const dynamicWorkflowSteps: string[] = useMemo(() => {
+    if (workflows.length > 0) {
+      const matchWf = workflows.find((w: any) =>
+        (w.category || "").toLowerCase().includes("non-product") ||
+        (w.name || "").toLowerCase().includes("non-product")
+      ) || workflows[0];
+
+      if (matchWf && Array.isArray(matchWf.steps) && matchWf.steps.length > 0) {
+        return matchWf.steps
+          .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+          .map((s: any) => s.role || s.name || s.step_name)
+          .filter(Boolean);
+      }
+    }
+    // Fallback if no specific workflow config: Extract from item's approval history
+    if (item && Array.isArray(item.approval_history) && item.approval_history.length > 0) {
+      const historyRoles = item.approval_history.map((h: any) => h.role).filter(Boolean);
+      if (item.step && !historyRoles.includes(item.step)) historyRoles.push(item.step);
+      return Array.from(new Set(historyRoles));
+    }
+    return item?.step ? [item.step] : [];
+  }, [workflows, item]);
 
   if (loading) {
     return (
@@ -101,15 +107,16 @@ export default function OtorisasiNPDetailPage({ params }: { params: Promise<{ id
 
   const handleApprove = () => {
     setError("");
-    const currentIdx = OH_STEPS.indexOf(item.step);
+    const steps = dynamicWorkflowSteps.length > 0 ? dynamicWorkflowSteps : [item.step || "Approver"];
+    const currentIdx = steps.findIndex((s) => s.toLowerCase().trim() === (item.step || "").toLowerCase().trim());
     let nextStep = item.step;
     let nextStatus = item.status;
 
-    if (currentIdx < OH_STEPS.length - 1) {
-      nextStep = OH_STEPS[currentIdx + 1];
-      nextStatus = "Pending Review";
-    } else {
+    if (currentIdx === -1 || currentIdx >= steps.length - 1) {
       nextStatus = "Approved";
+    } else {
+      nextStep = steps[currentIdx + 1];
+      nextStatus = "Pending Review";
     }
 
     const newHistoryEntry: ApprovalHistoryOH = {
@@ -173,9 +180,9 @@ export default function OtorisasiNPDetailPage({ params }: { params: Promise<{ id
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans text-xs text-slate-800">
+    <div className="flex h-screen bg-slate-50 font-sans text-xs text-slate-800 overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-h-screen ml-64">
+      <div className="flex-1 flex flex-col h-screen ml-64 overflow-hidden">
         <Header title="Detail Otorisasi Harga Non-Product" subtitle={`Nomor Dokumen: ${item.no_doc}`} />
 
         <main className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
@@ -212,7 +219,7 @@ export default function OtorisasiNPDetailPage({ params }: { params: Promise<{ id
                   </span>
                 ) : (
                   <span className="px-2.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-300 font-semibold uppercase tracking-wider text-[9px]">
-                    Menunggu {getFullStepName(item.step)}
+                    Menunggu {item.step || "Review"}
                   </span>
                 )}
               </div>
@@ -232,26 +239,28 @@ export default function OtorisasiNPDetailPage({ params }: { params: Promise<{ id
             </div>
           </div>
 
-          {/* Simple Step Progress Stepper */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
-            <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Tahap Approval Dokumen</h4>
-            <div className="grid grid-cols-7 gap-1.5 bg-slate-50 p-4 rounded-xl border border-slate-100">
-              {OH_STEPS.map((stepName, idx) => {
-                const activeIdx = OH_STEPS.indexOf(item.step);
-                const isCompleted = idx < activeIdx || item.status === "Approved";
-                const isCurrent = idx === activeIdx && item.status !== "Approved" && item.status !== "Rejected";
-                
-                return (
-                  <div key={stepName} className="text-center space-y-1">
-                    <div className={`h-1.5 rounded-full ${isCompleted ? "bg-emerald-500" : isCurrent ? "bg-blue-600 animate-pulse" : "bg-slate-200"}`} />
-                    <p className={`text-[8.5px] font-semibold truncate px-0.5 ${isCurrent ? "text-blue-700 font-semibold" : isCompleted ? "text-emerald-600" : "text-slate-400"}`}>
-                      {getFullStepName(stepName)}
-                    </p>
-                  </div>
-                );
-              })}
+          {/* Dynamic Step Progress Stepper */}
+          {dynamicWorkflowSteps.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
+              <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Tahap Approval Dokumen</h4>
+              <div className="flex flex-wrap sm:flex-nowrap gap-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                {dynamicWorkflowSteps.map((stepName, idx) => {
+                  const activeIdx = dynamicWorkflowSteps.findIndex((s) => s.toLowerCase().trim() === (item.step || "").toLowerCase().trim());
+                  const isCompleted = idx < activeIdx || item.status === "Approved";
+                  const isCurrent = idx === activeIdx && item.status !== "Approved" && item.status !== "Rejected";
+                  
+                  return (
+                    <div key={`step-${stepName}-${idx}`} className="flex-1 text-center space-y-1 min-w-[70px]">
+                      <div className={`h-1.5 rounded-full ${isCompleted ? "bg-emerald-500" : isCurrent ? "bg-blue-600 animate-pulse" : "bg-slate-200"}`} />
+                      <p className={`text-[8.5px] font-semibold truncate px-0.5 ${isCurrent ? "text-blue-700 font-semibold" : isCompleted ? "text-emerald-600" : "text-slate-400"}`}>
+                        {stepName}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Supplier Sheets Comparison */}
           <div className="space-y-4">
@@ -337,7 +346,7 @@ export default function OtorisasiNPDetailPage({ params }: { params: Promise<{ id
           {item.status === "Pending Review" && (
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-800">
-                Persetujuan Otorisasi (Step saat ini: {getFullStepName(item.step)})
+                Persetujuan Otorisasi (Step saat ini: {item.step || "—"})
               </h3>
               <p className="text-[10px] text-slate-500 font-medium">
                 Berikan catatan justifikasi lalu klik setuju untuk meneruskan dokumen ke tahap workflow berikutnya, atau tolak dokumen.
@@ -385,7 +394,7 @@ export default function OtorisasiNPDetailPage({ params }: { params: Promise<{ id
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono uppercase">
-                            {getFullStepName(h.role)}
+                            {h.role || "Approver"}
                           </span>
                           <span className="text-[11px] font-semibold text-slate-950">{h.name}</span>
                         </div>

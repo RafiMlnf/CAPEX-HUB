@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query } from '@nestjs/common';
 import { OtorisasiHargaService } from './otorisasi-harga.service';
 
 @Controller('otorisasi-harga')
@@ -8,6 +8,11 @@ export class OtorisasiHargaController {
   @Get()
   findAll() {
     return this.service.findAll();
+  }
+
+  @Get('history')
+  getHistory(@Query('oh_id') ohId?: string) {
+    return this.service.getHistory(ohId);
   }
 
   @Post()

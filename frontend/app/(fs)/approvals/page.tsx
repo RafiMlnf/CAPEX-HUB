@@ -78,8 +78,8 @@ export default function ApprovalsPage() {
     let actionLabel = "";
 
     if (decision === "Approve") {
-      newStatus = "Approved / Archived";
-      actionLabel = "Disetujui Komite (Selesai / Terarsip & Lanjut ke BODR)";
+      newStatus = "Approved";
+      actionLabel = "Disetujui Komite (Disetujui & Lanjut ke BODR)";
     } else if (decision === "Reject") {
       newStatus = "Gate 2 - Rejected";
       actionLabel = "Ditolak Komite";
@@ -142,10 +142,10 @@ export default function ApprovalsPage() {
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-x-hidden">
+    <div className="flex h-screen bg-slate-100 font-sans text-xs text-slate-800 overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-h-screen ml-64 bg-slate-100 min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex flex-col h-screen ml-64 bg-slate-100 min-w-0 overflow-hidden">
         <Header
           title="Persetujuan Investasi Komite"
           subtitle="Dashboard peninjauan dan persetujuan pengajuan Capex oleh Komite Investasi (Division Head ke atas)"

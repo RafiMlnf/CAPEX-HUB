@@ -136,9 +136,9 @@ function AdminPageInner() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans text-slate-800 overflow-x-hidden">
+    <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden">
       <SidebarAdmin />
-      <div className="flex-1 flex flex-col min-h-screen ml-64 min-w-0">
+      <div className="flex-1 flex flex-col h-screen ml-64 min-w-0 overflow-hidden">
         <Header
           title="Portal Admin"
           subtitle="Dashboard, Master Data & Konfigurasi Sistem PT Menara Terus Makmur"

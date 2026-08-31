@@ -403,6 +403,7 @@ model Bodr {
   asset      BodrAsset?
   documents  BodrDocument[]
   approvals  BodrApproval[]
+  bodrHistory            BodrHistory[]
   otorisasiHargaRequests OtorisasiHargaRequest[]
   otorisasiHarga         OtorisasiHarga[]
 
@@ -559,6 +560,7 @@ model OtorisasiHarga {
   jenisOtorisasi JenisOtorisasi? @relation(fields: [jenis_otorisasi_id], references: [id])
   suppliers      OtorisasiHargaSupplier[]
   approvals      ApprovalHarga[]
+  history        OtorisasiHargaHistory[]
 
   @@map("otorisasi_harga")
   @@schema("purchasing")
@@ -617,3 +619,44 @@ model ApprovalHarga {
   @@map("approval_harga")
   @@schema("purchasing")
 }
+
+// ============================================================================
+// HISTORY MODELS
+// ============================================================================
+
+model BodrHistory {
+  id            Int      @id @default(autoincrement())
+  bodr_id       Int
+  action        String   @db.VarChar(100)
+  actor         String   @db.VarChar(150)
+  actor_role    String?  @db.VarChar(100)
+  status_before String?  @db.VarChar(30)
+  status_after  String?  @db.VarChar(30)
+  comment       String?  @db.Text
+  timestamp     DateTime @default(now()) @db.Timestamptz(6)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  bodr Bodr @relation(fields: [bodr_id], references: [id], onDelete: Cascade)
+
+  @@map("bodr_history")
+  @@schema("bodr")
+}
+
+model OtorisasiHargaHistory {
+  id                 Int      @id @default(autoincrement())
+  otorisasi_harga_id Int
+  action             String   @db.VarChar(100)
+  actor              String   @db.VarChar(150)
+  actor_role         String?  @db.VarChar(100)
+  status_before      String?  @db.VarChar(30)
+  status_after       String?  @db.VarChar(30)
+  comment            String?  @db.Text
+  timestamp          DateTime @default(now()) @db.Timestamptz(6)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+
+  otorisasiHarga OtorisasiHarga @relation(fields: [otorisasi_harga_id], references: [id], onDelete: Cascade)
+
+  @@map("otorisasi_harga_history")
+  @@schema("purchasing")
+}
+

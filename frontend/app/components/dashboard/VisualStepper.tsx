@@ -23,17 +23,18 @@ export default function VisualStepper({ proposal }: VisualStepperProps) {
   const isRejected = proposal.gateStatus === "Gate 2 - Rejected";
 
   const getCleanGateLabel = (status: GateStatus) => {
-    return status
-      .replace("Gate 0 - Idea", "Gate 0: Ide Awal")
-      .replace("Gate 1 - Finance Review", "Gate 1: Review Finance")
-      .replace("Gate 2 - Committee Review", "Gate 2: Committee Review")
-      .replace("Gate 2 - Revised", "Gate 2: Revisi Komite")
-      .replace("Gate 2 - Rejected", "Gate 2: Ditolak Komite")
-      .replace("Gate 3 - Procurement", "Gate 3: Proses Pengadaan")
-      .replace("Gate 4 - Commissioning", "Gate 4: Commissioning")
-      .replace("Gate 5 - Benefit Realization", "Gate 5: Benefit Realization")
-      .replace("Gate 6 - Project Closing", "Gate 6: Project Closing")
-      .replace("Closed", "Closed (Selesai)");
+    return (status || "")
+      .replace("Gate 0 - Idea", "Tahap 1: Ide Awal / Draft")
+      .replace("Gate 1 - Finance Review", "Tahap 2: Review Finance")
+      .replace("Gate 2 - Committee Review", "Tahap 3: Sidang Komite")
+      .replace("Gate 2 - Revised", "Revisi Komite")
+      .replace("Gate 2 - Rejected", "Ditolak Komite")
+      .replace("Gate 3 - Procurement", "Tahap 4: Proses Pengadaan")
+      .replace("Gate 4 - Commissioning", "Tahap 5: Commissioning")
+      .replace("Gate 5 - Benefit Realization", "Tahap 6: Benefit Realization")
+      .replace("Gate 6 - Project Closing", "Tahap 7: Project Closing")
+      .replace(/^Gate\s*\d+\s*[-–:]\s*/i, "")
+      .replace("Closed", "Selesai (Closed)");
   };
 
   return (

@@ -251,9 +251,9 @@ export default function CreateOtorisasiNPPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50/80 font-sans text-slate-900 antialiased">
+    <div className="flex h-screen bg-slate-50/80 font-sans text-slate-900 antialiased overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-h-screen ml-64">
+      <div className="flex-1 flex flex-col h-screen ml-64 overflow-hidden">
         <Header
           title="Buat Otorisasi Harga Non-Product"
           subtitle="Form perbandingan harga supplier dari pengajuan BODR"

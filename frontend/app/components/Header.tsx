@@ -91,56 +91,57 @@ export default function Header({ title, subtitle, children }: HeaderProps) {
   })();
 
   return (
-    <header className="bg-white border-b border-slate-200 px-6 h-18 sticky top-0 z-20 shadow-xs flex items-center">
+    <header className="bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-6 h-18 sticky top-0 z-20 shadow-xs flex items-center shrink-0">
       <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">{title}</h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3.5">
           {children}
 
           {/* Notification Bell Dropdown */}
           <div className="relative flex items-center" ref={dropdownRef}>
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="relative p-2.5 text-slate-600 hover:text-blue-600 bg-slate-100 border border-slate-200 hover:bg-blue-50 rounded-xl transition-all cursor-pointer"
+              className="relative p-2 text-slate-600 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-xl transition-all cursor-pointer shadow-2xs"
+              title="Notifikasi Tugas"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
               {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 inline-flex rounded-full h-4 w-4 bg-red-500 text-[9px] font-medium text-white items-center justify-center">
+                <span className="absolute -top-1 -right-1 inline-flex rounded-full h-4 w-4 bg-rose-500 text-[9px] font-bold text-white items-center justify-center shadow-xs animate-bounce">
                   {notifications.length}
                 </span>
               )}
             </button>
 
             {isOpen && (
-              <div className="absolute right-0 top-full mt-3 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50">
-                <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                  <span className="text-xs font-semibold text-slate-800 uppercase tracking-wider">Pending Tasks</span>
-                  <span className="text-[10px] bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-medium">
+              <div className="absolute right-0 top-full mt-3 w-80 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="p-4 border-b border-slate-200/80 flex justify-between items-center bg-slate-50/80">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Tugas Pending</span>
+                  <span className="text-[10px] bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-full font-bold">
                     {notifications.length} Pending
                   </span>
                 </div>
                 <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
                   {notifications.length === 0 ? (
                     <div className="p-6 text-center text-slate-500 italic text-xs space-y-2">
-                      <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto">
-                        <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto shadow-2xs">
+                        <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
-                      <p className="font-medium text-slate-600">All tasks completed!</p>
-                      <p className="text-[10px] text-slate-400">No CAPEX proposals require your review at this time.</p>
+                      <p className="font-semibold text-slate-700">Semua tugas selesai!</p>
+                      <p className="text-[10.5px] text-slate-400">Tidak ada pengajuan yang membutuhkan tindakan review Anda saat ini.</p>
                     </div>
                   ) : (
                     notifications.map((notif) => (
-                      <div key={notif.id} className="p-3.5 hover:bg-slate-50 transition-colors flex gap-3">
+                      <div key={notif.id} className="p-3.5 hover:bg-slate-50/80 transition-colors flex gap-3">
                         <span className="w-1 h-auto rounded bg-blue-600 self-stretch shrink-0" />
                         <div>
-                          <p className="text-xs font-medium text-slate-800">{notif.title}</p>
-                          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{notif.desc}</p>
+                          <p className="text-xs font-bold text-slate-900">{notif.title}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{notif.desc}</p>
                         </div>
                       </div>
                     ))
@@ -151,49 +152,50 @@ export default function Header({ title, subtitle, children }: HeaderProps) {
           </div>
 
           {currentUser && (
-            <div className="flex items-center gap-3 pl-4 border-l border-slate-200 relative" ref={accountRef}>
+            <div className="flex items-center gap-3 pl-3.5 border-l border-slate-200 relative" ref={accountRef}>
               <div
                 onClick={() => setIsAccountOpen(!isAccountOpen)}
-                className="flex items-center gap-3 cursor-pointer group select-none"
-                title="Account Settings"
+                className="flex items-center gap-2.5 cursor-pointer group select-none p-1 rounded-xl hover:bg-slate-50 transition-all"
+                title="Pengaturan Akun"
               >
                 <div className="text-right hidden sm:block">
-                  <p className="text-xs font-medium text-slate-800 group-hover:text-blue-600 transition-colors">{currentUser.name}</p>
+                  <p className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">{currentUser.name}</p>
+                  <p className="text-[10px] text-slate-500 font-medium leading-tight">{currentUser.role}</p>
                 </div>
 
                 {currentUser.photoUrl ? (
                   <img
                     src={currentUser.photoUrl}
                     alt={currentUser.name}
-                    className="w-8.5 h-8.5 rounded-xl border border-slate-300 object-cover group-hover:border-blue-600 transition-all"
+                    className="w-9 h-9 rounded-xl border border-slate-300 object-cover group-hover:border-blue-600 transition-all shadow-2xs"
                   />
                 ) : (
-                  <div className="w-8.5 h-8.5 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center font-semibold text-blue-600 text-xs select-none group-hover:border-blue-600 transition-all">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-xs select-none shadow-xs group-hover:scale-105 transition-all">
                     {currentUser.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
                   </div>
                 )}
               </div>
 
               {isAccountOpen && (
-                <div className="absolute right-0 top-full mt-3 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl p-5 z-50 space-y-4">
-                  <div className="flex flex-col items-center text-center space-y-2.5 pb-2.5 border-b border-slate-200">
+                <div className="absolute right-0 top-full mt-3 w-72 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-2xl p-5 z-50 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex flex-col items-center text-center space-y-2.5 pb-3 border-b border-slate-200/80">
                     <div className="relative">
                       {currentUser.photoUrl ? (
                         <img
                           src={currentUser.photoUrl}
                           alt="Avatar"
-                          className="w-16 h-16 rounded-2xl border-2 border-blue-500 object-cover"
+                          className="w-16 h-16 rounded-2xl border-2 border-blue-500 object-cover shadow-xs"
                         />
                       ) : (
-                        <div className="w-16 h-16 rounded-2xl bg-blue-50 border-2 border-blue-200 flex items-center justify-center font-semibold text-blue-600 text-lg select-none">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-lg select-none shadow-xs">
                           {currentUser.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
                         </div>
                       )}
                     </div>
 
                     <div>
-                      <h4 className="font-semibold text-slate-800 text-sm">{currentUser.name}</h4>
-                      <p className="text-[10px] text-slate-500 font-medium mt-0.5">{currentUser.role} &bull; {currentUser.department}</p>
+                      <h4 className="font-bold text-slate-900 text-sm">{currentUser.name}</h4>
+                      <p className="text-[11px] text-slate-500 font-medium mt-0.5">{currentUser.role} &bull; {currentUser.department}</p>
                     </div>
                   </div>
 
@@ -205,7 +207,7 @@ export default function Header({ title, subtitle, children }: HeaderProps) {
                       hasPermission("ALL_ACCESS")) && (
                       <a
                         href="/admin"
-                        className="w-full py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-semibold rounded-xl transition-all cursor-pointer inline-flex items-center justify-center text-[10px] uppercase tracking-wider gap-1.5 border border-blue-200"
+                        className="w-full py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl transition-all cursor-pointer inline-flex items-center justify-center text-[10.5px] uppercase tracking-wider gap-1.5 border border-blue-200 shadow-2xs"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -216,12 +218,12 @@ export default function Header({ title, subtitle, children }: HeaderProps) {
                     )}
                     <button
                       onClick={logout}
-                      className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all cursor-pointer inline-flex items-center justify-center text-[10px] uppercase tracking-wider gap-1.5 shadow-2xs"
+                      className="w-full py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold rounded-xl transition-all cursor-pointer inline-flex items-center justify-center text-[10.5px] uppercase tracking-wider gap-1.5 shadow-xs active:scale-95"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                       </svg>
-                      Logout
+                      Keluar (Logout)
                     </button>
                   </div>
                 </div>

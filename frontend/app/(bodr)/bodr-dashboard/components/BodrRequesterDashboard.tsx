@@ -17,7 +17,6 @@ export default function BodrRequesterDashboard({
   data,
 }: BodrRequesterDashboardProps) {
   const [requesterKriteriaFilter, setRequesterKriteriaFilter] = useState<string>("ALL");
-  const [requesterChartType, setRequesterChartType] = useState<"bar" | "line">("bar");
 
   // ── 1. Dynamic Filtered Proposal List for User / Department ──────────────────
   const userDeptList = useMemo(() => {
@@ -249,12 +248,9 @@ export default function BodrRequesterDashboard({
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" />
-              <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
-                Grafik Jumlah BODR (Kriteria Pengajuan)
-              </h3>
-            </div>
+            <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
+              Grafik Jumlah BODR (Kriteria Pengajuan)
+            </h3>
             <p className="text-[10px] text-slate-500">
               Visualisasi statistik volume dokumen BODR berdasarkan kriteria CAP, FOH, dan GOP
             </p>
@@ -276,19 +272,6 @@ export default function BodrRequesterDashboard({
                 <option value="GOP">GOP</option>
               </select>
             </div>
-
-            {/* Chart Type Toggle Dropdown */}
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-xl">
-              <label className="text-[10px] font-semibold text-slate-500">Tipe Grafik:</label>
-              <select
-                value={requesterChartType}
-                onChange={(e) => setRequesterChartType(e.target.value as "bar" | "line")}
-                className="bg-transparent text-slate-800 font-semibold text-xs outline-none cursor-pointer"
-              >
-                <option value="bar">Diagram Batang (Bar)</option>
-                <option value="line">Diagram Garis (Line)</option>
-              </select>
-            </div>
           </div>
         </div>
 
@@ -305,175 +288,98 @@ export default function BodrRequesterDashboard({
           </span>
         </div>
 
-        {/* Canvas Area: Real Bar or Line Chart with Axes and Gridlines */}
+        {/* Canvas Area: Real Vertical Bar Chart */}
         <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-5 pt-6">
-          {requesterChartType === "bar" ? (
-            /* ── REAL VERTICAL BAR CHART ────────────────────────────────────── */
-            <div className="relative h-60 flex">
-              {/* Y-Axis scale numbers on left */}
-              <div className="w-8 flex flex-col justify-between text-[9px] font-mono text-slate-400 pb-6 text-right pr-2 select-none">
-                <span>{requesterChartData.maxCount}</span>
-                <span>{Math.round(requesterChartData.maxCount * 0.75)}</span>
-                <span>{Math.round(requesterChartData.maxCount * 0.5)}</span>
-                <span>{Math.round(requesterChartData.maxCount * 0.25)}</span>
-                <span>0</span>
+          <div className="relative h-60 flex">
+            {/* Y-Axis scale numbers on left */}
+            <div className="w-8 flex flex-col justify-between text-[9px] font-mono text-slate-400 pb-6 text-right pr-2 select-none">
+              <span>{requesterChartData.maxCount}</span>
+              <span>{Math.round(requesterChartData.maxCount * 0.75)}</span>
+              <span>{Math.round(requesterChartData.maxCount * 0.5)}</span>
+              <span>{Math.round(requesterChartData.maxCount * 0.25)}</span>
+              <span>0</span>
+            </div>
+
+            {/* Main Chart Area */}
+            <div className="flex-1 flex flex-col justify-between relative border-b border-slate-300 pb-6">
+              {/* Grid lines */}
+              <div className="absolute inset-0 pb-6 flex flex-col justify-between pointer-events-none">
+                <div className="border-b border-dashed border-slate-200 w-full" />
+                <div className="border-b border-dashed border-slate-200 w-full" />
+                <div className="border-b border-dashed border-slate-200 w-full" />
+                <div className="border-b border-dashed border-slate-200 w-full" />
               </div>
 
-              {/* Main Chart Area */}
-              <div className="flex-1 flex flex-col justify-between relative border-b border-slate-300 pb-6">
-                {/* Grid lines */}
-                <div className="absolute inset-0 pb-6 flex flex-col justify-between pointer-events-none">
-                  <div className="border-b border-dashed border-slate-200 w-full" />
-                  <div className="border-b border-dashed border-slate-200 w-full" />
-                  <div className="border-b border-dashed border-slate-200 w-full" />
-                  <div className="border-b border-dashed border-slate-200 w-full" />
-                </div>
+              {/* Bars Group */}
+              <div className="relative h-full flex items-end justify-around px-4 gap-4 z-10">
+                {requesterChartData.items.map((item) => {
+                  const appHeight = (item.approved / requesterChartData.maxCount) * 100;
+                  const pendHeight = (item.pending / requesterChartData.maxCount) * 100;
+                  const rejHeight = (item.rejected / requesterChartData.maxCount) * 100;
 
-                {/* Bars Group */}
-                <div className="relative h-full flex items-end justify-around px-4 gap-4 z-10">
-                  {requesterChartData.items.map((item) => {
-                    const appHeight = (item.approved / requesterChartData.maxCount) * 100;
-                    const pendHeight = (item.pending / requesterChartData.maxCount) * 100;
-                    const rejHeight = (item.rejected / requesterChartData.maxCount) * 100;
+                  return (
+                    <div key={item.key} className="flex flex-col items-center h-full justify-end flex-1 max-w-44 group">
+                      <div className="flex items-end justify-center gap-2 h-full w-full">
+                        {/* Approved Bar (Green) */}
+                        <div className="flex flex-col items-center justify-end h-full flex-1 max-w-10">
+                          {item.approved > 0 && (
+                            <span className="text-[9px] font-bold text-emerald-700 mb-1 font-mono">
+                              {item.approved}
+                            </span>
+                          )}
+                          <div
+                            className={`w-full rounded-t-md transition-all duration-500 ${
+                              item.approved > 0
+                                ? "bg-linear-to-t from-emerald-600 to-emerald-400 shadow-2xs"
+                                : "bg-slate-200/60"
+                            }`}
+                            style={{ height: `${item.approved > 0 ? Math.max(appHeight, 8) : 4}%` }}
+                            title={`Disetujui: ${item.approved}`}
+                          />
+                        </div>
 
-                    return (
-                      <div key={item.key} className="flex flex-col items-center h-full justify-end flex-1 max-w-44 group">
-                        <div className="flex items-end justify-center gap-2 h-full w-full">
-                          {/* Approved Bar (Green) */}
-                          <div className="flex flex-col items-center justify-end h-full flex-1 max-w-10">
-                            {item.approved > 0 && (
-                              <span className="text-[9px] font-bold text-emerald-700 mb-1 font-mono">
-                                {item.approved}
-                              </span>
-                            )}
-                            <div
-                              className={`w-full rounded-t-md transition-all duration-500 ${
-                                item.approved > 0
-                                  ? "bg-linear-to-t from-emerald-600 to-emerald-400 shadow-2xs"
-                                  : "bg-slate-200/60"
-                              }`}
-                              style={{ height: `${item.approved > 0 ? Math.max(appHeight, 8) : 4}%` }}
-                              title={`Disetujui: ${item.approved}`}
-                            />
-                          </div>
+                        {/* Pending Bar (Blue) */}
+                        <div className="flex flex-col items-center justify-end h-full flex-1 max-w-10">
+                          {item.pending > 0 && (
+                            <span className="text-[9px] font-bold text-blue-700 mb-1 font-mono">
+                              {item.pending}
+                            </span>
+                          )}
+                          <div
+                            className={`w-full rounded-t-md transition-all duration-500 ${
+                              item.pending > 0
+                                ? "bg-linear-to-t from-blue-600 to-blue-400 shadow-2xs"
+                                : "bg-slate-200/60"
+                            }`}
+                            style={{ height: `${item.pending > 0 ? Math.max(pendHeight, 8) : 4}%` }}
+                            title={`Pending: ${item.pending}`}
+                          />
+                        </div>
 
-                          {/* Pending Bar (Blue) */}
-                          <div className="flex flex-col items-center justify-end h-full flex-1 max-w-10">
-                            {item.pending > 0 && (
-                              <span className="text-[9px] font-bold text-blue-700 mb-1 font-mono">
-                                {item.pending}
-                              </span>
-                            )}
-                            <div
-                              className={`w-full rounded-t-md transition-all duration-500 ${
-                                item.pending > 0
-                                  ? "bg-linear-to-t from-blue-600 to-blue-400 shadow-2xs"
-                                  : "bg-slate-200/60"
-                              }`}
-                              style={{ height: `${item.pending > 0 ? Math.max(pendHeight, 8) : 4}%` }}
-                              title={`Pending: ${item.pending}`}
-                            />
-                          </div>
-
-                          {/* Rejected Bar (Red) */}
-                          <div className="flex flex-col items-center justify-end h-full flex-1 max-w-10">
-                            {item.rejected > 0 && (
-                              <span className="text-[9px] font-bold text-red-600 mb-1 font-mono">
-                                {item.rejected}
-                              </span>
-                            )}
-                            <div
-                              className={`w-full rounded-t-md transition-all duration-500 ${
-                                item.rejected > 0
-                                  ? "bg-linear-to-t from-red-600 to-red-400 shadow-2xs"
-                                  : "bg-slate-200/60"
-                              }`}
-                              style={{ height: `${item.rejected > 0 ? Math.max(rejHeight, 8) : 4}%` }}
-                              title={`Ditolak/Revisi: ${item.rejected}`}
-                            />
-                          </div>
+                        {/* Rejected Bar (Red) */}
+                        <div className="flex flex-col items-center justify-end h-full flex-1 max-w-10">
+                          {item.rejected > 0 && (
+                            <span className="text-[9px] font-bold text-red-600 mb-1 font-mono">
+                              {item.rejected}
+                            </span>
+                          )}
+                          <div
+                            className={`w-full rounded-t-md transition-all duration-500 ${
+                              item.rejected > 0
+                                ? "bg-linear-to-t from-red-600 to-red-400 shadow-2xs"
+                                : "bg-slate-200/60"
+                            }`}
+                            style={{ height: `${item.rejected > 0 ? Math.max(rejHeight, 8) : 4}%` }}
+                            title={`Ditolak/Revisi: ${item.rejected}`}
+                          />
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          ) : (
-            /* ── REAL SMOOTH SVG LINE CHART ──────────────────────────────────── */
-            <div className="relative h-60 flex">
-              {/* Y-Axis scale numbers on left */}
-              <div className="w-8 flex flex-col justify-between text-[9px] font-mono text-slate-400 pb-6 text-right pr-2 select-none">
-                <span>{requesterChartData.maxCount}</span>
-                <span>{Math.round(requesterChartData.maxCount * 0.75)}</span>
-                <span>{Math.round(requesterChartData.maxCount * 0.5)}</span>
-                <span>{Math.round(requesterChartData.maxCount * 0.25)}</span>
-                <span>0</span>
-              </div>
-
-              {/* Main Line Canvas */}
-              <div className="flex-1 relative border-b border-slate-300 pb-6 flex items-center">
-                {/* Grid lines */}
-                <div className="absolute inset-0 pb-6 flex flex-col justify-between pointer-events-none">
-                  <div className="border-b border-dashed border-slate-200 w-full" />
-                  <div className="border-b border-dashed border-slate-200 w-full" />
-                  <div className="border-b border-dashed border-slate-200 w-full" />
-                  <div className="border-b border-dashed border-slate-200 w-full" />
-                </div>
-
-                {/* SVG Coordinate Paths */}
-                <svg className="w-full h-full overflow-visible z-10" viewBox="0 0 300 100" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Calculate coordinates */}
-                  {(() => {
-                    const pts = requesterChartData.items.map((it, idx, arr) => {
-                      const x = arr.length === 1 ? 150 : (idx / (arr.length - 1)) * 260 + 20;
-                      const y = 90 - (it.total / requesterChartData.maxCount) * 80;
-                      return { x, y, item: it };
-                    });
-
-                    const polylinePts = pts.map((p) => `${p.x},${p.y}`).join(" ");
-                    const areaPts = `20,95 ${polylinePts} ${pts[pts.length - 1].x},95`;
-
-                    return (
-                      <>
-                        <polygon points={areaPts} fill="url(#gradTotal)" />
-                        <polyline
-                          fill="none"
-                          stroke="#2563eb"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          points={polylinePts}
-                        />
-                        {pts.map((p, i) => (
-                          <g key={i}>
-                            <circle cx={p.x} cy={p.y} r="5" fill="#ffffff" stroke="#2563eb" strokeWidth="2.5" />
-                            <text
-                              x={p.x}
-                              y={p.y - 8}
-                              textAnchor="middle"
-                              fontSize="8"
-                              fontWeight="bold"
-                              fill="#1e40af"
-                            >
-                              {p.item.total} Dok
-                            </text>
-                          </g>
-                        ))}
-                      </>
-                    );
-                  })()}
-                </svg>
-              </div>
-            </div>
-          )}
+          </div>
 
           {/* X-Axis Labels */}
           <div className="flex pl-8 pr-2 pt-2 border-t border-slate-200">

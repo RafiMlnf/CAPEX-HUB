@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 interface KpiCardProps {
   title: string;
   value: string;
@@ -12,43 +14,64 @@ interface KpiCardProps {
 
 const colorMap = {
   blue: {
-    borderLeft: "border-l-4 border-l-blue-500 bg-blue-50/20 text-blue-700",
+    border: "hover:border-blue-300",
+    bgIcon: "bg-blue-50 text-blue-600 border border-blue-200",
+    textVal: "text-slate-900",
+    dot: "bg-blue-500",
   },
   green: {
-    borderLeft: "border-l-4 border-l-emerald-500 bg-emerald-50/20 text-emerald-700",
+    border: "hover:border-emerald-300",
+    bgIcon: "bg-emerald-50 text-emerald-600 border border-emerald-200",
+    textVal: "text-emerald-700",
+    dot: "bg-emerald-500",
   },
   amber: {
-    borderLeft: "border-l-4 border-l-amber-500 bg-amber-50/20 text-amber-700",
+    border: "hover:border-amber-300",
+    bgIcon: "bg-amber-50 text-amber-600 border border-amber-200",
+    textVal: "text-amber-700",
+    dot: "bg-amber-500",
   },
   red: {
-    borderLeft: "border-l-4 border-l-red-500 bg-red-50/20 text-red-700",
+    border: "hover:border-rose-300",
+    bgIcon: "bg-rose-50 text-rose-600 border border-rose-200",
+    textVal: "text-rose-700",
+    dot: "bg-rose-500",
   },
   purple: {
-    borderLeft: "border-l-4 border-l-purple-500 bg-purple-50/20 text-purple-700",
+    border: "hover:border-purple-300",
+    bgIcon: "bg-purple-50 text-purple-600 border border-purple-200",
+    textVal: "text-purple-700",
+    dot: "bg-purple-500",
   },
 };
 
 export default function KpiCard({
   title,
   value,
-  target,
-  trend,
-  trendValue,
   color = "blue",
   icon,
 }: KpiCardProps) {
-  const c = colorMap[color];
+  const c = colorMap[color] || colorMap.blue;
 
   return (
-    <div className={`relative rounded-xl border border-slate-200 p-4 shadow-xs overflow-hidden ${c.borderLeft}`}>
-      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest leading-none mb-2.5 truncate">{title}</p>
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-xl font-semibold tracking-tight leading-tight text-slate-800">{value}</h3>
+    <div
+      className={`bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs transition-all duration-200 hover:shadow-md ${c.border} space-y-2`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider truncate flex items-center gap-1.5">
+          <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+          {title}
+        </p>
         {icon && (
-          <div className="p-1.5 rounded-lg bg-white/70 text-slate-600 shadow-xs shrink-0">
+          <div className={`p-2 rounded-xl shrink-0 shadow-2xs ${c.bgIcon}`}>
             {icon}
           </div>
         )}
+      </div>
+      <div>
+        <h3 className={`text-2xl font-bold tracking-tight font-mono ${c.textVal}`}>
+          {value}
+        </h3>
       </div>
     </div>
   );

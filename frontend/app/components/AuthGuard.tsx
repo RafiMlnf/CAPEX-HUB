@@ -6,7 +6,7 @@ import { useEffect } from "react";
 
 const SkeletonLoading = ({ text }: { text: string }) => {
   return (
-    <div className="flex min-h-screen bg-slate-900 font-sans text-xs animate-pulse">
+    <div className="flex h-screen bg-slate-900 font-sans text-xs animate-pulse overflow-hidden">
       {/* Skeleton Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 w-64 bg-slate-900 border-r border-slate-700/60 flex flex-col p-4 space-y-6">
         <div className="h-12 bg-slate-800 rounded-xl w-3/4 mx-auto mb-4" />
@@ -21,9 +21,9 @@ const SkeletonLoading = ({ text }: { text: string }) => {
       </aside>
 
       {/* Skeleton Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen ml-64">
+      <div className="flex-1 flex flex-col h-screen ml-64 overflow-hidden">
         {/* Skeleton Header */}
-        <header className="h-16 border-b border-slate-700/40 bg-slate-900/50 backdrop-blur-md px-8 flex items-center justify-between">
+        <header className="h-16 shrink-0 border-b border-slate-700/40 bg-slate-900/50 backdrop-blur-md px-8 flex items-center justify-between">
           <div className="h-5 bg-slate-800 rounded w-1/4" />
           <div className="flex items-center gap-4">
             <div className="h-8 bg-slate-800 rounded w-20" />

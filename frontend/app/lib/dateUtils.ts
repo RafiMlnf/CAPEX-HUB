@@ -16,29 +16,49 @@ const INDONESIAN_MONTHS = [
 export function formatDateDisplay(dateStr?: string): string {
   if (!dateStr || dateStr === "-" || dateStr.trim() === "") return "-";
 
-  // Match ISO YYYY-MM-DD or YYYY-MM-DDTHH:mm
-  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
-  if (match) {
-    const [, year, month, day, hours, minutes] = match;
+  // Pure date only (YYYY-MM-DD without time part) -> format directly without timezone shifts
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+    const [year, month, day] = dateStr.trim().split("-");
     const monthIdx = parseInt(month, 10) - 1;
     const monthName = INDONESIAN_MONTHS[monthIdx] || month;
-    if (hours && minutes) {
-      return `${parseInt(day, 10)} ${monthName} ${year} pukul ${hours}:${minutes} WIB`;
-    }
     return `${parseInt(day, 10)} ${monthName} ${year}`;
   }
 
   const d = new Date(dateStr);
   if (!isNaN(d.getTime())) {
-    const day = d.getDate();
-    const monthName = INDONESIAN_MONTHS[d.getMonth()] || String(d.getMonth() + 1);
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, "0");
-    const minutes = String(d.getMinutes()).padStart(2, "0");
-    if (dateStr.includes("T") || dateStr.includes(" ") || (d.getHours() !== 0 || d.getMinutes() !== 0)) {
-      return `${day} ${monthName} ${year} pukul ${hours}:${minutes} WIB`;
+    try {
+      const parts = new Intl.DateTimeFormat("id-ID", {
+        timeZone: "Asia/Jakarta",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).formatToParts(d);
+
+      const day = parts.find((p) => p.type === "day")?.value || String(d.getDate());
+      const month = parts.find((p) => p.type === "month")?.value || (INDONESIAN_MONTHS[d.getMonth()] || "");
+      const year = parts.find((p) => p.type === "year")?.value || String(d.getFullYear());
+      const hour = parts.find((p) => p.type === "hour")?.value?.padStart(2, "0") || "00";
+      const minute = parts.find((p) => p.type === "minute")?.value?.padStart(2, "0") || "00";
+
+      const hasTime = dateStr.includes("T") || dateStr.includes(":") || (d.getHours() !== 0 || d.getMinutes() !== 0);
+      if (hasTime) {
+        return `${parseInt(day, 10)} ${month} ${year} pukul ${hour}:${minute} WIB`;
+      }
+      return `${parseInt(day, 10)} ${month} ${year}`;
+    } catch {
+      const day = d.getDate();
+      const monthName = INDONESIAN_MONTHS[d.getMonth()] || String(d.getMonth() + 1);
+      const year = d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, "0");
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      if (dateStr.includes("T") || dateStr.includes(" ") || (d.getHours() !== 0 || d.getMinutes() !== 0)) {
+        return `${day} ${monthName} ${year} pukul ${hours}:${minutes} WIB`;
+      }
+      return `${day} ${monthName} ${year}`;
     }
-    return `${day} ${monthName} ${year}`;
   }
 
   return dateStr;

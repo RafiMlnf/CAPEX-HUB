@@ -48,7 +48,7 @@ export default function PriceApprovalTable({
                 </tr>
               ) : (
                 nonProductList.map((item, idx) => (
-                  <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={`np-${item.id}`} className="hover:bg-slate-50 transition-colors">
                     <td className="py-3 px-3 text-center font-mono font-semibold text-slate-500 border-r border-slate-200">{idx + 1}</td>
                     <td className="py-3 px-3 font-mono font-semibold text-slate-800 border-r border-slate-200">{item.no_doc || item.id}</td>
                     <td className="py-3 px-3 font-mono font-semibold text-blue-600 border-r border-slate-200">{item.no_pr || "—"}</td>
@@ -104,7 +104,7 @@ export default function PriceApprovalTable({
               </tr>
             ) : (
               productList.map((item, idx) => (
-                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                <tr key={`p-${item.id}`} className="hover:bg-slate-50 transition-colors">
                   <td className="py-3 px-3 text-center font-mono font-semibold text-slate-500 border-r border-slate-200">{idx + 1}</td>
                   <td className="py-3 px-3 font-mono font-semibold text-blue-600 border-r border-slate-200">{item.no_pr || item.id}</td>
                   <td className="py-3 px-3 font-semibold text-slate-800 border-r border-slate-200">{item.product}</td>
