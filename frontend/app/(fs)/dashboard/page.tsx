@@ -80,46 +80,61 @@ export default function DashboardPage() {
     return Array.from(depts);
   }, [visibleProposals]);
 
+  // 1. Menunggu Review Finance (Gate 1)
   const waitingFinanceCount = useMemo(() => {
-    return visibleProposals.filter((p) => {
+    return visibleProposals.filter((p: any) => {
       const gs = (p.gateStatus || "").toLowerCase();
-      return gs.includes("finance") || gs.includes("pending") || gs.includes("feedback");
+      return (
+        (gs.includes("finance") || gs === "gate 1 - finance review" || gs === "gate 1 - pending user feedback") &&
+        !gs.includes("revis") &&
+        !p.revisionSource
+      );
     }).length;
   }, [visibleProposals]);
 
+  // 2. Siap / Sidang Komite (Gate 2)
   const readyCommitteeCount = useMemo(() => {
-    return visibleProposals.filter((p) => {
+    return visibleProposals.filter((p: any) => {
       const gs = (p.gateStatus || "").toLowerCase();
-      return gs.includes("committee") || gs.includes("komite");
+      return (
+        (gs.includes("committee") || gs.includes("komite")) &&
+        !gs.includes("reject") &&
+        !gs.includes("revis")
+      );
     }).length;
   }, [visibleProposals]);
 
+  // 3. Disetujui / Selesai (Approved / Procurement / Closed)
   const approvedCount = useMemo(() => {
-    return visibleProposals.filter((p) => {
+    return visibleProposals.filter((p: any) => {
       const gs = (p.gateStatus || "").toLowerCase();
-      return gs.includes("approved") || gs.includes("closed") || gs.includes("procurement");
+      return (
+        gs === "approved" ||
+        gs === "closed" ||
+        gs.includes("procurement") ||
+        gs.includes("handover")
+      );
     }).length;
   }, [visibleProposals]);
 
-  const approvedBudget = useMemo(() => {
-    return visibleProposals.reduce((sum: number, item: any) => {
-      const gs = (item.gateStatus || "").toLowerCase();
-      const isAppr = gs.includes("approved") || gs.includes("closed") || gs.includes("procurement");
-      return sum + (isAppr ? (item.estimatedCost || 0) : 0);
-    }, 0);
-  }, [visibleProposals]);
-
-  const draftCount = useMemo(() => {
-    return visibleProposals.filter((p) => {
-      const s = (p.gateStatus || "").toLowerCase();
-      return s.includes("idea") || s.includes("draft");
+  // 4. Draft / Perlu Revisi (Gate 0 / Draft / Revisi)
+  const draftAndReviseCount = useMemo(() => {
+    return visibleProposals.filter((p: any) => {
+      const gs = (p.gateStatus || "").toLowerCase();
+      return (
+        gs.includes("idea") ||
+        gs.includes("draft") ||
+        gs.includes("revis") ||
+        Boolean(p.revisionSource)
+      );
     }).length;
   }, [visibleProposals]);
 
-  const inReviewCount = useMemo(() => {
-    return visibleProposals.filter((p) => {
-      const s = (p.gateStatus || "").toLowerCase();
-      return s.includes("review") || s.includes("finance") || s.includes("committee") || s.includes("komite") || s.includes("pending");
+  // 5. Ditolak Komite (Gate 2 - Rejected)
+  const rejectedCount = useMemo(() => {
+    return visibleProposals.filter((p: any) => {
+      const gs = (p.gateStatus || "").toLowerCase();
+      return gs.includes("reject");
     }).length;
   }, [visibleProposals]);
 
@@ -226,103 +241,48 @@ export default function DashboardPage() {
 
       <div className="flex-1 flex flex-col h-screen ml-64 bg-slate-100 min-w-0 overflow-hidden">
         <Header
-          title={
-            isAccounting
-              ? "Dashboard Accounting & Finance CAPEX"
-              : isCommittee
-              ? "Dashboard Komite Investasi CAPEX"
-              : currentUser?.department
-              ? `Dashboard CAPEX ${currentUser.department}`
-              : "Dashboard CAPEX"
-          }
+          title="DASHBOARD CAPEX"
           subtitle="Sistem monitoring perencanaan, verifikasi anggaran, dan alur persetujuan Capital Expenditure"
         />
 
         <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4 w-full min-w-0 overflow-x-hidden">
           {/* Top Hero Banner */}
-          <div className="bg-linear-to-r from-blue-600 via-indigo-700 to-blue-800 rounded-2xl px-6 py-4 text-white shadow-sm relative overflow-hidden">
-            <div className="relative z-10 space-y-1">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-semibold backdrop-blur-sm border border-white/20">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                {isAccounting
-                  ? "Accounting & Finance Workspace"
-                  : isCommittee
-                  ? "Investment Committee Workspace"
-                  : `${currentUser?.department || "Department"} Capex Workspace`}
-              </span>
-              <h1 className="text-xl font-semibold tracking-tight text-white">
-                {isAccounting
-                  ? "Dashboard Verifikasi & Pengendalian Anggaran CAPEX"
-                  : isCommittee
-                  ? "Executive CAPEX Dashboard & Approval Monitoring"
-                  : currentUser?.department
-                  ? `Dashboard Pengajuan Belanja Modal ${currentUser.department}`
-                  : "Dashboard Pengajuan Belanja Modal"}
+          <div className="bg-linear-to-r from-blue-600 via-indigo-700 to-blue-800 rounded-2xl px-6 py-4 text-white shadow-sm relative overflow-hidden flex items-center">
+            <div className="relative z-10">
+              <h1 className="text-xl font-bold tracking-tight text-white uppercase">
+                DASHBOARD CAPEX
               </h1>
-              <p className="text-blue-100 text-[11px] max-w-2xl font-normal leading-normal">
-                Ringkasan usulan pengajuan belanja modal, status verifikasi kelayakan Finance, dan keputusan sidang Komite Investasi.
-              </p>
             </div>
             <div className="absolute right-0 top-0 w-80 h-full bg-white/5 transform skew-x-12 pointer-events-none" />
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-500/30 rounded-full blur-2xl pointer-events-none" />
           </div>
 
-          {/* KPI CARDS (Cleaned up: No Total Komitmen / Sisa Pagu) */}
+          {/* KPI CARDS (Cleaned up & Minimalist) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* KPI 1: Total Dokumen CAPEX */}
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-              <div className="space-y-0.5">
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL DOKUMEN CAPEX</p>
-                <p className="text-xl font-semibold text-slate-900 font-mono">{visibleProposals.length}</p>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL DOKUMEN CAPEX</p>
+              <p className="text-xl font-semibold text-slate-900 font-mono mt-1">{visibleProposals.length}</p>
             </div>
 
             {/* KPI 2: Total Nilai Pengajuan */}
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-              <div className="space-y-0.5">
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL NILAI PENGAJUAN</p>
-                <p className="text-lg font-semibold text-slate-900 font-mono truncate" title={`Rp ${totalBudget.toLocaleString("id-ID")}`}>
-                  Rp {totalBudget.toLocaleString("id-ID")}
-                </p>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL NILAI PENGAJUAN</p>
+              <p className="text-lg font-semibold text-slate-900 font-mono truncate mt-1" title={`Rp ${totalBudget.toLocaleString("id-ID")}`}>
+                Rp {totalBudget.toLocaleString("id-ID")}
+              </p>
             </div>
 
             {/* KPI 3: Menunggu Review Finance */}
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-              <div className="space-y-0.5">
-                <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">REVIEW FINANCE</p>
-                <p className="text-xl font-semibold text-amber-700 font-mono">{waitingFinanceCount}</p>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs">
+              <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">REVIEW FINANCE</p>
+              <p className="text-xl font-semibold text-amber-700 font-mono mt-1">{waitingFinanceCount}</p>
             </div>
 
             {/* KPI 4: Siap Sidang Komite */}
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-              <div className="space-y-0.5">
-                <p className="text-[10px] font-semibold text-purple-700 uppercase tracking-wider">SIDANG KOMITE</p>
-                <p className="text-xl font-semibold text-purple-700 font-mono">{readyCommitteeCount}</p>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center shrink-0 shadow-2xs">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs">
+              <p className="text-[10px] font-semibold text-purple-700 uppercase tracking-wider">SIDANG KOMITE</p>
+              <p className="text-xl font-semibold text-purple-700 font-mono mt-1">{readyCommitteeCount}</p>
             </div>
           </div>
 
@@ -420,15 +380,16 @@ export default function DashboardPage() {
                   </span>
                   <h3 className="text-xs font-bold text-slate-800">Pipeline Status Usulan CAPEX</h3>
                 </div>
-                <p className="text-[10px] text-slate-500">Distribusi jumlah usulan berdasarkan tahapan alur verifikasi</p>
+                <p className="text-[10px] text-slate-500">Distribusi jumlah usulan berdasarkan tahapan alur verifikasi aktif</p>
               </div>
 
-              <div className="space-y-2.5 pt-1">
+              <div className="space-y-2 pt-1 max-h-60 overflow-y-auto">
                 {[
-                  { label: "Draft / Usulan Awal", count: draftCount, color: "bg-slate-400" },
-                  { label: "Verifikasi Finance (Gate 1)", count: waitingFinanceCount, color: "bg-blue-500" },
-                  { label: "Sidang Komite (Gate 2)", count: readyCommitteeCount, color: "bg-purple-500" },
-                  { label: "Disetujui / Selesai", count: approvedCount, color: "bg-emerald-500" },
+                  { label: "Draft / Perlu Revisi", count: draftAndReviseCount, color: "bg-slate-400" },
+                  { label: "Verifikasi Finance (Gate 1)", count: waitingFinanceCount, color: "bg-blue-600" },
+                  { label: "Sidang Komite (Gate 2)", count: readyCommitteeCount, color: "bg-purple-600" },
+                  { label: "Disetujui Komite (Approved)", count: approvedCount, color: "bg-emerald-600" },
+                  { label: "Ditolak Komite", count: rejectedCount, color: "bg-rose-500" },
                 ].map((s, idx) => {
                   const pct = visibleProposals.length > 0 ? Math.round((s.count / visibleProposals.length) * 100) : 0;
                   return (

@@ -349,7 +349,7 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
             <textarea
               required
               rows={4}
-              placeholder={"Jelaskan manfaat dan keuntungan investasi ini...\nContoh:\n1. Meningkatkan kapasitas produksi sebesar 20%\n2. Mengurangi biaya maintenance mesin tahunan"}
+              placeholder=""
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onKeyDown={(e) => {
