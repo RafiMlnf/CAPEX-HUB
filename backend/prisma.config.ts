@@ -1,6 +1,11 @@
+import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
 let dbUrl = process.env.DATABASE_URL;
+
+if (dbUrl) {
+  dbUrl = dbUrl.replace(/^["']|["']$/g, '').trim();
+}
 
 if (dbUrl && dbUrl.includes('${')) {
   dbUrl = dbUrl.replace(/\$\{(\w+)\}/g, (_, key) => process.env[key] || '');

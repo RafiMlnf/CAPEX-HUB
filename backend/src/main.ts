@@ -21,11 +21,11 @@ async function bootstrap() {
   // Global API Prefix
   app.setGlobalPrefix(apiPrefix);
 
-  // CORS
+  // CORS - Allow requests from frontend on any port in dev
   app.enableCors({
-    origin: corsOrigin,
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true,
   });
 

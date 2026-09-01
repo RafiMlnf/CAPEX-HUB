@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import InfoTooltip from "../InfoTooltip";
 import { CapexProposal, api } from "../../lib/api";
@@ -32,14 +32,11 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
   const { currentUser } = useCapex();
 
   const investmentTypesMap: Record<string, string[]> = {
-    Capacity: ["Capacity Up"],
+    Capacity: ["Capacity Up", "New Product Expansion"],
     Capability: [
-      "Improve Product Quality",
-      "Cost Reduction",
-      "Safety",
-      "Environment",
-      "Restore Capacity",
       "Increase Value Added",
+      "Increase Competency",
+      "Restore Capacity",
     ],
     Supporting: ["Supporting"],
   };
@@ -61,9 +58,9 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
   const [purpose, setPurpose] = useState(initialData?.purpose || "");
   const [investmentType, setInvestmentType] = useState(initialData?.investmentType || "");
   const [name, setName] = useState(initialData?.name || "");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(initialData?.description || "");
   const [department, setDepartment] = useState(initialData?.department || currentUser?.department || "Engineering");
-  const [pic, setPic] = useState(initialData?.pic || currentUser?.name || currentUser?.username || "");
+  const [pic, setPic] = useState(initialData?.pic || currentUser?.name || currentUser?.username || "Staff User");
   const [estimatedCost, setEstimatedCost] = useState(initialData?.estimatedCost ? initialData.estimatedCost.toLocaleString("id-ID") : "");
   const [startDate, setStartDate] = useState(initialData?.startDate || "");
   const [endDate, setEndDate] = useState(initialData?.endDate || "");
@@ -75,6 +72,17 @@ export default function IdeaForm({ onSubmit, initialData, onCancel, isModal = fa
       : []
   );
   const [uploadingFile, setUploadingFile] = useState(false);
+
+  useEffect(() => {
+    if (!initialData && currentUser) {
+      if (currentUser.name || currentUser.username) {
+        setPic(currentUser.name || currentUser.username);
+      }
+      if (currentUser.department) {
+        setDepartment(currentUser.department);
+      }
+    }
+  }, [currentUser, initialData]);
 
   const handlePurposeChange = (val: string) => {
     setPurpose(val);

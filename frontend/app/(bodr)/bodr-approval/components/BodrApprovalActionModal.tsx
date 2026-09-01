@@ -100,7 +100,7 @@ export default function BodrApprovalActionModal({
       await api.updateBodrProposal(proposal.id, {
         approval_action: action === "Approve" ? "approved" : action === "Reject" ? "rejected" : "revision",
         step_order: pendingStep?.step_order,
-        approver_user_id: currentUser?.id ? parseInt(currentUser.id) : undefined,
+        approver_user_id: currentUser?.id ? parseInt(String(currentUser.id)) : undefined,
         comment: note || null,
         step: nextStep,
         status: nextStatus,

@@ -29,9 +29,9 @@ export default function DashboardPage() {
     if (!currentUser) return proposals;
 
     const userDept = (currentUser.department || "").toLowerCase().trim();
-    const userName = (currentUser.name || "").toLowerCase().trim();
+    const myName = (currentUser.name || "").toLowerCase().trim();
     const userNpk = (currentUser.npk || "").toLowerCase().trim();
-    const username = (currentUser.username || "").toLowerCase().trim();
+    const myUsername = (currentUser.username || "").toLowerCase().trim();
 
     return proposals.filter((p: any) => {
       const pDept = (p.department || "").toLowerCase().trim();
@@ -39,15 +39,23 @@ export default function DashboardPage() {
 
       const isSameDept = userDept && (pDept === userDept || pDept.includes(userDept) || userDept.includes(pDept));
       const isSamePic =
-        (userName && (pPic === userName || pPic.includes(userName))) ||
-        (username && pPic === username) ||
+        (myName && (pPic === myName || pPic.includes(myName))) ||
+        (myUsername && pPic === myUsername) ||
         (userNpk && pPic === userNpk);
 
       return isSameDept || isSamePic;
     });
   }, [proposals, isAllAccess, currentUser]);
 
-  // Real-time automatic background sync on component mount & periodic cycle
+  const calculateLeadTime = (createdAt?: string) => {
+    if (!createdAt) return "0 Hari";
+    const start = new Date(createdAt).getTime();
+    const now = Date.now();
+    const diffDays = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
+    return `${diffDays} Hari`;
+  };
+
+  // Real-time automatic background sync
   useEffect(() => {
     if (canViewDashboard) {
       api.syncFromBodr()
@@ -124,6 +132,7 @@ export default function DashboardPage() {
         (item.name || "").toLowerCase().includes(q) ||
         (item.department || "").toLowerCase().includes(q) ||
         (item.id || "").toLowerCase().includes(q) ||
+        (item.capexId || "").toLowerCase().includes(q) ||
         (item.pic || "").toLowerCase().includes(q) ||
         (item.description || "").toLowerCase().includes(q);
 
@@ -138,34 +147,23 @@ export default function DashboardPage() {
       } else if (statusFilter === "revisi") {
         matchesStatus = status.includes("revis") || status.includes("feedback");
       } else if (statusFilter === "close") {
-        matchesStatus =
-          status.includes("close") ||
-          status.includes("approved") ||
-          status.includes("archived") ||
-          status.includes("complet");
+        matchesStatus = status.includes("close") || status.includes("approved");
       }
+
       return matchesSearch && matchesStatus;
     });
   }, [visibleProposals, searchTerm, statusFilter]);
 
-  // Department summary for graph
+  // Department breakdown
   const deptData = useMemo(() => {
-    const map: Record<string, { budget: number; count: number; approved: number }> = {};
+    const map: Record<string, { budget: number; count: number }> = {};
     visibleProposals.forEach((p: any) => {
       const dept = p.department || "General";
       if (!map[dept]) {
-        map[dept] = { budget: 0, count: 0, approved: 0 };
+        map[dept] = { budget: 0, count: 0 };
       }
       map[dept].budget += (p.estimatedCost || 0);
       map[dept].count += 1;
-
-      const isAppr =
-        p.gateStatus === "Approved / Archived" ||
-        p.gateStatus === "Closed" ||
-        p.gateStatus === "Gate 3 - Procurement";
-      if (isAppr) {
-        map[dept].approved += (p.estimatedCost || 0);
-      }
     });
     return Object.entries(map).map(([dept, val]) => ({
       dept,
@@ -173,7 +171,7 @@ export default function DashboardPage() {
     }));
   }, [visibleProposals]);
 
-  // Investment purpose summary for proposer
+  // Purpose breakdown
   const purposeData = useMemo(() => {
     const map: Record<string, { budget: number; count: number }> = {};
     visibleProposals.forEach((p: any) => {
@@ -189,36 +187,6 @@ export default function DashboardPage() {
       ...val,
     }));
   }, [visibleProposals]);
-
-  // Status breakdown summary
-  const statusSummary = useMemo(() => {
-    return [
-      {
-        label: "Draft & Usulan Awal",
-        count: draftCount,
-        color: "bg-slate-400",
-        badge: "bg-slate-50 text-slate-700 border-slate-200",
-      },
-      {
-        label: "Verifikasi Finance",
-        count: waitingFinanceCount,
-        color: "bg-blue-500",
-        badge: "bg-blue-50 text-blue-700 border-blue-200",
-      },
-      {
-        label: "Sidang Komite",
-        count: readyCommitteeCount,
-        color: "bg-purple-500",
-        badge: "bg-purple-50 text-purple-700 border-purple-200",
-      },
-      {
-        label: "Disetujui & Terarsip",
-        count: approvedCount,
-        color: "bg-emerald-500",
-        badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      },
-    ];
-  }, [draftCount, waitingFinanceCount, readyCommitteeCount, approvedCount]);
 
   if (!canViewDashboard) {
     return (
@@ -238,7 +206,6 @@ export default function DashboardPage() {
               <h2 className="text-xl font-semibold text-slate-800 uppercase tracking-wide">Akses Ditolak (403)</h2>
               <p className="text-xs text-slate-500 font-normal leading-relaxed">
                 Maaf, Anda tidak memiliki izin untuk mengakses Dashboard CAPEX.
-                Silakan hubungi Administrator untuk meminta konfigurasi hak akses akun Anda.
               </p>
             </div>
             <a
@@ -272,7 +239,7 @@ export default function DashboardPage() {
         />
 
         <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4 w-full min-w-0 overflow-x-hidden">
-          {/* Top Hero Banner - Personalized by Role */}
+          {/* Top Hero Banner */}
           <div className="bg-linear-to-r from-blue-600 via-indigo-700 to-blue-800 rounded-2xl px-6 py-4 text-white shadow-sm relative overflow-hidden">
             <div className="relative z-10 space-y-1">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-semibold backdrop-blur-sm border border-white/20">
@@ -295,231 +262,90 @@ export default function DashboardPage() {
                   : "Dashboard Pengajuan Belanja Modal"}
               </h1>
               <p className="text-blue-100 text-[11px] max-w-2xl font-normal leading-normal">
-                {isAccounting
-                  ? "Ringkasan verifikasi kelayakan anggaran belanja modal, total dokumen masuk dari seluruh departemen, serta antrean review Finance dan sidang Komite."
-                  : isCommittee
-                  ? "Ringkasan eksekutif alokasi investasi belanja modal, keputusan sidang Komite, dan realisasi anggaran seluruh departemen."
-                  : `Ringkasan usulan pengajuan belanja modal, status verifikasi Finance, dan persetujuan sidang Komite untuk ${currentUser?.department || "Departemen Anda"}.`}
+                Ringkasan usulan pengajuan belanja modal, status verifikasi kelayakan Finance, dan keputusan sidang Komite Investasi.
               </p>
             </div>
-            {/* Background accents */}
             <div className="absolute right-0 top-0 w-80 h-full bg-white/5 transform skew-x-12 pointer-events-none" />
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-indigo-500/30 rounded-full blur-2xl pointer-events-none" />
           </div>
 
-          {/* KPI CARDS - Role Specific Layout */}
-          {isAccounting ? (
-            /* ── ACCOUNTING KPI CARDS ─────────────────────────────────────────── */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              {/* KPI 1: Total Dokumen CAPEX */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL DOKUMEN CAPEX</p>
-                  <p className="text-xl font-semibold text-slate-900 font-mono">{visibleProposals.length}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
+          {/* KPI CARDS (Cleaned up: No Total Komitmen / Sisa Pagu) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* KPI 1: Total Dokumen CAPEX */}
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL DOKUMEN CAPEX</p>
+                <p className="text-xl font-semibold text-slate-900 font-mono">{visibleProposals.length}</p>
               </div>
-
-              {/* KPI 2: Total Departemen Pengajuan */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">DEPARTEMEN PENGAJU</p>
-                  <p className="text-xl font-semibold text-indigo-700 font-mono">{uniqueDepartments.length}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* KPI 3: Total Nilai Pengajuan */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL NILAI PENGAJUAN</p>
-                  <p className="text-lg font-semibold text-slate-900 font-mono truncate" title={`Rp ${totalBudget.toLocaleString("id-ID")}`}>
-                    Rp {totalBudget.toLocaleString("id-ID")}
-                  </p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* KPI 4: Menunggu Review Finance */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">REVIEW FINANCE</p>
-                  <p className="text-xl font-semibold text-amber-700 font-mono">{waitingFinanceCount}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* KPI 5: Siap Sidang Komite */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-purple-700 uppercase tracking-wider">SIDANG KOMITE</p>
-                  <p className="text-xl font-semibold text-purple-700 font-mono">{readyCommitteeCount}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
+              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
               </div>
             </div>
-          ) : isProposer ? (
-            /* ── PROPOSER / DEPT USER KPI CARDS ──────────────────────────────── */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* KPI 1: Total Usulan Departemen */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">DOKUMEN USULAN</p>
-                  <p className="text-xl font-semibold text-slate-900 font-mono">{visibleProposals.length}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-              </div>
 
-              {/* KPI 2: Total Anggaran Departemen */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL ANGGARAN DEPT</p>
-                  <p className="text-lg font-semibold text-blue-600 font-mono truncate" title={`Rp ${approvedBudget.toLocaleString("id-ID")}`}>
-                    Rp {approvedBudget.toLocaleString("id-ID")}
-                  </p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
+            {/* KPI 2: Total Nilai Pengajuan */}
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL NILAI PENGAJUAN</p>
+                <p className="text-lg font-semibold text-slate-900 font-mono truncate" title={`Rp ${totalBudget.toLocaleString("id-ID")}`}>
+                  Rp {totalBudget.toLocaleString("id-ID")}
+                </p>
               </div>
-
-              {/* KPI 3: Dalam Proses Review */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">DALAM PROSES REVIEW</p>
-                  <p className="text-xl font-semibold text-amber-700 font-mono">{inReviewCount}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* KPI 4: Usulan Disetujui Komite */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">DISETUJUI KOMITE</p>
-                  <p className="text-xl font-semibold text-emerald-600 font-mono">{approvedCount}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               </div>
             </div>
-          ) : (
-            /* ── COMMITTEE / MANAGEMENT KPI CARDS ─────────────────────────────── */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* KPI 1: Total Usulan Investasi */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TOTAL USULAN INVESTASI</p>
-                  <p className="text-lg font-semibold text-slate-900 font-mono truncate" title={`Rp ${totalBudget.toLocaleString("id-ID")}`}>
-                    Rp {totalBudget.toLocaleString("id-ID")}
-                  </p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
-                  </svg>
-                </div>
-              </div>
 
-              {/* KPI 2: Menunggu Sidang Komite */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-purple-700 uppercase tracking-wider">ANTREAN SIDANG KOMITE</p>
-                  <p className="text-xl font-semibold text-purple-700 font-mono">{readyCommitteeCount}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
+            {/* KPI 3: Menunggu Review Finance */}
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">REVIEW FINANCE</p>
+                <p className="text-xl font-semibold text-amber-700 font-mono">{waitingFinanceCount}</p>
               </div>
-
-              {/* KPI 3: Investasi Disetujui Komite */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">INVESTASI DISETUJUI</p>
-                  <p className="text-lg font-semibold text-emerald-600 font-mono truncate" title={`Rp ${approvedBudget.toLocaleString("id-ID")}`}>
-                    Rp {approvedBudget.toLocaleString("id-ID")}
-                  </p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* KPI 4: Total Departemen */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">DEPARTEMEN PENGAJU</p>
-                  <p className="text-xl font-semibold text-indigo-700 font-mono">{uniqueDepartments.length}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                </div>
+              <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               </div>
             </div>
-          )}
 
-          {/* 2 Graphs in Grid - Role Specific */}
+            {/* KPI 4: Siap Sidang Komite */}
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 px-4 shadow-2xs flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-semibold text-purple-700 uppercase tracking-wider">SIDANG KOMITE</p>
+                <p className="text-xl font-semibold text-purple-700 font-mono">{readyCommitteeCount}</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center shrink-0 shadow-2xs">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* 2 Graphs in Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-            {/* Graph 1: Alokasi per Departemen atau Kategori Investasi */}
+            {/* Graph 1: Alokasi per Departemen atau Kategori */}
             <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-2xs space-y-3">
-              <div className="flex justify-between items-start">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-blue-600">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                      </svg>
-                    </span>
-                    <h3 className="text-xs font-bold text-slate-800">
-                      {isProposer
-                        ? "Kategori Investasi Departemen"
-                        : "Distribusi Anggaran & Dokumen per Departemen"}
-                    </h3>
-                  </div>
-                  <p className="text-[10px] text-slate-500">
-                    {isProposer
-                      ? "Rincian alokasi usulan berdasarkan jenis dan tujuan investasi"
-                      : "Alokasi anggaran belanja modal yang diajukan oleh setiap departemen"}
-                  </p>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-blue-600">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                    </svg>
+                  </span>
+                  <h3 className="text-xs font-bold text-slate-800">
+                    {isProposer ? "Kategori Investasi Departemen" : "Distribusi Anggaran & Dokumen per Departemen"}
+                  </h3>
                 </div>
+                <p className="text-[10px] text-slate-500">
+                  {isProposer
+                    ? "Rincian alokasi usulan berdasarkan jenis dan tujuan investasi"
+                    : "Alokasi anggaran belanja modal yang diajukan oleh setiap departemen"}
+                </p>
               </div>
 
               <div className="space-y-2.5 pt-1 max-h-60 overflow-y-auto">
@@ -585,38 +411,37 @@ export default function DashboardPage() {
 
             {/* Graph 2: Pipeline Tahapan Usulan CAPEX */}
             <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-2xs space-y-3">
-              <div className="flex justify-between items-start">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-indigo-600">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                    </span>
-                    <h3 className="text-xs font-bold text-slate-800">Pipeline Status Usulan CAPEX</h3>
-                  </div>
-                  <p className="text-[10px] text-slate-500">Distribusi jumlah usulan berdasarkan tahapan alur verifikasi</p>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-indigo-600">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </span>
+                  <h3 className="text-xs font-bold text-slate-800">Pipeline Status Usulan CAPEX</h3>
                 </div>
+                <p className="text-[10px] text-slate-500">Distribusi jumlah usulan berdasarkan tahapan alur verifikasi</p>
               </div>
 
-              <div className="space-y-3 pt-1">
-                {statusSummary.map((st, idx) => {
-                  const pct = visibleProposals.length > 0 ? Math.round((st.count / visibleProposals.length) * 100) : 0;
+              <div className="space-y-2.5 pt-1">
+                {[
+                  { label: "Draft / Usulan Awal", count: draftCount, color: "bg-slate-400" },
+                  { label: "Verifikasi Finance (Gate 1)", count: waitingFinanceCount, color: "bg-blue-500" },
+                  { label: "Sidang Komite (Gate 2)", count: readyCommitteeCount, color: "bg-purple-500" },
+                  { label: "Disetujui / Selesai", count: approvedCount, color: "bg-emerald-500" },
+                ].map((s, idx) => {
+                  const pct = visibleProposals.length > 0 ? Math.round((s.count / visibleProposals.length) * 100) : 0;
                   return (
                     <div key={idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
                       <div className="flex justify-between items-center text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${st.color}`}></span>
-                          <span className="font-semibold text-slate-800">{st.label}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-800 font-mono">{st.count} Usulan</span>
-                          <span className="text-[10px] text-slate-500">({pct}%)</span>
-                        </div>
+                        <span className="font-semibold text-slate-800">{s.label}</span>
+                        <span className="font-mono font-bold text-slate-700 text-[11px]">
+                          {s.count} Usulan ({pct}%)
+                        </span>
                       </div>
                       <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                         <div
-                          className={`h-full ${st.color} rounded-full transition-all duration-500`}
+                          className={`h-full ${s.color} rounded-full transition-all duration-500`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -627,7 +452,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* CAPEX List Table with Separated Columns and Quick Filter Tabs */}
+          {/* CAPEX List Table with Lead Time & Separated Columns */}
           <div className="bg-white border border-slate-200 rounded-xl p-4.5 shadow-2xs space-y-3.5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-200">
               <div>
@@ -677,17 +502,17 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Separated Column Grid Table */}
+            {/* Separated Column Grid Table with Lead Time */}
             <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
-              <table className="w-full min-w-[1000px] border-collapse text-left">
+              <table className="w-full min-w-[1050px] border-collapse text-left">
                 <thead>
                   <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 text-[11px] font-semibold uppercase tracking-wider select-none">
                     <th className="py-3 px-3.5 text-center w-12 border-r border-slate-100">No</th>
                     <th className="py-3 px-3.5 w-28 border-r border-slate-100 whitespace-nowrap">ID Capex</th>
                     <th className="py-3 px-3.5 min-w-[200px] border-r border-slate-100">Nama Capex</th>
-                    <th className="py-3 px-3.5 min-w-[220px] border-r border-slate-100">Deskripsi</th>
-                    <th className="py-3 px-3.5 w-32 border-r border-slate-100 whitespace-nowrap">Departemen</th>
+                    <th className="py-3 px-3.5 w-32 border-r border-slate-100 whitespace-nowrap">Purpose / Type</th>
                     <th className="py-3 px-3.5 w-28 border-r border-slate-100 whitespace-nowrap">PIC</th>
+                    <th className="py-3 px-3.5 w-28 border-r border-slate-100 whitespace-nowrap">Lead Time</th>
                     <th className="py-3 px-3.5 w-36 text-right border-r border-slate-100 whitespace-nowrap">Estimasi Anggaran</th>
                     <th className="py-3 px-3.5 text-center w-40 whitespace-nowrap">Status</th>
                   </tr>
@@ -707,18 +532,24 @@ export default function DashboardPage() {
                       >
                         <td className="py-3 px-3.5 text-center font-medium text-slate-400 font-mono border-r border-slate-100">{idx + 1}</td>
                         <td className="py-3 px-3.5 font-mono font-semibold text-blue-600 text-xs border-r border-slate-100 whitespace-nowrap">
-                          {item.capexId && item.capexId !== "-" ? item.capexId : "-"}
+                          {item.capexId && item.capexId !== "-" ? item.capexId : item.id}
                         </td>
                         <td className="py-3 px-3.5 font-semibold text-slate-800 border-r border-slate-100">
                           <p className="font-semibold text-slate-800">{item.name}</p>
+                          {item.description && (
+                            <p className="text-[10.5px] text-slate-400 font-normal line-clamp-1 truncate mt-0.5">{item.description}</p>
+                          )}
                         </td>
-                        <td className="py-3 px-3.5 text-slate-600 font-normal border-r border-slate-100">
-                          <p className="text-[11px] text-slate-500 font-normal whitespace-pre-line line-clamp-2" title={item.description}>
-                            {item.description || "-"}
-                          </p>
+                        <td className="py-3 px-3.5 text-slate-700 border-r border-slate-100 whitespace-nowrap">
+                          <span className="font-medium text-slate-800">{item.purpose || "-"}</span>
+                          <span className="text-slate-400 block text-[10px]">{item.investmentType || "-"}</span>
                         </td>
-                        <td className="py-3 px-3.5 text-slate-600 font-medium border-r border-slate-100 whitespace-nowrap">{item.department}</td>
                         <td className="py-3 px-3.5 text-slate-600 font-normal border-r border-slate-100 whitespace-nowrap">{item.pic}</td>
+                        <td className="py-3 px-3.5 text-slate-600 font-mono border-r border-slate-100 whitespace-nowrap text-[11px]">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                            ⏱️ {calculateLeadTime(item.createdAt)}
+                          </span>
+                        </td>
                         <td className="py-3 px-3.5 font-bold text-blue-700 whitespace-nowrap text-right font-mono border-r border-slate-100">
                           Rp {item.estimatedCost ? Number(item.estimatedCost).toLocaleString("id-ID") : "0"}
                         </td>

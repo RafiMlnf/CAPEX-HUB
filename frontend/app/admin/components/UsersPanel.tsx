@@ -193,7 +193,7 @@ export default function UsersPanel() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = async (id: string | number, name: string) => {
     Swal.fire({
       title: "Konfirmasi Hapus",
       text: `Hapus user "${name}"?`,

@@ -146,6 +146,40 @@ export default function SidebarAdmin() {
           </Link>
         )}
 
+        {/* Operational Portals Quick Switch */}
+        <div className="pt-2 pb-1">
+          <p className="px-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">
+            Operational Portals
+          </p>
+          <div className="space-y-1">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 transition-all duration-150"
+            >
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span>Portal CAPEX</span>
+            </Link>
+            <Link
+              href="/bodr-dashboard"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-150"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>Portal BODR</span>
+            </Link>
+            <Link
+              href="/otorisasi-harga"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-150"
+            >
+              <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+              <span>Portal Otorisasi Harga</span>
+            </Link>
+          </div>
+        </div>
+
+        <p className="px-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest pt-2 mb-1.5">
+          Configuration & Master Data
+        </p>
+
         {/* 2. Master Data BODR & Core (Accordion Toggle) */}
         <div>
           <button

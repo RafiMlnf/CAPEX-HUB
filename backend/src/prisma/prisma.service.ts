@@ -11,6 +11,9 @@ export class PrismaService
 {
   constructor(private readonly configService: ConfigService) {
     let connectionString = configService.get<string>('DATABASE_URL');
+    if (connectionString) {
+      connectionString = connectionString.replace(/^["']|["']$/g, '').trim();
+    }
 
     // If connection string contains template placeholders (e.g. ${DB_HOST}), interpolate them dynamically from ConfigService
     if (connectionString && connectionString.includes('${')) {

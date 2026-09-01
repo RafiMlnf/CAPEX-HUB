@@ -18,10 +18,10 @@ const navItems = [
   },
   {
     href: "/planning",
-    label: "CAPEX Planning",
+    label: "Perencanaan CAPEX",
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
     ),
     hasDotKey: "planning",
@@ -31,14 +31,14 @@ const navItems = [
     label: "Finance Review",
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
     ),
     hasDotKey: "financeReview",
   },
   {
     href: "/approvals",
-    label: "Committee Review",
+    label: "Komite Review",
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -47,11 +47,11 @@ const navItems = [
     hasDotKey: "approvals",
   },
   {
-    href: "/capex-history",
-    label: "History",
+    href: "/drafts",
+    label: "Draft CAPEX",
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
       </svg>
     ),
     hasDotKey: "",
@@ -112,7 +112,7 @@ export default function SidebarFS() {
     if (item.href === "/planning") return canPlan;
     if (item.href === "/finance-review") return canReview;
     if (item.href === "/approvals") return canApprove;
-    if (item.href === "/capex-history") return canViewDashboard || canPlan || canReview || canApprove || hasPermission("perm_view_reports") || isAdmin;
+    if (item.href === "/drafts") return canPlan || canViewDashboard || isAdmin;
     return false;
   });
 
@@ -132,9 +132,8 @@ export default function SidebarFS() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3.5 py-4 space-y-1 overflow-y-auto relative z-10">
-        <p className="px-3 text-[10.5px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-          <span className="w-1 h-3 rounded-full bg-blue-600" />
-          FS CAPEX Menu
+        <p className="px-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">
+          MENU FS CAPEX
         </p>
         
         {visibleNavItems.length === 0 ? (

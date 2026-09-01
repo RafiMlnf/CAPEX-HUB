@@ -12,9 +12,10 @@ export type UserRole =
   | "DEPUTY PLAN";
 
 export interface User {
-  id: string;
+  id: string | number;
   username: string;
   name: string;
+  email?: string;
   role: UserRole | string;
   department: string;
   wa_number?: string;
@@ -23,12 +24,14 @@ export interface User {
   photoUrl?: string;
   photo_url?: string;
   npk?: string;
-  status?: "active" | "inactive";
+  status?: "active" | "inactive" | string;
   allowed_portals?: string[];
   can_capex?: boolean;
   can_bodr?: boolean;
   can_price?: boolean;
   can_admin?: boolean;
+  department_id?: number;
+  role_id?: number;
   created_at?: string;
 }
 

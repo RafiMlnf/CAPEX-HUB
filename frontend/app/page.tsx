@@ -98,16 +98,11 @@ export default function PortalPage() {
     (currentUser?.role || "").toLowerCase() === "admin" ||
     (currentUser?.username || "").toLowerCase() === "admin";
 
-  // Auto-redirect logic:
-  // 1. Admin otomatis ke /admin
-  // 2. Jika user hanya punya akses ke 1 portal dan memiliki permission, otomatis langsung masuk ke portal tersebut
+  // Auto-redirect only if single portal user with permissions
   useEffect(() => {
     if (!currentUser) return;
-    if (isAdmin) {
-      router.replace("/admin");
-      return;
-    }
-    if (allowedPortals.length === 1 && userPermissions && userPermissions.length > 0) {
+    // Only auto-redirect single portal non-admin users
+    if (!isAdmin && allowedPortals.length === 1 && userPermissions && userPermissions.length > 0) {
       router.replace(allowedPortals[0].href);
     }
   }, [currentUser, isAdmin, allowedPortals, userPermissions, router]);
@@ -177,20 +172,16 @@ export default function PortalPage() {
     logout();
   };
 
-  // Tampilan loading redirect admin atau single portal
-  if (currentUser && (isAdmin || allowedPortals.length === 1)) {
+  // Tampilan loading redirect untuk single portal non-admin
+  if (currentUser && !isAdmin && allowedPortals.length === 1) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-slate-100 font-sans">
         <div className="text-slate-600 font-medium text-sm flex items-center gap-2">
           <svg className="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={4} />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
-          <span>
-            {isAdmin
-              ? "Redirecting to Admin Panel..."
-              : `Redirecting to ${allowedPortals[0]?.title || "Portal"}...`}
-          </span>
+          <span>Redirecting to {allowedPortals[0]?.title || "Portal"}...</span>
         </div>
       </div>
     );

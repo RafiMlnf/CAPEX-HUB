@@ -48,6 +48,8 @@ export interface CapexProposal {
   revisedAttachmentHistory?: string | null; // JSON: string[][] — array of revision batches
   committeeReviewSchedule?: string;
   revisionSource?: "Finance" | "Committee";
+  financeAttachmentName?: string;
+  financeAttachmentUrl?: string;
 }
 
 export interface ApiCapexItem {

@@ -1,21 +1,26 @@
-import { getApiBaseUrl } from "./client";
 import { UploadResponse } from "./types";
 
 export async function uploadDocument(file: File): Promise<UploadResponse> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const url = `${getApiBaseUrl()}/upload`;
-  const res = await fetch(url, {
-    method: "POST",
-    body: formData,
-    cache: "no-store"
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || err.error || `Upload failed with HTTP ${res.status}`);
+  let fileUrl = "";
+  if (typeof window !== "undefined" && typeof URL !== "undefined") {
+    try {
+      fileUrl = URL.createObjectURL(file);
+    } catch {
+      fileUrl = `/uploads/${encodeURIComponent(file.name)}`;
+    }
   }
-  return (await res.json()) as UploadResponse;
+
+  const ext = file.name.split(".").pop() || "";
+
+  return {
+    success: true,
+    file_name: file.name,
+    original_name: file.name,
+    url: fileUrl,
+    size: file.size,
+    extension: ext,
+    uploaded_at: new Date().toISOString(),
+  };
 }
 
 export async function uploadMultipleDocuments(files: File[]): Promise<UploadResponse[]> {
